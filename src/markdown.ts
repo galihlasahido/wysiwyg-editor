@@ -4,8 +4,7 @@ import type { Node as PMNode, Schema } from 'prosemirror-model';
 
 const noMark = { open: '', close: '', mixable: true, expelEnclosingWhitespace: true };
 
-const serializer = new MarkdownSerializer(
-  {
+const knownNodes: Record<string, (state: MarkdownSerializerState, node: PMNode, parent: PMNode, index: number) => void> = {
     blockquote(state, node) {
       state.wrapBlock('> ', null, node, () => state.renderContent(node));
     },
@@ -31,6 +30,9 @@ const serializer = new MarkdownSerializer(
     ordered_list(state, node) {
       const start = node.attrs.order || 1;
       state.renderList(node, '   ', (i) => `${start + i}. `);
+    },
+    merge_field(state, node) {
+      state.write(`{{${node.attrs.name}}}`);
     },
     mention(state, node) {
       state.write(`@${state.esc(node.attrs.label)}`);
@@ -82,7 +84,26 @@ const serializer = new MarkdownSerializer(
       });
       state.closeBlock(node);
     },
-  },
+};
+
+/**
+ * Node types without a dedicated handler (new plugins, custom nodes) fall back to their text, or to their content for
+ * blocks, so exporting Markdown never throws because of a node it does not know.
+ */
+const nodes = new Proxy(knownNodes, {
+  get: (target, name: string) =>
+    target[name] ??
+    ((state: MarkdownSerializerState, node: PMNode) => {
+      if (node.isInline) state.text(node.textContent || node.type.spec.leafText?.(node) || '');
+      else {
+        state.renderContent(node);
+        if (node.isLeaf) state.closeBlock(node);
+      }
+    }),
+});
+
+const serializer = new MarkdownSerializer(
+  nodes,
   {
     bold: { open: '**', close: '**', mixable: true, expelEnclosingWhitespace: true },
     italic: { open: '_', close: '_', mixable: true, expelEnclosingWhitespace: true },

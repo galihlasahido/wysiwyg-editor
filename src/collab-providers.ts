@@ -15,6 +15,22 @@ export function linkDocs(a: Y.Doc, b: Y.Doc): () => void {
   return () => (a.off('update', toB), b.off('update', toA));
 }
 
+/** Mirror two Awareness instances in-process, so two editors on one page show each other's cursors. */
+export function linkAwareness(a: Awareness, b: Awareness): () => void {
+  const forward = (from: Awareness, to: Awareness) => ({ added, updated, removed }: { added: number[]; updated: number[]; removed: number[] }, origin: unknown) => {
+    if (origin === 'link') return;
+    applyAwarenessUpdate(to, encodeAwarenessUpdate(from, [...added, ...updated, ...removed]), 'link');
+  };
+  const ab = forward(a, b);
+  const ba = forward(b, a);
+  a.on('update', ab);
+  b.on('update', ba);
+  // Introduce them to each other's current state.
+  applyAwarenessUpdate(b, encodeAwarenessUpdate(a, [...a.getStates().keys()]), 'link');
+  applyAwarenessUpdate(a, encodeAwarenessUpdate(b, [...b.getStates().keys()]), 'link');
+  return () => (a.off('update', ab), b.off('update', ba));
+}
+
 type Msg =
   | { t: 'update'; d: Uint8Array }
   | { t: 'sv'; d: Uint8Array }

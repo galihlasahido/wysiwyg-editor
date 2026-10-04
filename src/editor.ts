@@ -12,8 +12,8 @@ export interface EditorConfig {
   /** Element the editor is mounted into. */
   element: HTMLElement;
   plugins: EditorPlugin[];
-  /** Toolbar item names, in order. Use '|' for a separator. Defaults to every plugin's items. */
-  toolbar?: string[];
+  /** Toolbar item names, in order ('|' = separator); defaults to every plugin's items. `false` hides the toolbar (e.g. an inline editor with a balloon). */
+  toolbar?: string[] | false;
   /** Initial HTML content. */
   content?: string;
   placeholder?: string;
@@ -120,7 +120,7 @@ export class Editor {
 
     const items = this.resolveToolbar(config);
     this.toolbar = config.ribbon ? new Ribbon(this, config.ribbon === true ? {} : config.ribbon) : new Toolbar(this, items);
-    this.root.prepend(this.toolbar.el);
+    if (config.toolbar !== false) this.root.prepend(this.toolbar.el);
     this.toolbar.update(this.view.state);
     if (this.readOnly) this.root.classList.add('is-readonly');
     this.ready = true;

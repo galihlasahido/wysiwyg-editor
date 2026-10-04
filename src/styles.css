@@ -303,3 +303,17 @@
   .wy-paged .wy-content { box-shadow: none; width: auto; zoom: 1; }
   .wy-page-break, .wy-manual-break { height: 0 !important; break-after: page; }
 }
+
+/* ---- Balloon toolbar, slash menu, merge fields, source editing ---- */
+.wy-balloon { position: absolute; z-index: 50; display: flex; align-items: center; gap: 2px; padding: 4px; background: var(--wy-bg); border: 1px solid var(--wy-border-2); border-radius: 8px; box-shadow: var(--wy-pop-shadow); }
+.wy-balloon[hidden] { display: none; }
+.wy-balloon .wy-btn { height: 28px; min-width: 28px; padding: 0 6px; }
+.wy-balloon .wy-select { height: 28px; }
+.wy-slash-item .wy-ic { width: 16px; height: 16px; flex: none; }
+.wy-slash-item { display: flex; align-items: center; gap: 8px; }
+.wy-merge { background: #fef3c7; color: #92400e; border: 1px dashed #f59e0b; border-radius: 4px; padding: 0 4px; font-family: ui-monospace, monospace; font-size: .9em; white-space: nowrap; }
+.wy-editor[data-page='dark'] .wy-merge { background: #4a3a10; color: #fcd34d; }
+.wy-source { display: none; width: 100%; box-sizing: border-box; min-height: 60vh; padding: 16px; border: 0; outline: none; resize: vertical; background: var(--wy-bg); color: var(--wy-fg); font: 13px/1.5 ui-monospace, Menlo, monospace; tab-size: 2; }
+.wy-source-mode .wy-source { display: block; height: 100%; }
+.wy-source-mode .wy-content, .wy-source-mode .wy-ruler { display: none; }
+.wy-source-mode .wy-workspace { background: var(--wy-bg); padding: 0; }

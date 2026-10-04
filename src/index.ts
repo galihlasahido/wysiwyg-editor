@@ -37,3 +37,5 @@ export { Ribbon, DEFAULT_RIBBON } from './ribbon';
 export type { RibbonOptions, RibbonTab, RibbonGroup, RibbonControl } from './ribbon';
 export { icon, ICONS, hasIcon } from './icons';
 export * from './crop';
+export { toEmailHTML, toEmailText } from './email';
+export type { EmailOptions } from './email';
