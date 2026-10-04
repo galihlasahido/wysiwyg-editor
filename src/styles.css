@@ -444,6 +444,7 @@
 .wy-diagram.ProseMirror-selectednode { outline: 2px solid var(--wy-accent); }
 .wy-diagram-canvas { position: relative; overflow: auto; }
 .wy-diagram-svg { display: block; max-width: 100%; height: auto; margin: 0 auto; user-select: none; }
+.wy-diagram.is-editing .wy-diagram-svg { margin: 0; }
 .wy-diagram.is-editing .wy-diagram-canvas { cursor: default; background: repeating-linear-gradient(0deg, transparent 0 19px, color-mix(in srgb, currentColor 8%, transparent) 19px 20px), repeating-linear-gradient(90deg, transparent 0 19px, color-mix(in srgb, currentColor 8%, transparent) 19px 20px); }
 .wy-d-label { fill: var(--wy-page-fg); font: 14px system-ui, sans-serif; pointer-events: none; }
 .wy-d-empty { fill: var(--wy-page-muted); font: 14px system-ui, sans-serif; }

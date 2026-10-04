@@ -137,6 +137,7 @@ class DiagramView implements NodeView {
     this.dom.classList.toggle('is-editing', on);
     this.editBtn.textContent = on ? 'Done' : 'Edit diagram';
     if (!on) { this.selected = null; this.tool = 'select'; this.arrowFrom = null; }
+    else this.fitWidth();
     this.draw();
   }
 
@@ -165,6 +166,12 @@ class DiagramView implements NodeView {
   }
   private fill!: HTMLInputElement;
   private arrowBtn!: HTMLButtonElement;
+
+  /** In edit mode the canvas is as wide as the page, so shapes can use the whole width. */
+  private fitWidth() {
+    const avail = Math.round(this.canvas.clientWidth);
+    if (avail > this.model.w) { this.model.w = Math.min(1600, avail); this.commit(); }
+  }
 
   private sel() { return this.model.shapes.find((s) => s.id === this.selected); }
   private resize(f: number) { const s = this.sel(); if (!s) return; s.w = Math.round(num(s.w * f, 30, 400, s.w)); s.h = Math.round(num(s.h * f, 24, 300, s.h)); this.commit(); }
@@ -233,7 +240,8 @@ class DiagramView implements NodeView {
     if (!s) return;
     const [x, y] = this.point(e);
     s.x = Math.round(Math.max(0, Math.min(this.model.w - s.w, x - this.drag.dx)));
-    s.y = Math.round(Math.max(0, Math.min(this.model.h - s.h, y - this.drag.dy)));
+    s.y = Math.round(Math.max(0, Math.min(1200 - s.h, y - this.drag.dy)));
+    this.model.h = Math.min(1200, Math.max(this.model.h, s.y + s.h + 24)); // the canvas grows downwards
     this.drag.moved = true;
     this.draw();
   };
