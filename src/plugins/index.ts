@@ -52,3 +52,5 @@ export type { MergeField, RenderOptions } from './merge-fields';
 export { SourceEditing, formatHtml } from './source';
 export { CodeBlocks, DEFAULT_LANGUAGES } from './code-blocks';
 export type { CodeBlocksOptions, CodeLanguage, CodeAction } from './code-blocks';
+export { CodeEditing, findMatchingBracket } from './code-editing';
+export type { CodeEditingOptions, CursorInfo } from './code-editing';

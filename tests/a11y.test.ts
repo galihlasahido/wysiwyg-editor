@@ -97,11 +97,23 @@ describe('text contrast in the stylesheet (WCAG AA 4.5:1)', () => {
     expect(failing).toEqual([]);
   });
 
-  it('syntax-highlight colors stay readable on the dark code block background', () => {
+  /** Token color rules, split by theme: [selector, color]. */
+  const tokenRules = () => {
     const all = require('node:fs').readFileSync('src/styles.css', 'utf8') as string;
-    const tokens = [...all.matchAll(/\.wy-tok-[\w, .-]*\{[^}]*?color:\s*(#[0-9a-f]{6})/gi)].map((m) => m[1].toLowerCase());
-    expect(tokens.length).toBeGreaterThanOrEqual(6);
-    const failing = [...new Set(tokens)].filter((c) => ratio(c, '#1e1e1e') < 4.5);
-    expect(failing).toEqual([]);
+    return [...all.matchAll(/([^{}]*\.wy-tok-[^{}]*)\{[^}]*?color:\s*(#[0-9a-f]{6})/gi)].map((m) => ({ selector: m[1], color: m[2].toLowerCase() }));
+  };
+
+  it('syntax-highlight colors stay readable on the dark code background', () => {
+    const dark = tokenRules().filter((r) => !r.selector.includes("data-theme='light'"));
+    expect(dark.length).toBeGreaterThanOrEqual(6);
+    expect([...new Set(dark.map((r) => r.color))].filter((c) => ratio(c, '#1e1e1e') < 4.5)).toEqual([]);
+  });
+
+  it('light-theme syntax colors stay readable on the white editor and on the light gutter', () => {
+    const light = tokenRules().filter((r) => r.selector.includes("data-theme='light'"));
+    expect(light.length).toBeGreaterThanOrEqual(6);
+    for (const bg of ['#ffffff', '#f6f8fa']) {
+      expect([...new Set(light.map((r) => r.color))].filter((c) => ratio(c, bg) < 4.5)).toEqual([]);
+    }
   });
 });

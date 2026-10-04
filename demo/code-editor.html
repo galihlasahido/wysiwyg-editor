@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Coding: full code editor · wysiwyg-editor</title>
+  <link rel="stylesheet" href="./demo.css" />
+  <style>
+    .ide { --bar: #252526; --bar2: #333337; --line: #3c3c3c; --fg: #cccccc; --fg2: #9da5b4; --acc: #0e639c;
+      display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto auto; height: 78vh; min-height: 520px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: #1e1e1e; color: var(--fg); font: 13px system-ui, sans-serif; }
+    .ide.light { --bar: #f3f3f3; --bar2: #e8e8e8; --line: #d4d4d4; --fg: #333; --fg2: #6b6b6b; --acc: #0066b8; background: #fff; }
+    .ide button, .ide select, .ide input { font: inherit; color: inherit; }
+    .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px 10px; background: var(--bar); border-bottom: 1px solid var(--line); }
+    .toolbar .sp { flex: 1; }
+    .tb { height: 26px; padding: 0 10px; border: 1px solid var(--line); border-radius: 4px; background: var(--bar2); cursor: pointer; }
+    .tb:hover { border-color: var(--acc); }
+    .tb.run { background: #1a7f37; border-color: #1a7f37; color: #fff; }
+    .tb:disabled { opacity: .45; cursor: default; }
+    .tabs { display: flex; overflow-x: auto; background: var(--bar); border-bottom: 1px solid var(--line); min-height: 32px; }
+    .tab { display: flex; align-items: center; gap: 8px; padding: 0 12px; border-right: 1px solid var(--line); cursor: pointer; white-space: nowrap; color: var(--fg2); background: var(--bar2); }
+    .tab.active { color: var(--fg); background: #1e1e1e; box-shadow: inset 0 2px 0 var(--acc); }
+    .ide.light .tab.active { background: #fff; }
+    .tab .x { border: 0; background: none; cursor: pointer; opacity: .6; padding: 0 2px; }
+    .tab .x:hover { opacity: 1; }
+    .tab .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--fg2); }
+    .tabs .new { border: 0; background: none; cursor: pointer; padding: 0 12px; font-size: 18px; color: var(--fg2); }
+    .main { display: grid; grid-template-columns: 190px minmax(0, 1fr); min-height: 0; }
+    .side { background: var(--bar); border-right: 1px solid var(--line); overflow: auto; padding: 8px 0; }
+    .side h3 { margin: 0 12px 6px; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--fg2); }
+    .file { display: flex; align-items: center; gap: 6px; padding: 3px 12px; cursor: pointer; }
+    .file:hover { background: var(--bar2); }
+    .file.active { background: color-mix(in srgb, var(--acc) 30%, transparent); }
+    .file .lang { margin-left: auto; font-size: 10px; color: var(--fg2); }
+    #code { min-width: 0; min-height: 0; height: 100%; }
+    .panel-bar { display: flex; align-items: center; gap: 4px; padding: 0 8px; background: var(--bar); border-top: 1px solid var(--line); min-height: 28px; }
+    .ptab { border: 0; background: none; padding: 4px 10px; cursor: pointer; color: var(--fg2); border-bottom: 2px solid transparent; }
+    .ptab.active { color: var(--fg); border-color: var(--acc); }
+    .panel-body { height: 150px; overflow: auto; background: #1e1e1e; border-top: 1px solid var(--line); }
+    .ide.light .panel-body { background: #fff; }
+    .panel-body.hidden { display: none; }
+    .panel-body pre { margin: 0; padding: 8px 12px; font: 12.5px/1.5 ui-monospace, Menlo, monospace; white-space: pre-wrap; color: var(--fg); }
+    .panel-body iframe { width: 100%; height: 100%; border: 0; background: #fff; }
+    .status { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; padding: 3px 12px; background: var(--acc); color: #fff; font-size: 12px; }
+    .status .sp { flex: 1; }
+    .status select, .status button { background: transparent; border: 0; color: #fff; cursor: pointer; }
+    .status select option { color: #000; }
+    .palette { position: fixed; inset: 0; background: rgba(0,0,0,.35); display: flex; justify-content: center; align-items: flex-start; padding-top: 14vh; z-index: 100; }
+    .palette[hidden] { display: none; }
+    .palette .box { width: min(560px, 92vw); background: #252526; color: #ddd; border: 1px solid #454545; border-radius: 8px; box-shadow: 0 10px 40px rgba(0,0,0,.5); overflow: hidden; }
+    .palette input { width: 100%; padding: 10px 14px; border: 0; border-bottom: 1px solid #454545; background: transparent; color: inherit; font: 14px system-ui; outline: none; }
+    .palette ul { list-style: none; margin: 0; padding: 4px 0; max-height: 300px; overflow: auto; }
+    .palette li { padding: 7px 14px; cursor: pointer; display: flex; justify-content: space-between; gap: 12px; }
+    .palette li.sel { background: #04395e; }
+    .palette li kbd { font-size: 11px; opacity: .7; background: none; }
+    @media (max-width: 720px) { .main { grid-template-columns: 1fr; } .side { display: none; } }
+  </style>
+</head>
+<body>
+  <header class="demo-head">
+    <a class="back" href="../index.html">← All demos</a>
+    <h1>Coding: full code editor</h1>
+    <p>A real code editor on the same engine: line numbers, syntax highlighting, bracket matching and pairing, auto-indent, comment toggling, line operations, find and replace, several files with separate undo, a status bar and a command palette.</p>
+  </header>
+  <main class="demo-main" id="app"></main>
+  <script type="module" src="./code-editor.ts"></script>
+</body>
+</html>

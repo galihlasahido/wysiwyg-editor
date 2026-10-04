@@ -345,3 +345,52 @@
 .wy-tok-function { color: #7cc4ff; }
 .wy-tok-attr, .wy-tok-property { color: #ffd479; }
 .wy-tok-variable { color: #ff9ac1; }
+
+/* ---- Line numbers ----
+   Each line starts with a zero-width, sticky box (.wy-ln) whose child is the number. The text starts `gutter + 12px`
+   from the left; the number is placed 12px to the left of the text, and the sticky offset keeps it on screen
+   when the code is scrolled sideways. */
+.wy-content pre.wy-has-lines { padding-left: 0; --wy-lh: calc(13px * 1.55); } /* 13px code at line-height 1.55 */
+.wy-content pre.wy-has-lines > code { display: block; padding-left: calc(var(--wy-gutter, 3.6em) + 12px); }
+.wy-ln { display: inline-block; vertical-align: top; width: 0; height: 0; overflow: visible; position: sticky; left: calc(var(--wy-gutter, 3.6em) + 12px); user-select: none; pointer-events: none; }
+.wy-ln-num { position: absolute; top: 0; right: 12px; width: var(--wy-gutter, 3.6em); padding-right: 10px; box-sizing: border-box; text-align: right; background: var(--wy-gutter-bg, #1e1e1e); color: var(--wy-gutter-fg, #7c8794); font-size: 12.5px; font-variant-numeric: tabular-nums; height: var(--wy-lh, 1.55em); line-height: var(--wy-lh, 1.55em); }
+.wy-ln-num::before { content: attr(data-n); }
+.wy-ln-num.is-active { color: var(--wy-gutter-active, #e5e7eb); font-weight: 600; }
+.wy-content pre.wy-no-header { padding-top: 0; }
+
+/* ---- Code editor ---- */
+.wy-bracket-match { background: rgba(120,170,255,.28); outline: 1px solid rgba(120,170,255,.6); border-radius: 2px; }
+.wy-bracket-error { background: rgba(255,100,100,.3); outline: 1px solid rgba(255,100,100,.7); border-radius: 2px; }
+.wy-active-line { position: absolute; left: 0; right: 0; z-index: 2; pointer-events: none; background: rgba(255,255,255,.055); box-shadow: inset 0 0 0 1px rgba(255,255,255,.04); }
+.wy-active-line[hidden] { display: none; }
+.wy-code-editor[data-theme='light'] .wy-active-line { background: rgba(0,0,0,.05); box-shadow: inset 0 0 0 1px rgba(0,0,0,.04); }
+.wy-content { position: relative; }
+
+/* ---- Full code editor (createCodeEditor) ---- */
+.wy-code-editor {
+  --wy-code-size: 14px; --wy-tab: 2; --wy-gutter: 3.6em;
+  --wy-ide-bg: #1e1e1e; --wy-ide-fg: #d4d4d4; --wy-gutter-bg: #1e1e1e; --wy-gutter-fg: #7c8794; --wy-gutter-active: #e5e7eb;
+  border: 0; border-radius: 0; height: var(--wy-code-height, 100%); display: flex; flex-direction: column; background: var(--wy-ide-bg); color: var(--wy-ide-fg);
+}
+.wy-code-editor[data-theme='light'] { --wy-ide-bg: #ffffff; --wy-ide-fg: #1f2328; --wy-gutter-bg: #f6f8fa; --wy-gutter-fg: #6b7280; --wy-gutter-active: #111827; }
+.wy-code-editor:focus-within { box-shadow: none; }
+.wy-code-editor .wy-body { flex: 1; min-height: 0; height: auto; }
+.wy-code-editor .wy-workspace { overflow: auto; background: var(--wy-ide-bg); padding: 0; }
+.wy-code-editor .wy-content { background: var(--wy-ide-bg); color: var(--wy-ide-fg); min-height: 100%; }
+.wy-code-editor .ProseMirror { padding: 0; min-height: 100%; font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; font-size: var(--wy-code-size); line-height: 1.6; caret-color: var(--wy-ide-fg); }
+.wy-code-editor .wy-content pre { margin: 0; padding: 8px 0 24px; background: transparent; color: inherit; border-radius: 0; min-height: 100%; box-sizing: border-box; tab-size: var(--wy-tab); -moz-tab-size: var(--wy-tab); white-space: pre-wrap; word-break: break-word; }
+.wy-code-editor .wy-content pre code { background: none; color: inherit; font-size: inherit; line-height: 1.6; padding-top: 0; padding-bottom: 0; white-space: inherit; }
+.wy-code-editor .wy-content pre { overflow: visible; } /* the workspace scrolls, so the sticky gutter binds to it, not to the <pre> */
+.wy-code-editor.wy-nowrap .wy-content { width: max-content; min-width: 100%; }
+.wy-code-editor.wy-nowrap .wy-content pre { white-space: pre; word-break: normal; width: max-content; min-width: 100%; }
+.wy-code-editor .wy-content pre.wy-has-lines { --wy-lh: calc(var(--wy-code-size) * 1.6); }
+.wy-code-editor .wy-ln-num { font-size: calc(var(--wy-code-size) - 1.5px); }
+.wy-code-editor .wy-statusbar, .wy-code-editor .wy-save-status { display: none; }
+.wy-code-editor ::selection { background: rgba(80,140,255,.35); }
+.wy-code-editor[data-theme='light'] .wy-tok-comment { color: #5f6b7a; }
+.wy-code-editor[data-theme='light'] .wy-tok-string { color: #0a6b2d; }
+.wy-code-editor[data-theme='light'] .wy-tok-number, .wy-code-editor[data-theme='light'] .wy-tok-literal { color: #a04a00; }
+.wy-code-editor[data-theme='light'] .wy-tok-keyword, .wy-code-editor[data-theme='light'] .wy-tok-tag { color: #7a2fd0; }
+.wy-code-editor[data-theme='light'] .wy-tok-function { color: #0b5cad; }
+.wy-code-editor[data-theme='light'] .wy-tok-attr, .wy-code-editor[data-theme='light'] .wy-tok-property { color: #8a5a00; }
+.wy-code-editor[data-theme='light'] .wy-tok-variable { color: #b0185f; }

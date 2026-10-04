@@ -30,6 +30,23 @@ export interface CodeBlocksOptions {
   actions?: CodeAction[];
   /** Spaces inserted by Tab. Default 2. */
   tabSize?: number;
+  /** Show line numbers in a gutter on the left of every code block. */
+  lineNumbers?: boolean;
+  /** Show the header (language picker, Copy, actions). Default true; a full code editor turns it off. */
+  header?: boolean;
+}
+
+/** The gutter number for a line: text comes from a CSS counter-free attribute, so it never ends up in copied text. */
+function lineNumber(n: number, active: boolean): HTMLElement {
+  const box = document.createElement('span');
+  box.className = 'wy-ln';
+  box.setAttribute('contenteditable', 'false');
+  box.setAttribute('aria-hidden', 'true');
+  const num = document.createElement('span');
+  num.className = 'wy-ln-num' + (active ? ' is-active' : '');
+  num.dataset.n = String(n);
+  box.append(num);
+  return box;
 }
 
 const leadingIndent = (line: string) => /^[ \t]*/.exec(line)![0];
@@ -41,7 +58,8 @@ const leadingIndent = (line: string) => /^[ \t]*/.exec(line)![0];
 export function CodeBlocks(options: CodeBlocksOptions = {}): EditorPlugin {
   const languages = options.languages ?? DEFAULT_LANGUAGES;
   const highlight = options.highlight ?? simpleHighlight;
-  const tab = ' '.repeat(options.tabSize ?? 2);
+  /** Read on every use, so the tab size can be changed at runtime. */
+  const tabStr = () => ' '.repeat(options.tabSize ?? 2);
   const cache = new Map<string, DecorationSpec[]>();
   type DecorationSpec = { from: number; to: number; cls: string };
 
@@ -76,10 +94,11 @@ export function CodeBlocks(options: CodeBlocksOptions = {}): EditorPlugin {
         const bEnd = text.indexOf('\n', $to.parentOffset);
         const end = bEnd < 0 ? text.length : bEnd;
         if (!outdent && state.selection.empty) {
-          dispatch(state.tr.insertText(tab)); // plain Tab at the caret
+          dispatch(state.tr.insertText(tabStr())); // plain Tab at the caret
           return true;
         }
         const lines = text.slice(a, end).split('\n');
+        const tab = tabStr();
         const next = lines.map((l) => (outdent ? l.replace(new RegExp(`^(?:${tab}|\\t| {1,${tab.length}})`), '') : tab + l)).join('\n');
         if (next === text.slice(a, end)) return true;
         const tr = state.tr.insertText(next, start + a, start + end);
@@ -93,6 +112,7 @@ export function CodeBlocks(options: CodeBlocksOptions = {}): EditorPlugin {
         if (dispatch) {
           const before = $from.parent.textBetween(0, $from.parentOffset, undefined, '￼');
           const line = before.slice(before.lastIndexOf('\n') + 1);
+          const tab = tabStr();
           let indent = leadingIndent(line);
           const after = $from.parent.textBetween($from.parentOffset, $from.parent.content.size, undefined, '￼');
           const opens = /[{[(:]\s*$/.test(line.trimEnd()) && !/^\s*[)\]}]/.test(after);
@@ -117,12 +137,24 @@ export function CodeBlocks(options: CodeBlocksOptions = {}): EditorPlugin {
         }),
         new Plugin({
           props: {
-            nodeViews: { code_block: (node, view, getPos) => new CodeBlockView(node, view, getPos, languages, options.actions ?? []) },
+            nodeViews: { code_block: (node, view, getPos) => new CodeBlockView(node, view, getPos, languages, options.actions ?? [], options.header !== false, !!options.lineNumbers) },
             decorations(state) {
               const decos: Decoration[] = [];
+              const head = state.selection.head;
               state.doc.descendants((node, pos) => {
                 if (node.type.name !== 'code_block') return;
                 const code = node.textContent;
+                if (options.lineNumbers) {
+                  // One widget at the start of every line. It is a zero-width sticky box holding the number, so the
+                  // gutter stays aligned with wrapped lines, stays on screen when scrolling sideways, and is not text.
+                  let offset = 0;
+                  code.split('\n').forEach((line, i) => {
+                    const at = pos + 1 + offset;
+                    const active = head >= at && head <= at + line.length;
+                    decos.push(Decoration.widget(at, () => lineNumber(i + 1, active), { side: -1, key: `ln${i}${active ? 'a' : ''}`, ignoreSelection: true }));
+                    offset += line.length + 1;
+                  });
+                }
                 const key = `${node.attrs.language}\u0000${code}`;
                 let specs = cache.get(key);
                 if (!specs) {
@@ -150,7 +182,7 @@ class CodeBlockView implements NodeView {
   private select = document.createElement('select');
   private actionBtns: { btn: HTMLButtonElement; action: CodeAction }[] = [];
 
-  constructor(private node: PMNode, private view: EditorView, private getPos: () => number | undefined, languages: CodeLanguage[], actions: CodeAction[]) {
+  constructor(private node: PMNode, private view: EditorView, private getPos: () => number | undefined, languages: CodeLanguage[], actions: CodeAction[], header: boolean, lineNumbers: boolean) {
     const bar = document.createElement('div');
     bar.className = 'wy-code-bar';
     bar.setAttribute('contenteditable', 'false');
@@ -194,7 +226,10 @@ class CodeBlockView implements NodeView {
     });
     bar.append(copy);
 
-    this.dom.append(bar, this.contentDOM);
+    if (header) this.dom.append(bar);
+    else this.dom.classList.add('wy-no-header');
+    if (lineNumbers) this.dom.classList.add('wy-has-lines');
+    this.dom.append(this.contentDOM);
     this.dom.dataset.language = node.attrs.language ?? '';
     this.sync();
   }

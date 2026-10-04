@@ -41,3 +41,5 @@ export { toEmailHTML, toEmailText } from './email';
 export type { EmailOptions } from './email';
 export { simpleHighlight, resolveLanguage } from './highlight';
 export type { Highlighter, Token, TokenType } from './highlight';
+export { CodeEditor, createCodeEditor, languageForFilename } from './code-editor';
+export type { CodeEditorOptions, CodeFileInput } from './code-editor';
