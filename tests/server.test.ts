@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -21,7 +21,7 @@ beforeAll(async () => {
 });
 afterAll(async () => {
   await app.close();
-  await rm(dir, { recursive: true, force: true });
+  await rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
 });
 
 const call = (path: string, init: RequestInit & { key?: string; json?: unknown } = {}) =>
@@ -241,3 +241,26 @@ describe('DocumentClient against the real server', () => {
     await expect(c.load(id, ownerKey)).rejects.toMatchObject({ status: 403 });
   });
 });
+
+describe('shutdown', () => {
+  it('writes nothing to the data directory after close() has resolved', async () => {
+    const d = await mkdtemp(join(tmpdir(), 'wy-close-'));
+    const srv = createServer({ dataDir: d });
+    const p = await srv.listen(0);
+    const created = await (await fetch(`http://127.0.0.1:${p}/api/docs`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })).json();
+    const ydoc = new Y.Doc();
+    const prov = createWebSocketProvider(`ws://127.0.0.1:${p}/collab/${created.id}?token=${created.ownerKey}`, ydoc, { WebSocketImpl: WebSocket as unknown as typeof globalThis.WebSocket, reconnect: false });
+    await prov.synced;
+    ydoc.getText('t').insert(0, 'edited just before shutdown'); // starts the 300ms debounce
+    await new Promise((r) => setTimeout(r, 30));
+    await srv.close();
+    const before = (await readdir(d)).sort();
+    await new Promise((r) => setTimeout(r, 450)); // longer than the debounce
+    expect((await readdir(d)).sort()).toEqual(before); // no late write, no leftover temp files
+    expect(before.some((f) => f.endsWith('.tmp'))).toBe(false);
+    expect(before.some((f) => f.endsWith('.ydoc'))).toBe(true); // the final state was saved before closing
+    prov.destroy();
+    await rm(d, { recursive: true, force: true });
+  });
+});
+

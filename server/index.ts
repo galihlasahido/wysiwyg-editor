@@ -138,6 +138,9 @@ export interface RunningServer {
 export function createServer(options: ServerOptions): RunningServer {
   const store = new FileStore(options.dataDir);
   const rooms = new Map<string, Room>();
+  /** Writes in flight, so `close()` can wait for them: nothing may touch the data directory after it resolves. */
+  const inflight = new Set<Promise<unknown>>();
+  let closing = false;
 
   const send = (res: ServerResponse, status: number, body?: unknown) => {
     res.writeHead(status, {
@@ -278,7 +281,7 @@ export function createServer(options: ServerOptions): RunningServer {
     doc = new Y.Doc();
     awareness = new awarenessProtocol.Awareness(this.doc);
     conns = new Map<WebSocket, { secret: string; role: Role; clientIds: Set<number> }>();
-    private timer?: ReturnType<typeof setTimeout>;
+    timer?: ReturnType<typeof setTimeout>;
 
     constructor(public id: string) {
       this.awareness.setLocalState(null);
@@ -288,7 +291,7 @@ export function createServer(options: ServerOptions): RunningServer {
         syncProtocol.writeUpdate(enc, update);
         this.broadcast(encoding.toUint8Array(enc), origin as WebSocket | null);
         clearTimeout(this.timer);
-        this.timer = setTimeout(() => void this.persist(), 300);
+        if (!closing) this.timer = setTimeout(() => void this.persist(), 300);
       });
       this.awareness.on('update', ({ added, updated, removed }: { added: number[]; updated: number[]; removed: number[] }, origin: unknown) => {
         const changed = [...added, ...updated, ...removed];
@@ -307,8 +310,11 @@ export function createServer(options: ServerOptions): RunningServer {
     broadcast(data: Uint8Array, except: WebSocket | null) {
       for (const ws of this.conns.keys()) if (ws !== except && ws.readyState === 1) ws.send(data);
     }
-    async persist() {
-      await store.writeBinary(this.id, Y.encodeStateAsUpdate(this.doc)).catch((e) => console.error('persist failed', e));
+    persist(): Promise<void> {
+      const write = store.writeBinary(this.id, Y.encodeStateAsUpdate(this.doc)).catch((e) => console.error('persist failed', e));
+      inflight.add(write);
+      void write.finally(() => inflight.delete(write));
+      return write;
     }
     /** Drop connections whose credentials were revoked, and downgrade changed roles. */
     async revalidate() {
@@ -377,7 +383,7 @@ export function createServer(options: ServerOptions): RunningServer {
           const c = r.conns.get(ws);
           r.conns.delete(ws);
           if (c) awarenessProtocol.removeAwarenessStates(r.awareness, [...c.clientIds], null);
-          if (r.conns.size === 0) {
+          if (r.conns.size === 0 && !closing) {
             void r.persist().then(() => {
               if (r.conns.size === 0) rooms.delete(r.id);
             });
@@ -414,13 +420,16 @@ export function createServer(options: ServerOptions): RunningServer {
       return (server.address() as { port: number }).port;
     },
     async close() {
+      closing = true; // no new debounced writes from here on
       for (const room of rooms.values()) {
-        await room.persist();
+        clearTimeout(room.timer);
+        await room.persist(); // final state first, then drop the connections
         for (const ws of room.conns.keys()) ws.terminate();
       }
       wss.close();
       server.closeAllConnections?.();
       await new Promise<void>((r) => server.close(() => r()));
+      await Promise.allSettled([...inflight]); // wait for every write that was already started
     },
   };
 }
