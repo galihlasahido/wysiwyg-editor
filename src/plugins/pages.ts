@@ -399,7 +399,10 @@ export function Pages(options: PageOptions = {}): EditorPlugin {
               w.style.marginLeft = `${(page.left - w.getBoundingClientRect().left) / scale}px`;
             }
           };
+          /** Set by destroy(): late callbacks (fonts.ready, a queued frame) must not touch a view that no longer exists. */
+          let gone = false;
           const measure = (force = false) => {
+            if (gone) return;
             const { doc } = view.state;
             if (!settings.paged) {
               // "Separate Pages" is off: remove our widgets once and stop measuring.
@@ -591,6 +594,7 @@ export function Pages(options: PageOptions = {}): EditorPlugin {
           return {
             update: () => (ruler?.update(), schedule()),
             destroy() {
+              gone = true;
               cancel();
               view.dom.removeEventListener('load', onResize, true);
               window.removeEventListener('resize', onResize);

@@ -47,6 +47,9 @@ export function TrackChanges(options: TrackChangesOptions = {}): EditorPlugin {
 
   const transform = (tr: Transaction, state: EditorState): Transaction => {
     if (!enabled || !tr.docChanged || tr.steps.length !== 1) return tr;
+    // Undo/redo and remote (collaboration) changes must be applied as they are: rewriting them into a fresh transaction
+    // drops the history metadata (corrupting the undo stack) and makes the local document diverge from Yjs.
+    if (tr.getMeta('history$') || tr.getMeta('y-sync$') || tr.getMeta('appendedTransaction') || tr.getMeta('wy-raw')) return tr;
     const step = tr.steps[0];
     if (!(step instanceof ReplaceStep)) return tr;
     const { from, to, slice } = step as ReplaceStep & { from: number; to: number; slice: Slice };

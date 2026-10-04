@@ -105,3 +105,31 @@ describe('RestrictedEditing', () => {
     expect(html).toContain('data-editable-region');
   });
 });
+
+describe('RestrictedEditing: ranges that span regions', () => {
+  const NESTED = '<section data-locked><div data-editable-region><p>aaa</p></div><p>LEGAL</p><div data-editable-region><p>bbb</p></div></section>';
+  const open = (html: string) => (ed = createEditor({ element: document.body.appendChild(document.createElement('div')), content: html, plugins: [...defaultPlugins, RestrictedEditing()] }));
+
+  it('refuses to delete locked text between two regions with one selection', () => {
+    open(NESTED);
+    const before = ed.getHTML();
+    ed.view.dispatch(ed.view.state.tr.replaceWith(find('aaa') + 1, find('bbb') + 1, ed.view.state.schema.text('x')));
+    expect(ed.getHTML()).toBe(before);
+    expect(ed.getHTML()).toContain('LEGAL');
+  });
+  it('refuses to restyle locked text between two regions', () => {
+    open(NESTED);
+    const before = ed.getHTML();
+    ed.view.dispatch(ed.view.state.tr.addMark(find('aaa') + 1, find('bbb') + 1, ed.view.state.schema.marks.bold.create()));
+    expect(ed.getHTML()).toBe(before);
+  });
+  it('Replace All skips matches in locked sections instead of failing as a whole', () => {
+    open('<section data-locked><p>cat</p></section><p>cat food</p><div data-editable-region><p>cat</p></div>');
+    ed.execute('find', 'cat');
+    expect(ed.execute('replaceAll', 'dog')).toBe(true);
+    const html = ed.getHTML();
+    expect(html).toContain('<p>cat</p></section>');
+    expect(html).toContain('dog food');
+    expect(html).toContain('<p>dog</p></div>');
+  });
+});

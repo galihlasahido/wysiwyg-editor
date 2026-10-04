@@ -38,3 +38,41 @@ describe('diagram', () => {
     ed.destroy();
   });
 });
+
+describe('diagram audit regressions', () => {
+  const insert = (ed: ReturnType<typeof make>) => { ed.execute('insertDiagram'); return ed.view.dom.querySelector('.wy-diagram') as HTMLElement; };
+  const bar = (fig: HTMLElement, label: string) => [...fig.querySelectorAll<HTMLButtonElement>('.wy-diagram-bar button')].find((b) => b.textContent === label)!;
+
+  it('Backspace inside the text box edits the text, not the shape', () => {
+    const ed = make('<p>x</p>');
+    const fig = insert(ed);
+    (fig.querySelector('.wy-diagram-edit') as HTMLElement).click();
+    const shape = fig.querySelector('.wy-d-shape') as SVGElement;
+    shape.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+    const input = fig.querySelector('.wy-diagram-input') as HTMLTextAreaElement;
+    expect(input).not.toBeNull();
+    const shapesBefore = fig.querySelectorAll('.wy-d-shape').length;
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Backspace', bubbles: true, cancelable: true }));
+    expect(fig.querySelectorAll('.wy-d-shape').length).toBe(shapesBefore);
+    ed.destroy();
+  });
+  it('a read-only editor cannot enter edit mode or change the diagram', () => {
+    const ed = make('<p>x</p>');
+    const fig = insert(ed);
+    const data = () => ed.view.state.doc.child(0).attrs.data;
+    const before = data();
+    ed.setReadOnly(true);
+    (fig.querySelector('.wy-diagram-edit') as HTMLElement).click();
+    expect(fig.classList.contains('is-editing')).toBe(false);
+    expect(data()).toBe(before);
+    ed.destroy();
+  });
+  it('caps the number of shapes it can add', () => {
+    const ed = make('<p>x</p>');
+    const fig = insert(ed);
+    (fig.querySelector('.wy-diagram-edit') as HTMLElement).click();
+    for (let i = 0; i < 230; i++) bar(fig, 'Rectangle').click();
+    expect(parseDiagram(JSON.parse(JSON.stringify(fig.getAttribute('data-diagram')))).shapes.length).toBeLessThanOrEqual(200);
+    ed.destroy();
+  });
+});

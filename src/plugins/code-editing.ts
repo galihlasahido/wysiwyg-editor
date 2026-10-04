@@ -50,7 +50,7 @@ function context(state: EditorState): Ctx | null {
 }
 
 /** Start of the line containing `offset`, and the end (before the newline). */
-const lineStart = (text: string, offset: number) => text.lastIndexOf('\n', offset - 1) + 1;
+const lineStart = (text: string, offset: number) => (offset <= 0 ? 0 : text.lastIndexOf('\n', offset - 1) + 1); // lastIndexOf with a negative index would still see a newline at 0
 const lineEnd = (text: string, offset: number) => {
   const i = text.indexOf('\n', offset);
   return i < 0 ? text.length : i;
@@ -64,6 +64,19 @@ function selectedLines(c: Ctx): [number, number] {
 
 function setSelection(tr: Transaction, start: number, anchor: number, head: number): Transaction {
   return tr.setSelection(TextSelection.create(tr.doc, start + anchor, start + head));
+}
+
+/** String and comment ranges of a text, remembered for the last few texts: the cursor moving must not re-highlight the file. */
+const maskMemo = new Map<string, { from: number; to: number }[]>();
+function maskCache(highlight: Highlighter, text: string, language: string | null) {
+  const key = `${language}\u0000${text}`;
+  let masks = maskMemo.get(key);
+  if (!masks) {
+    masks = highlight(text, language).filter((t) => t.type === 'string' || t.type === 'comment').map(({ from, to }) => ({ from, to })).sort((a, b) => a.from - b.from);
+    if (maskMemo.size > 20) maskMemo.clear();
+    maskMemo.set(key, masks);
+  }
+  return masks;
 }
 
 /** Matching bracket for the one at `i`, ignoring brackets inside strings and comments. Null when unmatched. */
@@ -270,8 +283,20 @@ export function CodeEditing(options: CodeEditingOptions = {}): EditorPlugin {
               const at = [c.head - 1, c.head].find((i) => i >= 0 && i < c.text.length && (CLOSERS.has(c.text[i]) || (c.text[i] in PAIRS && !QUOTES.has(c.text[i]))));
               if (at === undefined) return null;
               // brackets inside strings and comments do not count
-              const masks = highlight(c.text, c.language).filter((t) => t.type === 'string' || t.type === 'comment');
-              const ignored = (pos: number) => masks.some((t) => pos >= t.from && pos < t.to);
+              const masks = maskCache(highlight, c.text, c.language);
+              const ignored = (pos: number) => {
+                // masks are sorted and disjoint: binary search instead of scanning every token per character
+                let lo = 0;
+                let hi = masks.length - 1;
+                while (lo <= hi) {
+                  const mid = (lo + hi) >> 1;
+                  const t = masks[mid];
+                  if (pos < t.from) hi = mid - 1;
+                  else if (pos >= t.to) lo = mid + 1;
+                  else return true;
+                }
+                return false;
+              };
               if (ignored(at)) return null;
               const match = findMatchingBracket(c.text, at, ignored);
               const mark = (i: number, cls: string) => Decoration.inline(c.start + i, c.start + i + 1, { class: cls });

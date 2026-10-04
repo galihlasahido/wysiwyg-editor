@@ -103,11 +103,11 @@ export function CodeBlocks(options: CodeBlocksOptions = {}): EditorPlugin {
       const indentLines = (view: EditorView, outdent: boolean): boolean => {
         const { state, dispatch } = view;
         const { $from, $to } = state.selection;
-        if (!inCode(view)) return false;
+        if (!inCode(view) || !$from.sameParent($to)) return false; // a selection that leaves the block is not an indent request
         const block = $from.parent;
         const start = $from.start();
         const text = block.textContent;
-        const a = text.lastIndexOf('\n', $from.parentOffset - 1) + 1; // start of the first selected line
+        const a = $from.parentOffset <= 0 ? 0 : text.lastIndexOf('\n', $from.parentOffset - 1) + 1; // start of the first selected line
         const bEnd = text.indexOf('\n', $to.parentOffset);
         const end = bEnd < 0 ? text.length : bEnd;
         if (!outdent && state.selection.empty) {
@@ -173,7 +173,7 @@ export function CodeBlocks(options: CodeBlocksOptions = {}): EditorPlugin {
                     if (hidden?.has(i)) return; // inside a fold: no number
                     const active = head >= at && head <= at + line.length;
                     const mark = folding?.marker(state, pos, i) ?? null;
-                    decos.push(Decoration.widget(at, (view) => lineNumber(i + 1, active, mark ? { state: mark, toggle: () => folding!.toggle(view, pos, i) } : undefined), { side: -1, key: `ln${i}${active ? 'a' : ''}${mark ?? ''}`, ignoreSelection: true }));
+                    decos.push(Decoration.widget(at, (view, getPos) => lineNumber(i + 1, active, mark ? { state: mark, toggle: () => folding!.toggle(view, (getPos() ?? at) - (at - pos), i) } : undefined), { side: -1, key: `ln${i}${active ? 'a' : ''}${mark ?? ''}`, ignoreSelection: true }));
                   });
                 }
                 const key = `${node.attrs.language}\u0000${code}`;

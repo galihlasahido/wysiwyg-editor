@@ -4,19 +4,36 @@ import { Decoration, DecorationSet, type EditorView } from 'prosemirror-view';
 import type { EditorPlugin } from '../types';
 import type { FoldingProvider } from './code-blocks';
 
-/** Last line (inclusive) of the fold that starts at line `i`: the following lines that are indented deeper. Null when nothing to fold. */
+const indentOf = (l: string) => (l.trim() ? /^[ \t]*/.exec(l)![0].replace(/\t/g, '    ').length : -1);
+
+/**
+ * For every line, the last line (inclusive) of the fold that starts there: the following lines indented deeper, or null
+ * when there is nothing to fold. One pass with a stack, so it is linear (a per-line scan was quadratic on big files).
+ */
+export function foldEnds(lines: string[]): (number | null)[] {
+  const ends: (number | null)[] = lines.map(() => null);
+  const stack: { line: number; indent: number }[] = [];
+  let lastCode = -1;
+  const close = (below: number) => {
+    while (stack.length && stack[stack.length - 1].indent >= below) {
+      const top = stack.pop()!;
+      ends[top.line] = lastCode > top.line ? lastCode : null;
+    }
+  };
+  lines.forEach((l, i) => {
+    const n = indentOf(l);
+    if (n < 0) return; // blank lines belong to a fold only when more indented code follows
+    close(n);
+    stack.push({ line: i, indent: n });
+    lastCode = i;
+  });
+  close(-1);
+  return ends;
+}
+
+/** Last line (inclusive) of the fold that starts at line `i`. Null when nothing to fold. */
 export function foldEnd(lines: string[], i: number): number | null {
-  const indent = (l: string) => (l.trim() ? /^[ \t]*/.exec(l)![0].replace(/\t/g, '    ').length : -1);
-  const base = indent(lines[i]);
-  if (base < 0) return null;
-  let end: number | null = null;
-  for (let j = i + 1; j < lines.length; j++) {
-    const n = indent(lines[j]);
-    if (n < 0) continue; // blank lines belong to the fold only when more indented code follows
-    if (n <= base) break;
-    end = j;
-  }
-  return end;
+  return foldEnds(lines)[i] ?? null;
 }
 
 const lineStarts = (text: string): number[] => {
@@ -57,22 +74,32 @@ export function CodeAdvanced(options: CodeAdvancedOptions = {}): CodeAdvancedPlu
   const useFold = options.folding !== false;
   const useCarets = options.multiCursor !== false;
 
-  /** Folded line starts (absolute positions) that are still valid, each with its end line. */
-  const validFolds = (state: EditorState, blockPos: number) => {
+  interface Analysis { region: Region; ends: (number | null)[]; closed: Map<number, number> }
+  const analyses = new WeakMap<EditorState, Map<number, Analysis | null>>();
+  /** Everything the gutter needs about one block, computed once per editor state (decorations run on every transaction). */
+  const analyze = (state: EditorState, blockPos: number): Analysis | null => {
+    let perState = analyses.get(state);
+    if (!perState) analyses.set(state, (perState = new Map()));
+    if (perState.has(blockPos)) return perState.get(blockPos)!;
     const region = blockAt(state.doc, blockPos + 1);
-    const out: { line: number; end: number }[] = [];
-    if (!region) return { region, out };
-    const text = region.block.textContent;
-    const lines = text.split('\n');
-    const starts = lineStarts(text);
-    for (const abs of foldKey.getState(state) ?? []) {
-      const off = abs - region.start;
-      const line = starts.indexOf(off);
-      if (line < 0) continue;
-      const end = foldEnd(lines, line);
-      if (end !== null) out.push({ line, end });
+    let result: Analysis | null = null;
+    if (region) {
+      const text = region.block.textContent;
+      const starts = lineStarts(text);
+      const ends = foldEnds(text.split('\n'));
+      const closed = new Map<number, number>();
+      for (const abs of foldKey.getState(state) ?? []) {
+        const line = starts.indexOf(abs - region.start);
+        if (line >= 0 && ends[line] !== null) closed.set(line, ends[line]!);
+      }
+      result = { region, ends, closed };
     }
-    return { region, out };
+    perState.set(blockPos, result);
+    return result;
+  };
+  const validFolds = (state: EditorState, blockPos: number) => {
+    const a = analyze(state, blockPos);
+    return { region: a?.region ?? null, out: a ? [...a.closed].map(([line, end]) => ({ line, end })) : [] };
   };
 
   const folding: FoldingProvider = {
@@ -83,11 +110,9 @@ export function CodeAdvanced(options: CodeAdvancedOptions = {}): CodeAdvancedPlu
     },
     marker(state, blockPos, line) {
       if (!useFold) return null;
-      const region = blockAt(state.doc, blockPos + 1);
-      if (!region) return null;
-      const lines = region.block.textContent.split('\n');
-      if (foldEnd(lines, line) === null) return null;
-      return validFolds(state, blockPos).out.some((f) => f.line === line) ? 'closed' : 'open';
+      const a = analyze(state, blockPos);
+      if (!a || a.ends[line] == null) return null;
+      return a.closed.has(line) ? 'closed' : 'open';
     },
     toggle(view, blockPos, line) {
       const region = blockAt(view.state.doc, blockPos + 1);
@@ -120,7 +145,9 @@ export function CodeAdvanced(options: CodeAdvancedOptions = {}): CodeAdvancedPlu
   function editAll(view: EditorView, make: (from: number, to: number, doc: PMNode) => { from: number; to: number; text: string } | null): boolean {
     const { state } = view;
     const sel = state.selection;
-    const spots = [{ from: sel.from, to: sel.to, primary: true }, ...carets(state).map((p) => ({ from: p, to: p, primary: false }))].sort((a, b) => b.from - a.from);
+    // A caret inside the selection would be edited twice (the edits are applied from the original positions): drop it.
+    const others = carets(state).filter((p) => sel.from === sel.to || p < sel.from || p > sel.to);
+    const spots = [{ from: sel.from, to: sel.to, primary: true }, ...others.map((p) => ({ from: p, to: p, primary: false }))].sort((a, b) => b.from - a.from);
     const tr = state.tr;
     const edits = spots.map((s) => ({ s, e: make(s.from, s.to, state.doc) }));
     for (const { e } of edits) if (e && (e.from !== e.to || e.text)) tr.replaceWith(e.from, e.to, e.text ? state.schema.text(e.text) : []);
@@ -171,12 +198,13 @@ export function CodeAdvanced(options: CodeAdvancedOptions = {}): CodeAdvancedPlu
         if (!region) return null;
         const text = region.block.textContent;
         const lines = text.split('\n');
+        const ends = foldEnds(lines);
         const starts = lineStarts(text);
         const keep = folds.filter((abs) => {
           const line = starts.indexOf(abs - region.start);
           if (line < 0) return true;
-          const end = foldEnd(lines, line);
-          if (end === null) return true;
+          const end = ends[line];
+          if (end === null || end === undefined) return true;
           const hideFrom = region.start + starts[line] + lines[line].length;
           const hideTo = region.start + starts[end] + lines[end].length;
           return !(head > hideFrom && head <= hideTo);
@@ -201,13 +229,14 @@ export function CodeAdvanced(options: CodeAdvancedOptions = {}): CodeAdvancedPlu
               const from = base + starts[f.line] + lines[f.line].length;
               const to = base + starts[f.end] + lines[f.end].length;
               decos.push(Decoration.inline(from, to, { class: 'wy-folded' }));
-              decos.push(Decoration.widget(from, (view) => {
+              decos.push(Decoration.widget(from, (view, getPos) => {
                 const chip = document.createElement('span');
                 chip.className = 'wy-fold-chip';
                 chip.contentEditable = 'false';
                 chip.textContent = `⋯ ${f.end - f.line} lines`;
                 chip.title = 'Unfold';
-                chip.addEventListener('mousedown', (e) => { e.preventDefault(); folding.toggle(view, pos, f.line); });
+                // `pos` was captured when the decoration was built; the widget may be reused after the block moved
+                chip.addEventListener('mousedown', (e) => { e.preventDefault(); folding.toggle(view, (getPos() ?? from) - (from - pos), f.line); });
                 return chip;
               }, { side: 1, key: `fold${f.line}:${f.end}`, ignoreSelection: true }));
             }
@@ -226,7 +255,11 @@ export function CodeAdvanced(options: CodeAdvancedOptions = {}): CodeAdvancedPlu
         apply(tr: Transaction, value: number[], _old, state) {
           const meta = tr.getMeta(caretKey) as number[] | undefined;
           let next = meta ?? (tr.docChanged ? value.map((p) => tr.mapping.map(p, 1)) : value);
-          if (next.length) next = [...new Set(next)].filter((p) => p !== state.selection.head && p >= 0 && p <= state.doc.content.size);
+          if (next.length) {
+            const { $head, from, to } = state.selection;
+            // Extra carets live in the same code block as the real cursor, and never inside a selection.
+            next = [...new Set(next)].filter((p) => p >= 0 && p <= state.doc.content.size && p !== $head.pos && (from === to || p < from || p > to) && state.doc.resolve(p).sameParent($head));
+          }
           return next;
         },
       },
@@ -242,6 +275,7 @@ export function CodeAdvanced(options: CodeAdvancedOptions = {}): CodeAdvancedPlu
         },
         handleClick(view, pos, event) {
           if (event.altKey) {
+            if (!view.state.doc.resolve(pos).sameParent(view.state.selection.$head)) return true; // carets stay inside one code block
             const cur = carets(view.state);
             view.dispatch(view.state.tr.setMeta(caretKey, cur.includes(pos) ? cur.filter((p) => p !== pos) : [...cur, pos]));
             return true;
@@ -286,8 +320,10 @@ export function CodeAdvanced(options: CodeAdvancedOptions = {}): CodeAdvancedPlu
             case 'ArrowRight': {
               if (e.shiftKey) { view.dispatch(view.state.tr.setMeta(caretKey, [])); return false; }
               const d = e.key === 'ArrowLeft' ? -1 : 1;
-              const size = view.state.doc.content.size;
-              view.dispatch(view.state.tr.setMeta(caretKey, carets(view.state).map((p) => Math.max(0, Math.min(size, p + d)))));
+              const block = blockAt(view.state.doc, view.state.selection.head);
+              const lo = block?.start ?? 0;
+              const hi = block ? block.start + block.block.content.size : view.state.doc.content.size;
+              view.dispatch(view.state.tr.setMeta(caretKey, carets(view.state).map((p) => Math.max(lo, Math.min(hi, p + d)))));
               return false; // the real selection moves by default
             }
             case 'ArrowUp':
@@ -328,8 +364,9 @@ export function CodeAdvanced(options: CodeAdvancedOptions = {}): CodeAdvancedPlu
         if (!at) return false;
         // fold the nearest enclosing foldable line at or above the cursor
         const lines = at.r.block.textContent.split('\n');
+        const ends = foldEnds(lines);
         for (let l = at.line; l >= 0; l--) {
-          const end = foldEnd(lines, l);
+          const end = ends[l];
           if (end !== null && end >= at.line) { folding.toggle(view, at.r.start - 1, l); return true; }
         }
         return false;
@@ -343,7 +380,8 @@ export function CodeAdvanced(options: CodeAdvancedOptions = {}): CodeAdvancedPlu
         if (fold) {
           // outermost foldable lines only: inner ones stay open inside
           let skipTo = -1;
-          lines.forEach((_, i) => { if (i > skipTo) { const end = foldEnd(lines, i); if (end !== null) { list.push(r.start + starts[i]); skipTo = end; } } });
+          const ends = foldEnds(lines);
+          lines.forEach((_, i) => { if (i > skipTo) { const end = ends[i]; if (end !== null) { list.push(r.start + starts[i]); skipTo = end; } } });
         }
         view.dispatch(view.state.tr.setMeta(foldKey, list));
         return true;

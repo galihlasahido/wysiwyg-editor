@@ -121,8 +121,9 @@ class DiagramView implements NodeView {
     this.canvas.addEventListener('dblclick', (e) => this.onDouble(e));
     window.addEventListener('pointermove', this.onMove);
     window.addEventListener('pointerup', this.onUp);
+    window.addEventListener('pointercancel', this.onCancel);
     this.keyHandler = (e: KeyboardEvent) => {
-      if (!this.editing || !this.selected || (e.key !== 'Delete' && e.key !== 'Backspace') || (e.target as HTMLElement).tagName === 'INPUT') return;
+      if (!this.editing || !this.selected || (e.key !== 'Delete' && e.key !== 'Backspace') || (e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'TEXTAREA' || (e.target as HTMLElement).closest?.('.wy-diagram-input')) return; // never while typing in a text box
       if (!this.dom.contains(document.activeElement) && document.activeElement !== this.view.dom) return;
       if (view.state.selection instanceof NodeSelection && view.state.selection.node === this.node) { e.preventDefault(); this.remove(); }
     };
@@ -132,6 +133,7 @@ class DiagramView implements NodeView {
   private keyHandler: (e: KeyboardEvent) => void;
 
   private setEditing(on: boolean) {
+    if (on && !this.view.editable) return; // a read-only editor shows the diagram but cannot change it
     this.editing = on;
     this.bar.hidden = !on;
     this.dom.classList.toggle('is-editing', on);
@@ -151,6 +153,7 @@ class DiagramView implements NodeView {
     };
     const add = (type: ShapeType) => () => {
       const n = this.model.shapes.length;
+      if (n >= MAX_SHAPES) return; // more would be dropped on reload
       const id = `s${Date.now().toString(36)}${n}`;
       this.model.shapes.push({ id, type, x: 30 + (n % 5) * 24, y: 30 + (n % 5) * 24, w: type === 'text' ? 120 : 130, h: type === 'text' ? 30 : 60, text: type === 'text' ? 'Text' : 'Step', fill: this.fill.value });
       this.selected = id;
@@ -192,10 +195,21 @@ class DiagramView implements NodeView {
   private commit() {
     const pos = this.getPos();
     if (pos === undefined) return;
+    if (!this.view.editable) { this.resync(pos); return; }
     this.draw();
     const data = JSON.stringify(this.model);
     this.dom.setAttribute('data-diagram', data);
-    this.view.dispatch(this.view.state.tr.setNodeMarkup(pos, undefined, { ...this.node.attrs, data }).setSelection(NodeSelection.create(this.view.state.doc, pos)));
+    const tr = this.view.state.tr.setNodeMarkup(pos, undefined, { ...this.node.attrs, data });
+    this.view.dispatch(tr.setSelection(NodeSelection.create(tr.doc, pos))); // the selection must belong to the new document
+    // A plugin may have rejected the change (a locked section): then the document is the truth, not the local model.
+    if (this.view.state.doc.nodeAt(pos)?.attrs.data !== data) this.resync(pos);
+  }
+
+  /** Show what the document actually holds. */
+  private resync(pos: number) {
+    this.model = parseDiagram(this.view.state.doc.nodeAt(pos)?.attrs.data);
+    this.dom.setAttribute('data-diagram', JSON.stringify(this.model));
+    this.draw();
   }
 
   private point(e: PointerEvent): [number, number] {
@@ -251,6 +265,13 @@ class DiagramView implements NodeView {
     this.drag = null;
     if (moved) this.commit();
   };
+  /** A cancelled touch must not leave the shape stuck to the pointer. */
+  private onCancel = () => {
+    if (!this.drag) return;
+    this.drag = null;
+    const pos = this.getPos();
+    if (pos !== undefined) this.resync(pos);
+  };
   private lastDown: { id: string; at: number } | null = null;
   private onDouble(e: MouseEvent) {
     if (!this.editing) return;
@@ -270,7 +291,7 @@ class DiagramView implements NodeView {
     this.canvas.append(input);
     input.focus();
     input.select();
-    const done = (save: boolean) => { if (!input.isConnected) return; if (save) s.text = input.value.slice(0, 200); input.remove(); this.commit(); };
+    const done = (save: boolean) => { if (!input.isConnected) return; input.remove(); if (!save || input.value === s.text) return; s.text = input.value.slice(0, 200); this.commit(); };
     input.addEventListener('blur', () => done(true));
     input.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') done(false); if (ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); done(true); } });
   }
@@ -293,6 +314,7 @@ class DiagramView implements NodeView {
   destroy() {
     window.removeEventListener('pointermove', this.onMove);
     window.removeEventListener('pointerup', this.onUp);
+    window.removeEventListener('pointercancel', this.onCancel);
     document.removeEventListener('keydown', this.keyHandler);
   }
 }

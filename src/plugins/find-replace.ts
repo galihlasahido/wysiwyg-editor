@@ -63,7 +63,9 @@ export const FindReplace: EditorPlugin = {
       return true;
     });
     editor.registerCommand('replaceAll', (_e, text: string) => {
-      const { matches } = get();
+      const restricted = editor.extensions.restricted as { canEdit(from: number, to: number): boolean } | undefined;
+      // With restricted editing a locked match must be skipped: one rejected step would otherwise cancel every replacement.
+      const matches = get().matches.filter((m) => !restricted || restricted.canEdit(m.from, m.to));
       if (!matches.length) return false;
       const tr = editor.view.state.tr;
       for (const m of [...matches].reverse()) tr.insertText(text, m.from, m.to);

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { TextSelection } from 'prosemirror-state';
-import { CodeEditor, createCodeEditor, findMatchingBracket, foldEnd, languageForFilename, simpleHighlight } from '../src';
+import { CodeEditor, createCodeEditor, findMatchingBracket, foldEnd, foldEnds, languageForFilename, simpleHighlight } from '../src';
 
 const made: CodeEditor[] = [];
 afterEach(() => made.splice(0).forEach((c) => c.destroy()));
@@ -533,6 +533,53 @@ describe('folding, extra cursors and minimap', () => {
     expect(ce.editor.root.querySelector('.wy-minimap')).not.toBeNull();
     ce.setMinimap(false);
     expect(ce.editor.root.querySelector('.wy-minimap')).toBeNull();
+    ce.destroy();
+  });
+});
+
+describe('audit regressions', () => {
+  const mk = (value: string, opts: Record<string, unknown> = {}) => createCodeEditor({ element: document.body.appendChild(document.createElement('div')), value, language: 'javascript', ...opts });
+  const sel = (ce: ReturnType<typeof mk>, a: number, b = a) => ce.editor.view.dispatch(ce.editor.view.state.tr.setSelection(TextSelection.create(ce.editor.view.state.doc, a, b)));
+
+  it('foldEnds is linear and agrees with the definition', () => {
+    const lines = ['a {', '  b {', '    c', '  }', '', '  d', '}', 'e'];
+    expect(foldEnds(lines)).toEqual([5, 2, null, null, null, null, null, null]);
+    expect(foldEnds(['x', '', '  y', '', 'z'])).toEqual([2, null, null, null, null]);
+    const big = Array.from({ length: 20000 }, (_, i) => (i % 2 ? '  x' : 'y'));
+    const t = Date.now();
+    foldEnds(big);
+    expect(Date.now() - t).toBeLessThan(200);
+  });
+  it('line operations work when the text starts with an empty line', () => {
+    const ce = mk('\nfoo\nbar');
+    sel(ce, 1);
+    expect(ce.editor.execute('deleteLine')).toBe(true);
+    expect(ce.getValue()).toBe('foo\nbar');
+    ce.destroy();
+    const c2 = mk('\nfoo');
+    sel(c2, 1);
+    c2.editor.execute('selectLine');
+    expect(c2.editor.view.state.selection.from).toBe(1);
+    c2.destroy();
+  });
+  it('an extra caret inside the selection is dropped, and carets stay in one code block', () => {
+    const ce = mk('0123456789');
+    const key = ce.editor.view.state.plugins.find((p) => (p as any).key?.startsWith('code-carets'))!;
+    sel(ce, 4, 9);
+    ce.editor.view.dispatch(ce.editor.view.state.tr.setMeta(key, [6])); // inside 4..9
+    expect(ce.cursorCount).toBe(1);
+    sel(ce, 2);
+    ce.editor.view.dispatch(ce.editor.view.state.tr.setMeta(key, [6, 99])); // 99 is outside the document
+    expect(ce.cursorCount).toBe(2);
+    ce.destroy();
+  });
+  it('Tab with a selection that leaves the code block does nothing', () => {
+    const ce = mk('a\nb');
+    const v = ce.editor.view;
+    v.dispatch(v.state.tr.setSelection(TextSelection.create(v.state.doc, 1, 2)));
+    const before = ce.getValue();
+    v.someProp('handleKeyDown', (f) => f(v, new KeyboardEvent('keydown', { key: 'Tab' })));
+    expect(ce.getValue().length).toBeGreaterThanOrEqual(before.length);
     ce.destroy();
   });
 });

@@ -60,6 +60,6 @@ export { TableFormulas, evaluateGrid, computeFormulasInHTML, formatValue, colNam
 export type { CellValue } from './table-formulas';
 export { Diagram, parseDiagram, renderDiagram } from './diagram';
 export type { DiagramModel, Shape, Arrow, ShapeType } from './diagram';
-export { CodeAdvanced, foldEnd } from './code-advanced';
+export { CodeAdvanced, foldEnd, foldEnds } from './code-advanced';
 export type { CodeAdvancedOptions } from './code-advanced';
 export type { FoldingProvider } from './code-blocks';

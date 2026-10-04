@@ -53,3 +53,17 @@ describe('formula limits', () => {
   });
 });
 const colLetter = (i: number) => String.fromCharCode(65 + i);
+
+describe('formula semantics', () => {
+  it('IF evaluates only the branch it takes', () => {
+    expect(v([['0', '=IF(A1=0,0,1/A1)', '=IF(A1,1/A1,"none")', '=IF(A1=0,"zero",1/A1)']])[0]).toEqual([0, 0, 'none', 'zero']);
+    expect(v([['2', '=IF(A1=0,0,1/A1)']])[0][1]).toBe(0.5);
+  });
+  it('a text cell that starts with # is not an error', () => {
+    expect(v([['#tag', '5', '=COUNT(A1:B1)', '=A1']])[0]).toEqual(['#tag', 5, 1, '#tag']);
+    expect(v([['=1/0', '=A1+1']])[0]).toEqual(['#DIV/0!', '#DIV/0!']);
+  });
+  it('treats only plain decimals as numbers', () => {
+    expect(v([['0x10', '1e3', 'Infinity', '12.5', '=A1', '=SUM(A1:D1)']])[0]).toEqual(['0x10', '1e3', 'Infinity', 12.5, '0x10', 12.5]);
+  });
+});

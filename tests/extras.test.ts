@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { TextSelection } from 'prosemirror-state';
 import { Awareness } from 'y-protocols/awareness';
 import * as Y from 'yjs';
-import { BalloonToolbar, Editor, MergeFields, SlashCommands, SourceEditing, createEditor, defaultPlugins, formatHtml, getMergeFields, renderMergeFields, toEmailHTML, toEmailText } from '../src';
+import { BalloonToolbar, Editor, TrackChanges, MergeFields, SlashCommands, SourceEditing, createEditor, defaultPlugins, formatHtml, getMergeFields, renderMergeFields, toEmailHTML, toEmailText } from '../src';
 import { linkAwareness } from '../src/collab';
 
 const editors: Editor[] = [];
@@ -320,6 +320,26 @@ describe('URL and table hardening', () => {
   it('escapes Markdown destinations', () => {
     const ed = make('<p><a href="https://a.test/x)%20[click](https://b.test">z</a></p>');
     expect(ed.getMarkdown()).not.toContain('[click](https://b.test');
+    ed.destroy();
+  });
+});
+
+describe('track changes leaves undo and remote transactions alone', () => {
+  it('undo applies as an undo (not as a new suggestion) after tracking is switched on', () => {
+    const ed = createEditor({ element: document.body.appendChild(document.createElement('div')), content: '<p>abc</p>', plugins: [...defaultPlugins, TrackChanges()] });
+    ed.view.dispatch(ed.view.state.tr.insertText('X', 4)); // tracking is off: a plain edit
+    expect(ed.getHTML()).toContain('abcX');
+    ed.execute('setTracking', true);
+    ed.execute('undo');
+    expect(ed.getHTML()).not.toContain('abcX');
+    expect(ed.getHTML()).not.toMatch(/data-change|<del|deletion/i);
+    ed.destroy();
+  });
+  it('transactions from collaboration are not rewritten into suggestions', () => {
+    const ed = createEditor({ element: document.body.appendChild(document.createElement('div')), content: '<p>abc</p>', plugins: [...defaultPlugins, TrackChanges({ enabled: true })] });
+    ed.view.dispatch(ed.view.state.tr.insertText('Z', 4).setMeta('y-sync$', { isChangeOrigin: true }));
+    expect(ed.getHTML()).toContain('abcZ');
+    expect(ed.getHTML()).not.toMatch(/insertion|data-change/i);
     ed.destroy();
   });
 });

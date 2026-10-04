@@ -46,6 +46,14 @@ function violation(doc: PMNode, from: number, to: number): number | null {
   const $b = doc.resolve(b);
   if (!editableAt($a) || !editableAt($b)) return lockedAncestor($a) ?? lockedAncestor($b) ?? 0;
   if (a === b) return null;
+  // A range that starts inside a fill-in region must end inside the same region. Otherwise a selection from one region
+  // to another would delete (or restyle) the locked text between them, because the lock "strictly contains" it.
+  for (let d = $a.depth; d > 0; d--) {
+    if ($a.node(d).type.name === 'editable_region') {
+      if (b > $a.end(d)) return lockedBetween(doc, a, b) ?? $a.before(d);
+      break;
+    }
+  }
   let bad: number | null = null;
   doc.nodesBetween(a, b, (node, pos) => {
     if (bad !== null) return false;
@@ -56,6 +64,16 @@ function violation(doc: PMNode, from: number, to: number): number | null {
     return bad === null;
   });
   return bad;
+}
+
+/** Position of the first locked section that overlaps [a, b], or null. */
+function lockedBetween(doc: PMNode, a: number, b: number): number | null {
+  let hit: number | null = null;
+  doc.nodesBetween(a, b, (n, pos) => {
+    if (hit === null && n.type.name === 'locked_section') hit = pos;
+    return hit === null;
+  });
+  return hit;
 }
 
 function lockedAncestor($pos: ResolvedPos): number | null {
@@ -194,7 +212,11 @@ export function RestrictedEditing(options: RestrictedEditingOptions = {}): Edito
         }
         return false;
       }));
-      ed.extensions.restricted = { isAuthor: () => author };
+      ed.extensions.restricted = {
+        isAuthor: () => author,
+        /** Would an edit of [from, to] be allowed right now? */
+        canEdit: (from: number, to: number) => author || violation(ed.view.state.doc, from, to) === null,
+      };
 
       return [
         new Plugin({

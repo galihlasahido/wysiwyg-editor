@@ -39,6 +39,8 @@ const capText = (s: string): string => {
 function evaluateExpression(src: string, resolve: Resolve, bounds: [number, number]): CellValue {
   const toks = tokenize(src);
   let i = 0;
+  /** >0 while parsing an IF branch that is not taken: it is parsed but never evaluated, so =IF(A1=0,0,1/A1) is safe. */
+  let dead = 0;
   const peek = () => toks[i];
   const take = (v?: string) => {
     const t = toks[i];
@@ -47,13 +49,15 @@ function evaluateExpression(src: string, resolve: Resolve, bounds: [number, numb
     return t;
   };
   const num = (v: CellValue): number => {
+    if (dead) return 0;
     if (typeof v === 'number') return v;
     if (v === '') return 0;
     const n = Number(v);
     if (Number.isNaN(n)) throw new FormulaError('#VALUE!');
     return n;
   };
-  const flat = (a: (CellValue | CellValue[])[]) => a.flat().filter((v) => v !== '').map((v) => (typeof v === 'number' ? v : Number(v))).filter((n) => !Number.isNaN(n));
+  const PLAIN = /^[-+]?(?:\d+\.?\d*|\.\d+)$/;
+  const flat = (a: (CellValue | CellValue[])[]) => a.flat().filter((v) => typeof v === 'number' || (typeof v === 'string' && PLAIN.test(v.trim()))).map(Number);
   const refToCell = (r: string): [number, number] => {
     const m = /^([A-Z]+)(\d+)$/.exec(r)!;
     return [colIndex(m[1]), Number(m[2]) - 1];
@@ -97,7 +101,7 @@ function evaluateExpression(src: string, resolve: Resolve, bounds: [number, numb
     while (peek()?.t === 'op' && ['*', '/'].includes(peek().v)) {
       const op = take().v;
       const r = num(power());
-      if (op === '/' && r === 0) throw new FormulaError('#DIV/0!');
+      if (op === '/' && r === 0 && !dead) throw new FormulaError('#DIV/0!');
       l = op === '*' ? num(l) * r : num(l) / r;
     }
     return l;
@@ -126,6 +130,7 @@ function evaluateExpression(src: string, resolve: Resolve, bounds: [number, numb
         const [c1, r1] = refToCell(take().v);
         take(':');
         const [c2, r2] = refToCell(take().t === 'ref' ? toks[i - 1].v : (() => { throw new FormulaError('#REF!'); })());
+        if (dead) { out.push([]); if (peek()?.v === ',') { take(); continue; } take(')'); return out; }
         if (Math.max(c1, c2) >= bounds[0] || Math.max(r1, r2) >= bounds[1]) throw new FormulaError('#REF!'); // also keeps A1:ZZ99999 from looping millions of times
         const vals: CellValue[] = [];
         for (let r = Math.min(r1, r2); r <= Math.max(r1, r2); r++) for (let c = Math.min(c1, c2); c <= Math.max(c1, c2); c++) vals.push(resolve(c, r));
@@ -141,12 +146,31 @@ function evaluateExpression(src: string, resolve: Resolve, bounds: [number, numb
     if (!t) throw new FormulaError('#ERR!');
     if (t.t === 'num') { take(); return Number(t.v); }
     if (t.t === 'str') { take(); return t.v; }
-    if (t.t === 'ref') { take(); const [c, r] = refToCell(t.v); return resolve(c, r); }
+    if (t.t === 'ref') { take(); const [c, r] = refToCell(t.v); return dead ? 0 : resolve(c, r); }
     if (t.t === 'id') {
       take();
       const f = Object.hasOwn(FUNCS, t.v) ? FUNCS[t.v] : undefined;
       if (!f) throw new FormulaError('#NAME?');
-      return f(args());
+      if (t.v === 'IF') {
+        take('(');
+        const cond = comparison();
+        const yes = cond !== 0 && cond !== '';
+        take(',');
+        if (!yes) dead++;
+        const a = comparison();
+        if (!yes) dead--;
+        let b: CellValue = '';
+        if (peek()?.v === ',') {
+          take();
+          if (yes) dead++;
+          b = comparison();
+          if (yes) dead--;
+        }
+        take(')');
+        return dead ? 0 : yes ? a : b;
+      }
+      const values = args();
+      return dead ? 0 : f(values);
     }
     if (t.v === '(') { take(); const v = comparison(); take(')'); return v; }
     throw new FormulaError('#ERR!');
@@ -158,12 +182,14 @@ function evaluateExpression(src: string, resolve: Resolve, bounds: [number, numb
 
 const asValue = (s: string): CellValue => {
   const t = s.trim();
-  return t !== '' && !Number.isNaN(Number(t)) ? Number(t) : s;
+  return /^[-+]?(?:\d+\.?\d*|\.\d+)$/.test(t) ? Number(t) : s; // plain decimals only: not 0x10, 1e3 or Infinity
 };
 
 /** Evaluate a grid of cell texts. Cells starting with "=" are formulas; the result has one value per cell. */
 export function evaluateGrid(grid: string[][]): CellValue[][] {
   const memo = new Map<string, CellValue>();
+  /** Cells whose formula failed. Kept apart from values so a text cell like "#tag" is never mistaken for an error. */
+  const errors = new Map<string, string>();
   const active = new Set<string>();
   const get = (c: number, r: number): CellValue => {
     const raw = grid[r]?.[c];
@@ -177,11 +203,13 @@ export function evaluateGrid(grid: string[][]): CellValue[][] {
       try {
         v = evaluateExpression(raw.trim().slice(1), (cc, rr) => {
           const x = get(cc, rr);
-          if (typeof x === 'string' && x.startsWith('#')) throw new FormulaError(x);
+          const err = errors.get(`${cc},${rr}`);
+          if (err) throw new FormulaError(err);
           return x;
         }, [Math.max(0, ...grid.map((r) => r.length)), grid.length]);
       } catch (e) {
         v = e instanceof FormulaError ? e.message : '#ERR!';
+        errors.set(key, v);
       } finally {
         active.delete(key);
       }
