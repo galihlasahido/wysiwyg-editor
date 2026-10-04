@@ -94,3 +94,19 @@
 .wy-toc-item { display: block; padding: 2px 0; color: #2563eb; cursor: pointer; }
 .wy-toc-item:hover { text-decoration: underline; }
 .wy-toc-empty { color: #9ca3af; font-size: 13px; }
+
+/* ---- Comments ---- */
+.wy-comment { background: #fef3c7; border-bottom: 2px solid #f59e0b; }
+.wy-comments { width: 240px; flex: none; overflow-y: auto; border-left: 1px solid #e3e3e3; background: #fafafa; padding: 8px; font-size: 13px; }
+.wy-comments[hidden] { display: none; }
+.wy-comment-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 6px; padding: 8px; margin-bottom: 8px; cursor: pointer; }
+.wy-comment-card.is-resolved { opacity: .55; }
+.wy-comment-quote { color: #6b7280; font-style: italic; border-left: 3px solid #f59e0b; padding-left: 6px; margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wy-comment-head { font-size: 11px; color: #6b7280; }
+.wy-comment-text { margin: 4px 0; }
+.wy-comment-reply { margin: 2px 0 2px 10px; padding-left: 6px; border-left: 2px solid #e5e7eb; }
+.wy-comment-actions { display: flex; gap: 4px; margin-top: 4px; }
+.wy-comment-actions .wy-btn { height: 24px; font-size: 12px; }
+.is-readonly .wy-toolbar { opacity: .6; }
+.is-readonly .wy-toolbar .wy-btn:not([aria-label="Add comment"]) { pointer-events: none; }
+@media print { .wy-comments { display: none !important; } .wy-comment { background: none; border: 0; } }

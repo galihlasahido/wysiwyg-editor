@@ -25,3 +25,5 @@ export { Footnotes } from './footnotes';
 export { SpellCheck } from './spellcheck';
 export type { SpellCheckOptions } from './spellcheck';
 export { TableOfContents } from './toc';
+export { Comments, CommentStore } from './comments';
+export type { CommentThread, CommentReply, CommentsOptions, CommentsPlugin } from './comments';

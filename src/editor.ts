@@ -18,6 +18,12 @@ export interface EditorConfig {
   onChange?: (html: string) => void;
   /** Uploads an image file and resolves to its URL. Defaults to embedding as a Base64 data URL. */
   uploadImage?: (file: File) => Promise<string>;
+  /** Start in read-only mode. */
+  readOnly?: boolean;
+  /** Text direction of the document. Default 'ltr'. */
+  direction?: 'ltr' | 'rtl' | 'auto';
+  /** UI language for toolbar labels (see `registerLocale`). Default 'en'. */
+  locale?: string;
 }
 
 const baseNodes: Record<string, NodeSpec> = {
@@ -34,12 +40,18 @@ export class Editor {
   readonly body: HTMLElement;
   /** Scroll area holding the ruler and the editable content. */
   readonly workspace: HTMLElement;
+  readonly config: EditorConfig;
+  private readOnly: boolean;
+  private transformers: NonNullable<EditorPlugin['transformTransaction']>[] = [];
   readonly uploadImage: (file: File) => Promise<string>;
   private commands = new Map<string, Command>();
+  private readOnlySafe = new Set<string>();
   
 
   constructor(config: EditorConfig) {
 
+    this.config = config;
+    this.readOnly = config.readOnly ?? false;
     this.uploadImage = config.uploadImage ?? readAsDataURL;
     const nodes: Record<string, NodeSpec> = { ...baseNodes };
     const marks: Record<string, MarkSpec> = {};
@@ -63,14 +75,25 @@ export class Editor {
     config.element.append(this.root);
 
     const byPriority = [...config.plugins].sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0));
+    this.transformers = byPriority.flatMap((p) => (p.transformTransaction ? [p.transformTransaction.bind(p)] : []));
     const pmPlugins = byPriority.flatMap((p) => p.setup?.(this) ?? []);
     const doc = this.parseHTML(config.content ?? '');
     const state = EditorState.create({ doc, plugins: pmPlugins });
 
     this.view = new EditorView(content, {
       state,
-      attributes: { 'data-placeholder': config.placeholder ?? '' },
+      editable: () => !this.readOnly,
+      attributes: {
+        'data-placeholder': config.placeholder ?? '',
+        role: 'textbox',
+        'aria-multiline': 'true',
+        'aria-label': config.placeholder || 'Rich text editor',
+        dir: config.direction ?? 'ltr',
+      },
       dispatchTransaction: (tr) => {
+        if (tr.docChanged && !tr.getMeta('wy-raw')) {
+          for (const t of this.transformers) tr = t(tr, this.view.state);
+        }
         const next = this.view.state.apply(tr);
         this.view.updateState(next);
         this.toolbar.update(next);
@@ -82,15 +105,19 @@ export class Editor {
     this.toolbar = new Toolbar(this, items);
     this.root.prepend(this.toolbar.el);
     this.toolbar.update(this.view.state);
+    if (this.readOnly) this.root.classList.add('is-readonly');
   }
 
-  registerCommand(name: string, command: Command): void {
+  /** `readOnlySafe` commands (e.g. adding comments) keep working in read-only mode. */
+  registerCommand(name: string, command: Command, options: { readOnlySafe?: boolean } = {}): void {
     this.commands.set(name, command);
+    if (options.readOnlySafe) this.readOnlySafe.add(name);
   }
 
   execute(name: string, ...args: any[]): boolean {
     const cmd = this.commands.get(name);
     if (!cmd) throw new Error(`Unknown command: ${name}`);
+    if (this.readOnly && !this.readOnlySafe.has(name)) return false;
     const result = cmd(this, ...args);
     this.view.focus();
     return result;
@@ -108,6 +135,16 @@ export class Editor {
     const state = EditorState.create({ doc, plugins: this.view.state.plugins });
     this.view.updateState(state);
     this.toolbar.update(state);
+  }
+
+  get isReadOnly(): boolean {
+    return this.readOnly;
+  }
+
+  setReadOnly(value: boolean): void {
+    this.readOnly = value;
+    this.root.classList.toggle('is-readonly', value);
+    this.view.dispatch(this.view.state.tr.setMeta('addToHistory', false)); // re-evaluate `editable`
   }
 
   getStats(): Stats {

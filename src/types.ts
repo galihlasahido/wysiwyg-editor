@@ -1,5 +1,5 @@
 import type { MarkSpec, NodeSpec } from 'prosemirror-model';
-import type { EditorState, Plugin as PMPlugin } from 'prosemirror-state';
+import type { EditorState, Plugin as PMPlugin, Transaction } from 'prosemirror-state';
 import type { Editor } from './editor';
 
 export type Command = (editor: Editor, ...args: any[]) => boolean;
@@ -40,4 +40,9 @@ export interface EditorPlugin {
   /** Called once the schema is built. Returns ProseMirror plugins and may register commands. */
   setup?(editor: Editor): PMPlugin[] | void;
   toolbar?: ToolbarItem[];
+  /**
+   * Rewrite a user transaction before it is applied (used by track changes). Not called for transactions
+   * carrying the `wy-raw` meta, so a plugin can apply its own edits without re-entering itself.
+   */
+  transformTransaction?(tr: Transaction, state: EditorState): Transaction;
 }
