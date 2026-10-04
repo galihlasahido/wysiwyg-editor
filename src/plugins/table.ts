@@ -1,4 +1,5 @@
 import { mergeCells, splitCell, toggleHeaderRow, setCellAttr, addColumnAfter, addRowAfter, deleteColumn, deleteRow, deleteTable, columnResizing, tableEditing, tableNodes } from 'prosemirror-tables';
+import { TextSelection } from 'prosemirror-state';
 import type { EditorPlugin } from '../types';
 import { normalizeColor } from './colors';
 
@@ -19,7 +20,15 @@ export const Table: EditorPlugin = {
       const { state, dispatch } = e.view;
       const makeRow = () => table_row.create(null, Array.from({ length: cols }, () => table_cell.createAndFill()!));
       const node = table.create(null, Array.from({ length: rows }, makeRow));
-      dispatch(state.tr.replaceSelectionWith(node).scrollIntoView());
+      const from = state.selection.from;
+      const tr = state.tr.replaceSelectionWith(node);
+      // Like a word processor: the cursor goes into the first cell, so the table tools are ready to use.
+      let start = -1;
+      tr.doc.nodesBetween(Math.max(0, from - 1), Math.min(tr.doc.content.size, tr.mapping.map(from) + 1), (n, pos) => {
+        if (start < 0 && n.type === table) start = pos;
+      });
+      if (start >= 0) tr.setSelection(TextSelection.near(tr.doc.resolve(start + 4)));
+      dispatch(tr.scrollIntoView());
       return true;
     });
     const wrap = (cmd: typeof addRowAfter) => (e: typeof editor) => cmd(e.view.state, e.view.dispatch);

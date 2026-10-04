@@ -121,6 +121,17 @@ export function TrackChanges(options: TrackChangesOptions = {}): EditorPlugin {
       editor.registerCommand('setTracking', (_e, on: boolean) => ((enabled = !!on), editor.view.dispatch(editor.view.state.tr.setMeta('addToHistory', false)), true));
       editor.registerCommand('acceptChange', (e) => resolve(e, true, 'selection'));
       editor.registerCommand('rejectChange', (e) => resolve(e, false, 'selection'));
+      const go = (forward: boolean) => {
+        const { state, dispatch } = editor.view;
+        const list = getChanges(state.doc);
+        if (!list.length) return false;
+        const { from, to } = state.selection;
+        const target = forward ? list.find((c) => c.from >= to && c.from > from) ?? list[0] : [...list].reverse().find((c) => c.to <= from) ?? list[list.length - 1];
+        dispatch(state.tr.setSelection(TextSelection.create(state.doc, target.from, target.to)).scrollIntoView());
+        return true;
+      };
+      editor.registerCommand('nextChange', () => go(true), { readOnlySafe: true });
+      editor.registerCommand('prevChange', () => go(false), { readOnlySafe: true });
       editor.registerCommand('acceptAll', (e) => resolve(e, true, 'all'));
       editor.registerCommand('rejectAll', (e) => resolve(e, false, 'all'));
     },

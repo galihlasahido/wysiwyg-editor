@@ -1,5 +1,6 @@
 import type { EditorState } from 'prosemirror-state';
 import type { Editor } from './editor';
+import { hasIcon, icon } from './icons';
 import type { ToolbarItem } from './types';
 
 export class Toolbar {
@@ -68,7 +69,8 @@ export class Toolbar {
     btn.title = label;
     btn.setAttribute('aria-label', label);
     // Icons are developer-supplied markup; a label (possibly from a locale file) is always plain text.
-    if (item.icon) btn.innerHTML = item.icon;
+    if (hasIcon(item.name)) btn.innerHTML = icon(item.name, 18);
+    else if (item.icon) btn.innerHTML = item.icon;
     else btn.textContent = label;
     // Keep editor selection when clicking toolbar buttons.
     btn.addEventListener('mousedown', (e) => e.preventDefault());

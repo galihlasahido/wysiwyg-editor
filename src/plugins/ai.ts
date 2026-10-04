@@ -53,6 +53,7 @@ export function AIAssistant(options: AIOptions): EditorPlugin {
   return {
     name: 'ai',
     setup(editor: Editor) {
+      editor.extensions.aiActions = actions.map((a) => ({ id: a.id, label: a.label }));
       let controller: AbortController | null = null;
       let panel!: HTMLElement;
       let output = '';

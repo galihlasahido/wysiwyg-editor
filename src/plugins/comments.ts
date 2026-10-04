@@ -94,6 +94,30 @@ export function Comments(options: CommentsOptions = {}): CommentsPlugin {
     },
     setup(editor: Editor) {
       const safe = { readOnlySafe: true };
+      let hiddenByUser = false;
+      let rerender = () => {};
+      const sortedAnchors = () => [...findAnchors(editor.view.state.doc).values()].filter((a) => store.get(a.id)).sort((a, b) => a.from - b.from);
+      const goTo = (a: Anchor) => editor.view.dispatch(editor.view.state.tr.setSelection(TextSelection.create(editor.view.state.doc, a.from, a.to)).scrollIntoView());
+      editor.registerCommand('toggleComments', () => ((hiddenByUser = !hiddenByUser), rerender(), true), safe);
+      editor.registerCommand('nextComment', () => {
+        const list = sortedAnchors();
+        if (!list.length) return false;
+        const pos = editor.view.state.selection.to;
+        goTo(list.find((a) => a.from >= pos) ?? list[0]); // wraps around
+        return true;
+      }, safe);
+      editor.registerCommand('prevComment', () => {
+        const list = sortedAnchors();
+        if (!list.length) return false;
+        const pos = editor.view.state.selection.from;
+        goTo([...list].reverse().find((a) => a.to <= pos) ?? list[list.length - 1]);
+        return true;
+      }, safe);
+      editor.registerCommand('deleteCurrentComment', (e) => {
+        const { from } = e.view.state.selection;
+        const at = sortedAnchors().find((a) => a.from <= from && from <= a.to);
+        return at ? e.execute('deleteComment', at.id) : false;
+      }, safe);
       editor.registerCommand('addComment', (e, text?: string) => {
         const { state, dispatch } = e.view;
         const { from, to, empty } = state.selection;
@@ -133,12 +157,13 @@ export function Comments(options: CommentsOptions = {}): CommentsPlugin {
               const anchors = findAnchors(view.state.doc);
               const threads = store.list().filter((t) => anchors.has(t.id)).sort((a, b) => anchors.get(a.id)!.from - anchors.get(b.id)!.from);
               panel.replaceChildren();
-              panel.hidden = store.list().length === 0;
-              for (const t of threads) panel.append(card(t, anchors.get(t.id)!));
+              panel.hidden = hiddenByUser || store.list().length === 0;
+              const cursor = view.state.selection.from;
+              for (const t of threads) panel.append(card(t, anchors.get(t.id)!, cursor));
             };
-            const card = (t: CommentThread, a: Anchor) => {
+            const card = (t: CommentThread, a: Anchor, cursor: number) => {
               const el = document.createElement('div');
-              el.className = 'wy-comment-card' + (t.resolved ? ' is-resolved' : '');
+              el.className = 'wy-comment-card' + (t.resolved ? ' is-resolved' : '') + (a.from <= cursor && cursor <= a.to ? ' is-current' : '');
               const add = (cls: string, text: string, tag = 'div') => {
                 const n = document.createElement(tag);
                 n.className = cls;
@@ -175,6 +200,7 @@ export function Comments(options: CommentsOptions = {}): CommentsPlugin {
               });
               return el;
             };
+            rerender = render;
             const unsub = store.subscribe(render);
             render();
             return { update: render, destroy: () => (unsub(), panel.remove()) };

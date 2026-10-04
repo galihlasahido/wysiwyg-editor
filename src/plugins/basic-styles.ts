@@ -8,6 +8,8 @@ const defs = [
   { name: 'underline', key: 'Mod-u', label: 'Underline', icon: '<u>U</u>' },
   { name: 'strike', key: 'Mod-Shift-x', label: 'Strikethrough', icon: '<s>S</s>' },
   { name: 'code', key: 'Mod-e', label: 'Inline code', icon: '&lt;/&gt;' },
+  { name: 'subscript', key: 'Mod-,', label: 'Subscript', icon: 'x<sub>2</sub>' },
+  { name: 'superscript', key: 'Mod-.', label: 'Superscript', icon: 'x<sup>2</sup>' },
 ] as const;
 
 export const BasicStyles: EditorPlugin = {
@@ -25,6 +27,9 @@ export const BasicStyles: EditorPlugin = {
     underline: { parseDOM: [{ tag: 'u' }, { style: 'text-decoration=underline' }], toDOM: () => ['u', 0] },
     strike: { parseDOM: [{ tag: 's' }, { tag: 'del' }, { tag: 'strike' }], toDOM: () => ['s', 0] },
     code: { parseDOM: [{ tag: 'code' }], toDOM: () => ['code', 0] },
+    // A text cannot be both at once.
+    subscript: { excludes: 'superscript', parseDOM: [{ tag: 'sub' }, { style: 'vertical-align=sub' }], toDOM: () => ['sub', 0] },
+    superscript: { excludes: 'subscript', parseDOM: [{ tag: 'sup:not([data-footnote])' }, { style: 'vertical-align=super' }], toDOM: () => ['sup', 0] },
   },
   setup(editor) {
     const keys: Record<string, any> = {};

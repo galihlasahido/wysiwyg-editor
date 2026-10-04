@@ -42,3 +42,4 @@ export { Templates, DEFAULT_TEMPLATES } from './templates';
 export type { DocTemplate } from './templates';
 export { ParagraphFormat, setBlockAttrs, currentBlock } from './paragraph';
 export type { BlockAttrs } from './helpers';
+export { Office } from './office';

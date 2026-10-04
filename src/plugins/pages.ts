@@ -1,6 +1,7 @@
 import { Plugin, PluginKey } from 'prosemirror-state';
 import { Decoration, DecorationSet, type EditorView } from 'prosemirror-view';
 import { keymap } from 'prosemirror-keymap';
+import { openDialog } from '../dialog';
 import { Ruler } from '../ruler';
 import type { EditorPlugin } from '../types';
 
@@ -140,10 +141,10 @@ interface LineGroup { left: number; top: number; height: number; viewTop: number
 
 /**
  * Visual lines of a paragraph: rects of its text nodes and inline atoms (ignoring page-break widgets) grouped
- * by vertical overlap. `top` is relative to the block and corrected for widgets already inside it, so the
- * result does not change when a break is inserted.
+ * by vertical overlap. `top` is relative to the block, in unzoomed CSS px, and corrected for widgets already inside
+ * it, so the result does not change when a break is inserted. `viewTop`/`height` stay in screen px (for posAtCoords).
  */
-function measureLines(dom: HTMLElement, blockTop: number, adj: (top: number) => number): LineGroup[] {
+function measureLines(dom: HTMLElement, blockTop: number, adj: (top: number) => number, scale: number): LineGroup[] {
   const rects: DOMRect[] = [];
   const walker = document.createTreeWalker(dom, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT, {
     acceptNode: (n) =>
@@ -167,7 +168,7 @@ function measureLines(dom: HTMLElement, blockTop: number, adj: (top: number) => 
     if (g && center >= g.viewTop && center <= g.bottom) {
       g.bottom = Math.max(g.bottom, r.bottom);
       g.left = Math.min(g.left, r.left);
-    } else groups.push({ top: r.top - blockTop - adj(r.top), bottom: r.bottom, left: r.left, viewTop: r.top });
+    } else groups.push({ top: (r.top - blockTop) / scale - adj(r.top / scale), bottom: r.bottom, left: r.left, viewTop: r.top });
   }
   return groups.map((g) => ({ left: g.left, top: g.top, height: g.bottom - g.viewTop, viewTop: g.viewTop }));
 }
@@ -179,6 +180,10 @@ export function Pages(options: PageOptions = {}): EditorPlugin {
   const settings = {
     size: options.size ?? ('a4' as PageSizeName),
     orientation: options.orientation ?? ('portrait' as 'portrait' | 'landscape'),
+    // Editable at runtime (Header & Footer dialog, Page Numbers menu).
+    header: options.header ?? '',
+    footer: options.footer ?? 'Page {page} of {pages}',
+    paged: true,
     margins: { top: 96, right: 96, bottom: 96, left: 96, ...options.margins } as Margins,
   };
   const dims = () => {
@@ -197,12 +202,10 @@ export function Pages(options: PageOptions = {}): EditorPlugin {
       },
     },
     setup(editor) {
-      const header = options.header ?? '';
-      const footer = options.footer ?? 'Page {page} of {pages}';
       const headerFor = (page: number, pages: number) =>
-        fill(page === 1 && options.differentFirstPage ? options.firstHeader ?? '' : header, page, pages);
+        fill(page === 1 && options.differentFirstPage ? options.firstHeader ?? '' : settings.header, page, pages);
       const footerFor = (page: number, pages: number) =>
-        fill(page === 1 && options.differentFirstPage ? options.firstFooter ?? '' : footer, page, pages);
+        fill(page === 1 && options.differentFirstPage ? options.firstFooter ?? '' : settings.footer, page, pages);
       const root = editor.root;
       root.classList.add('wy-paged');
       root.style.setProperty('--wy-height', options.height ?? '80vh');
@@ -253,8 +256,8 @@ export function Pages(options: PageOptions = {}): EditorPlugin {
         width: dims().width,
         height: dims().height,
         margins: { ...settings.margins },
-        header: options.header ?? '',
-        footer: options.footer ?? 'Page {page} of {pages}',
+        header: settings.header,
+        footer: settings.footer,
         differentFirstPage: !!options.differentFirstPage,
         firstHeader: options.firstHeader ?? '',
         firstFooter: options.firstFooter ?? '',
@@ -270,6 +273,67 @@ export function Pages(options: PageOptions = {}): EditorPlugin {
         window.print();
         return true;
       });
+      // ---- Office-style page commands
+      const PRESETS: Record<string, Partial<Margins>> = {
+        normal: { top: 96, bottom: 96, left: 96, right: 96 },
+        narrow: { top: 48, bottom: 48, left: 48, right: 48 },
+        moderate: { top: 96, bottom: 96, left: 72, right: 72 },
+        wide: { top: 96, bottom: 96, left: 192, right: 192 },
+      };
+      editor.registerCommand('pageMarginPreset', (e, name: string) => (PRESETS[name] ? e.execute('pageMargins', PRESETS[name]) : false));
+      editor.registerCommand('pageColor', (e, color: string) => {
+        if (color && !/^#[0-9a-f]{3,8}$/i.test(color)) return false; // only plain hex colors reach the stylesheet
+        if (color) e.root.style.setProperty('--wy-page-bg', color);
+        else e.root.style.removeProperty('--wy-page-bg');
+        e.view.dispatch(e.view.state.tr.setMeta('addToHistory', false));
+        return true;
+      });
+      editor.registerCommand('setHeaderFooter', (e, v: { header?: string; footer?: string }) => {
+        if (typeof v?.header === 'string') settings.header = v.header.slice(0, 200);
+        if (typeof v?.footer === 'string') settings.footer = v.footer.slice(0, 200);
+        refresh(true);
+        e.view.dispatch(e.view.state.tr.setMeta('addToHistory', false));
+        return true;
+      });
+      editor.registerCommand('pageNumberPreset', (e, where: 'bottom' | 'bottom-total' | 'top' | 'none') => {
+        const NUMBER = /\s*Page \{page\}( of \{pages\})?/g; // remove any previous page number text first
+        const strip = (t: string) => t.replace(NUMBER, '').trim();
+        const header = strip(settings.header);
+        const footer = strip(settings.footer);
+        if (where === 'none') return e.execute('setHeaderFooter', { header, footer });
+        if (where === 'top') return e.execute('setHeaderFooter', { header: `${header} Page {page}`.trim(), footer });
+        if (where === 'bottom' || where === 'bottom-total') return e.execute('setHeaderFooter', { header, footer: `${footer} ${where === 'bottom' ? 'Page {page}' : 'Page {page} of {pages}'}`.trim() });
+        return false;
+      });
+      editor.registerCommand('headerFooterDialog', (e) => {
+        const form = document.createElement('div');
+        const field = (label: string, value: string) => {
+          const l = document.createElement('label');
+          l.textContent = label;
+          const i = document.createElement('input');
+          i.type = 'text';
+          i.value = value;
+          l.append(i);
+          form.append(l);
+          return i;
+        };
+        const h = field('Header (use {page} and {pages})', settings.header);
+        const f = field('Footer', settings.footer);
+        openDialog(e.root, {
+          title: e.t('hf', 'Header & Footer'),
+          body: form,
+          actions: [{ label: 'Cancel' }, { label: 'OK', primary: true, onClick: () => e.execute('setHeaderFooter', { header: h.value, footer: f.value }) }],
+        });
+        return true;
+      });
+      editor.registerCommand('togglePages', (e) => {
+        settings.paged = !settings.paged;
+        e.root.classList.toggle('wy-paged', settings.paged);
+        if (!settings.paged) delete e.root.dataset.pages;
+        refresh(true);
+        e.view.dispatch(e.view.state.tr.setMeta('addToHistory', false));
+        return true;
+      }, { readOnlySafe: true });
       editor.registerCommand('pageBreak', (e) => {
         const { state, dispatch } = e.view;
         dispatch(state.tr.replaceSelectionWith(e.schema.nodes.page_break.create()).scrollIntoView());
@@ -326,16 +390,28 @@ export function Pages(options: PageOptions = {}): EditorPlugin {
           const alignNestedWidgets = () => {
             const page = editor.root.querySelector<HTMLElement>('.wy-content')?.getBoundingClientRect();
             if (!page) return;
+            const scale = page.width / dims().width || 1; // lengths set here live in the zoomed element's own px
             for (const w of view.dom.querySelectorAll<HTMLElement>('.wy-page-break')) {
               if (w.parentElement === view.dom) continue; // top-level widgets are laid out by CSS
-              w.style.width = `${page.width}px`;
+              w.style.width = `${dims().width}px`;
               w.style.marginLeft = '0px';
               w.style.marginRight = '0px';
-              w.style.marginLeft = `${page.left - w.getBoundingClientRect().left}px`;
+              w.style.marginLeft = `${(page.left - w.getBoundingClientRect().left) / scale}px`;
             }
           };
           const measure = (force = false) => {
             const { doc } = view.state;
+            if (!settings.paged) {
+              // "Separate Pages" is off: remove our widgets once and stop measuring.
+              if (pagesKey.getState(view.state)?.find().length) {
+                lastSig = '';
+                view.dispatch(view.state.tr.setMeta(pagesKey, DecorationSet.empty).setMeta('addToHistory', false));
+              }
+              return;
+            }
+            // With on-screen zoom, rects are in screen px; convert every length back to unzoomed CSS px.
+            const scale = pageEl().getBoundingClientRect().width / dims().width || 1;
+            const S = (n: number) => n / scale;
             const metrics: BlockMetric[] = [];
             const positions: number[] = [];
             const anchors: (LineGroup[] | undefined)[] = [];
@@ -347,17 +423,18 @@ export function Pages(options: PageOptions = {}): EditorPlugin {
             // removing the height of our own page widgets. Unlike `rect.height + margin` this includes margins that
             // collapse out of their box (e.g. a <p> inside an <li>), so it matches what the layout really consumes.
             // `:scope >` matters: a break widget contains its own header/footer divs, which must not be counted twice.
-            const widgetRects = [...view.dom.querySelectorAll<HTMLElement>(':scope > .wy-page-header, :scope > .wy-page-end, .wy-page-break')].map((w) =>
-              (w.closest('tr.wy-page-break-row, li.wy-page-break-item') ?? w).getBoundingClientRect(),
-            );
+            const widgetRects = [...view.dom.querySelectorAll<HTMLElement>(':scope > .wy-page-header, :scope > .wy-page-end, .wy-page-break')].map((w) => {
+              const r = (w.closest('tr.wy-page-break-row, li.wy-page-break-item') ?? w).getBoundingClientRect();
+              return { bottom: S(r.bottom), height: S(r.height) };
+            });
             const flat = (y: number) => y - widgetRects.reduce((t, r) => (r.bottom <= y + 0.5 ? t + r.height : t), 0);
-            const pmTop = flat(view.dom.getBoundingClientRect().top);
+            const pmTop = flat(S(view.dom.getBoundingClientRect().top));
 
             interface Unit { top: number; metric: BlockMetric; lastMargin: number }
             const units: Unit[] = [];
             const push = (top: number, metric: BlockMetric, pos: number, end: number, mode: 'block' | 'row' | 'item', colCount: number, lastMargin: number, lines?: LineGroup[]) => {
               if (lines) anchors[units.length] = lines;
-              units.push({ top: flat(top), metric, lastMargin });
+              units.push({ top: flat(S(top)), metric, lastMargin });
               positions.push(pos);
               blockEnds.push(end);
               modes.push(mode);
@@ -388,15 +465,18 @@ export function Pages(options: PageOptions = {}): EditorPlugin {
                 return;
               }
               // Page-break widgets already placed inside a paragraph must not count toward its size.
-              const inner = [...dom.querySelectorAll<HTMLElement>('.wy-page-break')].map((w) => w.getBoundingClientRect());
+              const inner = [...dom.querySelectorAll<HTMLElement>('.wy-page-break')].map((w) => {
+                const r = w.getBoundingClientRect();
+                return { bottom: S(r.bottom), height: S(r.height) };
+              });
               const innerHeight = inner.reduce((t, r) => t + r.height, 0);
               const adj = (top: number) => inner.reduce((t, r) => (r.bottom <= top + 0.5 ? t + r.height : t), 0);
               const metric: BlockMetric = { height: 0, breakAfter: node.type.name === 'page_break' };
               let lines: LineGroup[] | undefined;
               if (node.type.name === 'paragraph' && node.childCount > 0) {
-                const groups = measureLines(dom, rect.top, adj);
+                const groups = measureLines(dom, rect.top, adj, scale);
                 if (groups.length >= 4) {
-                  const bottom = rect.height - innerHeight;
+                  const bottom = S(rect.height) - innerHeight;
                   metric.lines = groups.map((g, i) => (i + 1 < groups.length ? groups[i + 1].top : bottom) - (i === 0 ? 0 : g.top));
                   lines = groups;
                 }
@@ -409,7 +489,7 @@ export function Pages(options: PageOptions = {}): EditorPlugin {
 
             // Bottom edge of the last content element (widgets of ours excluded), in flat coordinates.
             const lastEl = [...view.dom.children].filter((c) => !c.matches('.wy-page-header, .wy-page-end, .wy-page-break')).pop();
-            const contentBottom = lastEl ? flat(lastEl.getBoundingClientRect().bottom) : pmTop;
+            const contentBottom = lastEl ? flat(S(lastEl.getBoundingClientRect().bottom)) : pmTop;
 
             units.forEach((u, i) => {
               const next = units[i + 1];

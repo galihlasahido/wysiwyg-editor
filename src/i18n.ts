@@ -31,6 +31,24 @@ registerLocale('id', {
   'pageOrientation.portrait': 'Potret', 'pageOrientation.landscape': 'Lanskap', pageBreak: 'Pemisah halaman (Ctrl+Enter)', print: 'Cetak / Simpan sebagai PDF',
   comment: 'Tambah komentar', trackChanges: 'Mode saran', acceptAll: 'Terima semua perubahan', rejectAll: 'Tolak semua perubahan', versions: 'Riwayat versi',
   ai: 'Asisten AI', direction: 'Arah teks', template: 'Templat',
+  // ribbon
+  ribbon: 'Pita', collapseRibbon: 'Ciutkan pita', zoom: 'Perbesar/perkecil', showShortcuts: 'Pintasan keyboard', wordCount: 'Hitung kata',
+  'tab.file': 'Berkas', 'tab.home': 'Beranda', 'tab.insert': 'Sisipkan', 'tab.layout': 'Tata letak', 'tab.references': 'Referensi', 'tab.review': 'Tinjau', 'tab.view': 'Tampilan', 'tab.help': 'Bantuan', 'tab.table': 'Tabel',
+  'group.new': 'Baru', 'group.export': 'Ekspor', 'group.undo': 'Urungkan', 'group.clipboard': 'Papan klip', 'group.font': 'Font', 'group.paragraph': 'Paragraf', 'group.styles': 'Gaya', 'group.editing': 'Penyuntingan',
+  'group.pages': 'Halaman', 'group.tables': 'Tabel', 'group.illustrations': 'Ilustrasi', 'group.links': 'Tautan', 'group.toc': 'Daftar isi', 'group.comments': 'Komentar', 'group.hf': 'Header & Footer', 'group.blocks': 'Blok',
+  'group.symbols': 'Simbol', 'group.emoji': 'Emoji', 'group.setup': 'Pengaturan halaman', 'group.background': 'Latar halaman', 'group.notes': 'Catatan kaki', 'group.proofing': 'Pemeriksaan', 'group.ai': 'AI',
+  'group.tracking': 'Pelacakan', 'group.history': 'Riwayat', 'group.views': 'Tampilan dokumen', 'group.zoom': 'Zoom', 'group.show': 'Tampilkan', 'group.dark': 'Mode gelap', 'group.help': 'Bantuan', 'group.rows': 'Baris & kolom', 'group.merge': 'Gabung', 'group.style': 'Gaya tabel',
+  'r.new': 'Baru', 'r.html': 'HTML', 'r.md': 'Markdown', 'r.opendocx': 'Buka .docx', 'r.docx': 'Ekspor .docx', 'r.paste': 'Tempel', 'r.cut': 'Potong', 'r.copy': 'Salin', 'r.formatPainter': 'Kuas format',
+  'r.grow': 'Perbesar font', 'r.shrink': 'Perkecil font', 'r.clear': 'Hapus semua format', 'r.textColor': 'Warna font', 'r.highlight': 'Warna sorot', 'r.outdent': 'Kurangi indentasi', 'r.indent': 'Tambah indentasi',
+  'r.lineSpacing': 'Spasi baris', 'r.find': 'Cari', 'r.replace': 'Ganti', 'r.select': 'Pilih semua', 'r.pageBreak': 'Pemisah halaman', 'r.table': 'Tabel', 'r.picture': 'Gambar', 'r.link': 'Tautan', 'r.toc': 'Daftar isi',
+  'r.comment': 'Komentar baru', 'r.hf': 'Header & Footer', 'r.pageNumber': 'Nomor halaman', 'r.horizontalRule': 'Garis horizontal', 'r.blockQuote': 'Kutipan', 'r.codeBlock': 'Blok kode', 'r.symbol': 'Simbol', 'r.emoji': 'Emoji',
+  'r.margins': 'Margin', 'r.orientation': 'Orientasi', 'r.size': 'Ukuran', 'r.breaks': 'Pemisah', 'r.indentLeft': 'Kiri', 'r.indentRight': 'Kanan', 'r.spaceBefore': 'Sebelum', 'r.spaceAfter': 'Sesudah', 'r.pageColor': 'Warna halaman',
+  'r.updateToc': 'Perbarui daftar', 'r.removeToc': 'Hapus daftar', 'r.footnote': 'Sisipkan catatan kaki', 'r.endnote': 'Sisipkan catatan akhir', 'r.spellcheck': 'Ejaan', 'r.wordCount': 'Hitung kata', 'r.ai': 'Asisten AI',
+  'r.prevComment': 'Sebelumnya', 'r.nextComment': 'Berikutnya', 'r.deleteComment': 'Hapus', 'r.showComments': 'Tampilkan komentar', 'r.trackChanges': 'Lacak perubahan', 'r.accept': 'Terima', 'r.reject': 'Tolak',
+  'r.prevChange': 'Sebelumnya', 'r.nextChange': 'Berikutnya', 'r.versions': 'Versi', 'r.pages': 'Halaman terpisah', 'r.reading': 'Tampilan baca', 'r.zoom100': '100%', 'r.ruler': 'Penggaris', 'r.nav': 'Navigasi',
+  'r.hfv': 'Header & Footer', 'r.fnv': 'Catatan kaki', 'r.theme': 'Mode gelap', 'r.bg': 'Ganti latar', 'r.shortcuts': 'Pintasan keyboard', 'r.about': 'Tentang', 'r.print': 'Cetak / PDF',
+  'r.addRow': 'Sisipkan baris', 'r.addColumn': 'Sisipkan kolom', 'r.deleteRow': 'Hapus baris', 'r.deleteColumn': 'Hapus kolom', 'r.deleteTable': 'Hapus tabel', 'r.mergeCells': 'Gabung sel', 'r.splitCell': 'Pisah sel',
+  'r.toggleHeaderRow': 'Baris judul', 'r.shading': 'Arsiran', 'none.textColor': 'Otomatis', 'none.highlight': 'Tanpa warna', 'none.pageColor': 'Otomatis', 'none.shading': 'Tanpa arsiran',
 });
 
 registerLocale('es', {

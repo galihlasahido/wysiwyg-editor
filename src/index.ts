@@ -1,14 +1,14 @@
 import './styles.css';
 import { Editor, type EditorConfig } from './editor';
 import { Pages, Outline, type PageOptions } from './plugins';
-import { ParagraphFormat, Direction, TableOfContents, Footnotes, SpellCheck, SpecialCharacters, FormatPainter, WordCount, FindReplace, Alignment, Autoformat, Colors, Fonts, TaskList, BasicStyles, Blocks, Essentials, Heading, Image, Link, List, Table } from './plugins';
+import { Office, ParagraphFormat, Direction, TableOfContents, Footnotes, SpellCheck, SpecialCharacters, FormatPainter, WordCount, FindReplace, Alignment, Autoformat, Colors, Fonts, TaskList, BasicStyles, Blocks, Essentials, Heading, Image, Link, List, Table } from './plugins';
 
 export { Editor } from './editor';
 export type { EditorConfig } from './editor';
 export type { EditorPlugin, ToolbarItem, Command } from './types';
 export * from './plugins';
 
-export const defaultPlugins = [Essentials, BasicStyles, Heading, Fonts, Alignment, Colors, List, TaskList, Blocks, Link, Image, Table, FindReplace, WordCount, SpecialCharacters, FormatPainter, Footnotes, TableOfContents, SpellCheck(), Direction, ParagraphFormat, Autoformat];
+export const defaultPlugins = [Essentials, BasicStyles, Heading, Fonts, Alignment, Colors, List, TaskList, Blocks, Link, Image, Table, FindReplace, WordCount, SpecialCharacters, FormatPainter, Footnotes, TableOfContents, SpellCheck(), Direction, ParagraphFormat, Office, Autoformat];
 
 /** Create an editor with the default feature set. */
 export function createEditor(
@@ -32,3 +32,7 @@ export { DocumentClient, ApiError, ConflictError, createHttpSaver } from './stor
 export type { RemoteDocument, ShareRole } from './storage';
 export { registerLocale, translate, isRtlLocale } from './i18n';
 export type { Locale } from './i18n';
+export { openDialog } from './dialog';
+export { Ribbon, DEFAULT_RIBBON } from './ribbon';
+export type { RibbonOptions, RibbonTab, RibbonGroup, RibbonControl } from './ribbon';
+export { icon, ICONS, hasIcon } from './icons';

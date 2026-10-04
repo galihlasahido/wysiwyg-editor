@@ -63,6 +63,20 @@ export const TableOfContents: EditorPlugin = {
       destroy() { views.delete(this); }
     }
 
+    editor.registerCommand('updateToc', (e) => {
+      for (const v of views) v.render(e.view.state.doc);
+      return views.size > 0;
+    });
+    editor.registerCommand('removeToc', (e) => {
+      const { state, dispatch } = e.view;
+      const tr = state.tr;
+      const spots: number[] = [];
+      state.doc.descendants((n, pos) => void (n.type.name === 'toc' && spots.push(pos)));
+      for (const pos of spots.reverse()) tr.delete(pos, pos + 1);
+      if (!tr.docChanged) return false;
+      dispatch(tr);
+      return true;
+    });
     editor.registerCommand('insertToc', (e) => {
       const { state, dispatch } = e.view;
       dispatch(state.tr.replaceSelectionWith(state.schema.nodes.toc.create()).scrollIntoView());

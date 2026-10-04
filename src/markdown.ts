@@ -93,6 +93,8 @@ const serializer = new MarkdownSerializer(
       close: (_s, mark) => `](${mark.attrs.href}${mark.attrs.title ? ` "${mark.attrs.title.replace(/"/g, '\\"')}"` : ''})`,
     },
     underline: noMark,
+    subscript: noMark,
+    superscript: noMark,
     font_family: noMark,
     font_size: noMark,
     text_color: noMark,

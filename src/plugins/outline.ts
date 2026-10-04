@@ -17,10 +17,13 @@ export function getOutline(doc: PMNode): OutlineItem[] {
 export const Outline: EditorPlugin = {
   name: 'outline',
   setup(editor) {
+    let panelEl: HTMLElement | null = null;
+    editor.registerCommand('toggleOutline', () => (panelEl ? ((panelEl.hidden = !panelEl.hidden), true) : false), { readOnlySafe: true });
     return [
       new Plugin({
         view(view) {
           const aside = document.createElement('aside');
+          panelEl = aside;
           aside.className = 'wy-outline';
           aside.setAttribute('aria-label', 'Document outline');
           editor.body.prepend(aside);

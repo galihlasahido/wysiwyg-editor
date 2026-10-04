@@ -3,6 +3,7 @@ import { EditorState } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { isRtlLocale, translate } from './i18n';
 import { Toolbar } from './toolbar';
+import { Ribbon, type RibbonOptions } from './ribbon';
 import { getStats, type Stats } from './plugins/word-count';
 import { markdownToDoc, docToMarkdown } from './markdown';
 import type { Command, EditorPlugin, ToolbarItem } from './types';
@@ -25,6 +26,10 @@ export interface EditorConfig {
   direction?: 'ltr' | 'rtl' | 'auto';
   /** UI language for toolbar labels (see `registerLocale`). Default 'en'. */
   locale?: string;
+  /** Show the Office-style tabbed ribbon instead of the compact toolbar. */
+  ribbon?: boolean | RibbonOptions;
+  /** Chrome theme. The paper follows it unless changed with `setPageDark`. Default 'light'. */
+  theme?: 'light' | 'dark';
 }
 
 const baseNodes: Record<string, NodeSpec> = {
@@ -35,7 +40,7 @@ const baseNodes: Record<string, NodeSpec> = {
 export class Editor {
   readonly schema: Schema;
   readonly view: EditorView;
-  readonly toolbar: Toolbar;
+  readonly toolbar: Toolbar | Ribbon;
   readonly root: HTMLElement;
   /** Flex row holding optional side panels (outline) and the workspace. */
   readonly body: HTMLElement;
@@ -69,6 +74,8 @@ export class Editor {
     this.root.className = 'wy-editor';
     const direction = config.direction ?? (isRtlLocale(config.locale) ? 'rtl' : 'ltr');
     this.root.dir = direction;
+    this.root.dataset.theme = config.theme ?? 'light';
+    this.root.dataset.page = config.theme ?? 'light';
     this.body = document.createElement('div');
     this.body.className = 'wy-body';
     this.workspace = document.createElement('div');
@@ -112,7 +119,7 @@ export class Editor {
     });
 
     const items = this.resolveToolbar(config);
-    this.toolbar = new Toolbar(this, items);
+    this.toolbar = config.ribbon ? new Ribbon(this, config.ribbon === true ? {} : config.ribbon) : new Toolbar(this, items);
     this.root.prepend(this.toolbar.el);
     this.toolbar.update(this.view.state);
     if (this.readOnly) this.root.classList.add('is-readonly');
@@ -168,6 +175,32 @@ export class Editor {
     this.readOnly = value;
     this.root.classList.toggle('is-readonly', value);
     this.view.dispatch(this.view.state.tr.setMeta('addToHistory', false)); // re-evaluate `editable`
+  }
+
+  get theme(): 'light' | 'dark' {
+    return this.root.dataset.theme === 'dark' ? 'dark' : 'light';
+  }
+
+  /** Dark chrome. The paper follows unless it was switched separately afterwards. */
+  setTheme(theme: 'light' | 'dark'): void {
+    this.root.dataset.theme = theme;
+    this.root.dataset.page = theme;
+    this.toolbar.update(this.view.state);
+  }
+
+  get isPageDark(): boolean {
+    return this.root.dataset.page === 'dark';
+  }
+
+  /** Make the paper dark or light independently of the chrome ("Switch Background"). */
+  setPageDark(dark: boolean): void {
+    this.root.dataset.page = dark ? 'dark' : 'light';
+    this.toolbar.update(this.view.state);
+  }
+
+  /** Whether a command is registered (used to hide ribbon buttons whose plugin is not installed). */
+  hasCommand(name: string): boolean {
+    return this.commands.has(name);
   }
 
   getStats(): Stats {

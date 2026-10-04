@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Icon sheet</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 24px; background: var(--bg); color: var(--fg); --bg: #fff; --fg: #1a1a1a; }
+    body.dark { --bg: #1f1f1f; --fg: #f0f0f0; --ic-accent: #6ea8ff; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; }
+    .cell { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 4px; border: 1px solid #8884; border-radius: 6px; font-size: 11px; text-align: center; word-break: break-all; }
+    .cell svg { width: 32px; height: 32px; }
+    .row { display: flex; gap: 8px; align-items: center; margin: 12px 0; }
+    .row svg { width: 16px; height: 16px; }
+    button { padding: 4px 10px; }
+  </style>
+</head>
+<body>
+  <button id="t">Toggle dark</button>
+  <div class="row" id="small"></div>
+  <div class="grid" id="grid"></div>
+  <script type="module">
+    import { ICONS, icon } from '../src/icons.ts';
+    const names = Object.keys(ICONS);
+    document.getElementById('grid').innerHTML = names.map((n) => `<div class="cell">${icon(n, 32)}<span>${n}</span></div>`).join('');
+    document.getElementById('small').innerHTML = ['undo','redo','bold','italic','underline','bulletList','insertTable','comment','find'].map((n) => icon(n, 16)).join('') + ' (16px)';
+    document.getElementById('t').onclick = () => document.body.classList.toggle('dark');
+    window.__count = names.length;
+  </script>
+</body>
+</html>

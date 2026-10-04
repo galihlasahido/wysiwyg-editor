@@ -9,7 +9,7 @@ Everything is opt-in plugins; the core is small. It is **not published to npm ye
 ```sh
 pnpm install
 pnpm dev        # demo at http://localhost:5173  (add ?collab=room&seed=1 to try two-tab collaboration)
-pnpm test       # 146 tests (unit, accessibility with axe-core, server integration)
+pnpm test       # 196 tests (unit, accessibility with axe-core, server integration)
 pnpm build      # library in dist/
 pnpm server     # reference backend on :8787
 ```
@@ -23,6 +23,8 @@ import 'wysiwyg-editor/style.css';
 const editor = createEditor({
   element: document.getElementById('editor')!,
   content: '<p>Hello</p>',
+  ribbon: true,                                                       // Office-style tabbed ribbon (default is a compact toolbar)
+  theme: 'light',                                                     // or 'dark'
   pages: { header: 'My document', footer: 'Page {page} of {pages}' }, // Google Docs-style pages (optional)
   outline: true,                                                      // heading outline sidebar (optional)
   onChange: (html) => console.log(html),
@@ -64,6 +66,18 @@ images (URL, upload, paste, drag & drop, resize, captions; pluggable `uploadImag
 (add/delete rows & columns, merge/split cells, header row, cell color) · special characters · format painter ·
 footnotes · @-mentions · table of contents · Markdown-style autoformat (`# `, `- `, `1. `, `> `, ` ``` `, `**bold**`) ·
 find & replace · word count · spell check toggle · templates · per-paragraph LTR/RTL.
+
+**Ribbon** (`ribbon: true`): tabs File, Home, Insert, Layout, References, Review, View, Help, plus a contextual
+Table tab that appears while the cursor is in a table. Each tab has labelled groups with large and small buttons, dropdown
+menus, color palettes, symbol/emoji pickers and numeric boxes (indent, spacing). Controls whose plugin is not installed are
+hidden. It has an SVG icon set (original, outline style), **Dark Mode** and **Switch Background** (chrome and paper are themed
+separately), **zoom** 25–500% (page layout stays exact), reading view, header/footer editing, page-number presets, margin
+presets, page color, subscript/superscript, clear formatting, font size steps, cut/copy/paste. Tabs and panels follow the
+WAI-ARIA tab/toolbar patterns. Customise with `ribbon: { tabs, onOpenDocx, onExportDocx }`.
+
+**Ruler** (paged view): cm scale with zero at the left margin, shaded margins you can drag, and Word-style paragraph
+markers: first-line ▼ and hanging ▲ with the left-indent box, and right indent. Drags preview with a guide line and commit once
+(one undo step); markers are keyboard-operable (arrows, Shift for 10px). Works at any zoom.
 
 **Paged view** (`pages: true | {...}`): A4/Letter/Legal, portrait/landscape, margins, per-page header and footer with
 `{page}`/`{pages}`, different first page, manual page breaks (Ctrl/Cmd+Enter), a ruler with draggable margins,
@@ -164,8 +178,11 @@ Plugins may set `priority` (keymap order) and `transformTransaction` (rewrite us
 - **.docx import** goes through mammoth: alignment, colors, page setup and comments are not imported. Export embeds
   `data:` images and fetches remote ones when CORS allows; otherwise it writes the alt text.
 - Image **cropping** is not implemented (resize and captions are).
+- Ribbon icons are drawn for this project (outline style, in the spirit of office suites); they are not Microsoft's assets.
+  Dictation, the Microsoft Editor and add-ins from Word's ribbon are not included. Zoom uses CSS `zoom` (Chrome, Safari, Firefox 126+).
+- Ribbon labels are translated for Indonesian only (toolbar labels also for Spanish and Arabic); menu entries stay English.
 - Translations cover toolbar labels in 3 languages and have not been reviewed by native speakers.
-- Tested with jsdom (unit), real Chrome (layout, collaboration) and axe-core. Not yet tested in Firefox/Safari or with screen readers.
+- Tested with jsdom (unit), real Chrome (layout, ruler dragging, zoom, collaboration) and axe-core. Not yet tested in Firefox/Safari or with screen readers.
 
 ## Security notes
 
