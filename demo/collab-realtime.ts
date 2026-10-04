@@ -2,7 +2,7 @@ import { Awareness } from 'y-protocols/awareness';
 import * as Y from 'yjs';
 import { createEditor, defaultPlugins } from '../src';
 import { Collaboration, linkAwareness, linkDocs } from '../src/collab';
-import { $, ARTICLE, button, el } from './samples';
+import { $, ARTICLE, button, el, codePanel } from './samples';
 
 const app = $('#app');
 const status = el('span', { class: 'status', textContent: 'Both editors are connected.' });
@@ -36,3 +36,13 @@ toggle.addEventListener('click', () => {
   toggle.textContent = connected ? 'Disconnect Bob' : 'Reconnect Bob';
   status.textContent = connected ? 'Both editors are connected.' : 'Bob is offline: edits are kept locally and merged on reconnect.';
 });
+
+$('#app').append(codePanel(`
+import * as Y from 'yjs';
+import { Collaboration, createWebSocketProvider } from 'wysiwyg-editor/collab';
+
+const ydoc = new Y.Doc();
+const provider = createWebSocketProvider('wss://host/collab/<id>?token=<token>', ydoc);
+await provider.synced;                         // create the editor after the first sync
+createEditor({ element, plugins: [...defaultPlugins, Collaboration({ ydoc, awareness: provider.awareness, user: { name, color } })] });
+`));

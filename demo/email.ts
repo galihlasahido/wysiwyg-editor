@@ -1,5 +1,5 @@
 import { createEditor, toEmailHTML, toEmailText } from '../src';
-import { $, button, el } from './samples';
+import { $, button, el, codePanel } from './samples';
 
 const subject = el('input', { class: 'out', value: 'Welcome aboard!', 'aria-label': 'Subject' });
 const preview = el('iframe', { class: 'preview', title: 'Email preview' });
@@ -41,3 +41,10 @@ $('#tabs').append(
 );
 subject.addEventListener('input', render);
 render();
+
+$('#app').append(codePanel(`
+import { toEmailHTML, toEmailText } from 'wysiwyg-editor';
+
+const html = toEmailHTML(editor.getHTML(), { width: 600 });   // tables + inline styles
+const text = toEmailText(editor.getHTML());                   // plain-text alternative
+`));

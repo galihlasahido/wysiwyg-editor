@@ -8,11 +8,16 @@ Everything is opt-in plugins; the core is small. It is **not published to npm ye
 
 ```sh
 pnpm install
-pnpm dev        # demo at http://localhost:5173  (add ?collab=room&seed=1 to try two-tab collaboration)
+pnpm dev        # the demo gallery at http://localhost:5173 (19 examples)
 pnpm test       # 196 tests (unit, accessibility with axe-core, server integration)
 pnpm build      # library in dist/
 pnpm server     # reference backend on :8787
 ```
+
+**Live demos:** https://galihlasahido.github.io/wysiwyg-editor/ — a landing page plus 19 small real pages (classic, inline and
+document editors, a headless editor, developer docs with runnable code blocks, a notebook, a playground, a README editor,
+real-time and asynchronous collaboration, Word import/export, email, merge fields, source editing, Markdown, AI, images, mobile).
+Each has a "Show the code" section.
 
 ## Quick start
 
@@ -74,6 +79,10 @@ hidden. It has an SVG icon set (original, outline style), **Dark Mode** and **Sw
 separately), **zoom** 25–500% (page layout stays exact), reading view, header/footer editing, page-number presets, margin
 presets, page color, subscript/superscript, clear formatting, font size steps, cut/copy/paste. Tabs and panels follow the
 WAI-ARIA tab/toolbar patterns. Customise with `ribbon: { tabs, onOpenDocx, onExportDocx }`.
+
+**Code**: `CodeBlocks()` adds a language per code block (`data-language`, Markdown fences), a dependency-free syntax
+highlighter (JS/TS, Python, JSON, CSS, HTML, shell, SQL; swap in your own), a header with language picker and Copy, custom
+header actions (the demos add a sandboxed "Run"), Tab/Shift+Tab indentation and Enter that keeps and extends indentation.
 
 **Ruler** (paged view): cm scale with zero at the left margin, shaded margins you can drag, and Word-style paragraph
 markers: first-line ▼ and hanging ▲ with the left-indent box, and right indent. Drags preview with a guide line and commit once
@@ -177,7 +186,8 @@ Plugins may set `priority` (keymap order) and `transformTransaction` (rewrite us
 - **PDF** is the browser's print dialog (Save as PDF), not a generated file.
 - **.docx import** goes through mammoth: alignment, colors, page setup and comments are not imported. Export embeds
   `data:` images and fetches remote ones when CORS allows; otherwise it writes the alt text.
-- Image **cropping** is not implemented (resize and captions are).
+- Image cropping, resize, captions and alt text are supported; the .docx export crops with canvas in browsers and exports the full image where canvas is unavailable.
+- Code blocks have no line numbers, and the built-in highlighter is a scanner, not a parser (no nested template literals or regex literals).
 - Ribbon icons are drawn for this project (outline style, in the spirit of office suites); they are not Microsoft's assets.
   Dictation, the Microsoft Editor and add-ins from Word's ribbon are not included. Zoom uses CSS `zoom` (Chrome, Safari, Firefox 126+).
 - Ribbon labels are translated for Indonesian only (toolbar labels also for Spanish and Arabic); menu entries stay English.

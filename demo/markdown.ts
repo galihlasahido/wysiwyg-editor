@@ -1,5 +1,5 @@
 import { createEditor } from '../src';
-import { $, el } from './samples';
+import { $, el, codePanel } from './samples';
 
 const md = el('textarea', { class: 'out', rows: 22, spellcheck: false, 'aria-label': 'Markdown' });
 $('#app').append(
@@ -19,3 +19,8 @@ md.addEventListener('input', () => {
   clearTimeout(timer);
   timer = setTimeout(() => editor.setMarkdown(md.value), 250);
 });
+
+$('#app').append(codePanel(`
+editor.getMarkdown();            // WYSIWYG -> Markdown
+editor.setMarkdown(markdown);    // Markdown -> WYSIWYG (raw HTML in Markdown is ignored)
+`));

@@ -59,3 +59,94 @@ export function button(label: string, onClick: () => void, primary = false): HTM
 
 export const $ = <T extends HTMLElement = HTMLElement>(sel: string) => document.querySelector(sel) as T;
 export type { Editor };
+
+// ---- code execution (demo only: the library never runs code) -----------------------------------------------------
+
+/** Source of the document that runs inside the kernel iframe. */
+const KERNEL_DOC = `<script>
+  const fmt = (v) => { if (typeof v === 'string') return v; try { return JSON.stringify(v, null, 2) ?? String(v); } catch { return String(v); } };
+  addEventListener('message', async (e) => {
+    const { id, code } = e.data;
+    const send = (type, extra) => parent.postMessage({ id, type, ...extra }, '*');
+    for (const k of ['log', 'info', 'warn', 'error']) {
+      console[k] = (...a) => send('log', { lines: [(k === 'error' || k === 'warn' ? k + ': ' : '') + a.map(fmt).join(' ')] });
+    }
+    try {
+      // Indirect eval runs in the global scope, so "var" and function declarations persist between runs.
+      const usesAwait = /\\bawait\\b/.test(code);
+      const value = await (0, eval)(usesAwait ? '(async () => {' + code + '\\n})()' : code);
+      if (value !== undefined && !usesAwait) send('log', { lines: ['→ ' + fmt(value)] });
+      send('done');
+    } catch (err) {
+      send('error', { message: String(err) });
+    }
+  });
+<\/script>`;
+
+/**
+ * A tiny JavaScript "kernel" in a sandboxed iframe (scripts allowed, no same-origin access). Code is posted in
+ * after load rather than embedded in srcdoc, so it cannot break out of the page markup.
+ */
+export class Kernel {
+  private frame!: HTMLIFrameElement;
+  private ready!: Promise<void>;
+  private pending = new Map<number, { lines: string[]; resolve: (r: { lines: string[]; error?: string }) => void; timer: ReturnType<typeof setTimeout> }>();
+  private seq = 0;
+  private onMessage = (e: MessageEvent) => {
+    if (e.source !== this.frame?.contentWindow || !e.data || typeof e.data.id !== 'number') return;
+    const job = this.pending.get(e.data.id);
+    if (!job) return;
+    if (e.data.type === 'log') job.lines.push(...(e.data.lines as string[]));
+    else {
+      clearTimeout(job.timer);
+      this.pending.delete(e.data.id);
+      job.resolve({ lines: job.lines, error: e.data.type === 'error' ? String(e.data.message) : undefined });
+    }
+  };
+
+  constructor(private timeoutMs = 4000) {
+    window.addEventListener('message', this.onMessage);
+    this.reset();
+  }
+
+  reset() {
+    this.frame?.remove();
+    for (const j of this.pending.values()) {
+      clearTimeout(j.timer);
+      j.resolve({ lines: j.lines, error: 'Kernel was reset' });
+    }
+    this.pending.clear();
+    this.frame = document.createElement('iframe');
+    this.frame.setAttribute('sandbox', 'allow-scripts');
+    this.frame.hidden = true;
+    this.frame.srcdoc = KERNEL_DOC;
+    this.ready = new Promise((resolve) => this.frame.addEventListener('load', () => resolve(), { once: true }));
+    document.body.append(this.frame);
+  }
+
+  async run(code: string): Promise<{ lines: string[]; error?: string }> {
+    await this.ready;
+    const id = ++this.seq;
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => {
+        this.pending.delete(id);
+        this.reset(); // an infinite loop cannot be interrupted, so replace the whole kernel
+        resolve({ lines: [], error: `Timed out after ${this.timeoutMs / 1000}s` });
+      }, this.timeoutMs);
+      this.pending.set(id, { lines: [], resolve, timer });
+      this.frame.contentWindow!.postMessage({ id, code }, '*');
+    });
+  }
+
+  destroy() {
+    window.removeEventListener('message', this.onMessage);
+    this.frame.remove();
+  }
+}
+
+/** A collapsible "show the code" panel with a snippet that matches what the page does. */
+export function codePanel(code: string, title = 'Show the code'): HTMLElement {
+  const pre = el('pre', { class: 'out' });
+  pre.textContent = code.trim();
+  return el('details', { class: 'panel code-panel', style: 'margin-top:16px' }, el('summary', { style: 'cursor:pointer;font-weight:600' }, title), pre);
+}

@@ -1,5 +1,5 @@
 import { BalloonToolbar, SlashCommands, createEditor, defaultPlugins } from '../src';
-import { $, ARTICLE, el } from './samples';
+import { $, ARTICLE, el, codePanel } from './samples';
 
 $('#app').append(
   el('div', { class: 'panel' }, el('h2', {}, 'Classic ', el('small', {}, '— toolbar on top')), el('div', { id: 'classic' })),
@@ -17,3 +17,9 @@ createEditor({
 });
 
 createEditor({ element: $('#document'), content: ARTICLE, ribbon: true, pages: { header: 'The case for small, modular editors', footer: 'Page {page} of {pages}', height: '70vh' }, outline: true });
+
+$('#app').append(codePanel(`
+createEditor({ element });                                              // classic
+createEditor({ element, toolbar: false, plugins: [...defaultPlugins, BalloonToolbar(), SlashCommands()] }); // inline
+createEditor({ element, ribbon: true, pages: true, outline: true });    // document
+`));

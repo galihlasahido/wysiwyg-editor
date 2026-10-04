@@ -1,5 +1,5 @@
 import { Comments, TrackChanges, Versions, createEditor, defaultPlugins } from '../src';
-import { $, el } from './samples';
+import { $, el, codePanel } from './samples';
 
 const now = Date.now();
 const H = 3600e3;
@@ -28,3 +28,13 @@ $('#app').append(
 );
 
 createEditor({ element: $('#editor'), content, plugins: [...defaultPlugins, comments, TrackChanges({ author: 'You' }), versions], ribbon: { initialTab: 'review' } });
+
+$('#app').append(codePanel(`
+const comments = Comments({ author: 'You', initial: savedThreads });
+createEditor({
+  element,
+  plugins: [...defaultPlugins, comments, TrackChanges({ author: 'You' }), Versions({ author: 'You' })],
+  ribbon: { initialTab: 'review' },
+});
+editor.execute('acceptAll');       // or rejectAll, nextChange, saveVersion, restoreVersion ...
+`));

@@ -1,5 +1,5 @@
 import { createEditor } from '../src';
-import { $, ARTICLE, button, el, makeImage } from './samples';
+import { $, ARTICLE, button, el, makeImage, codePanel } from './samples';
 
 const log = el('pre', { class: 'out', textContent: 'No file imported yet.' });
 const drop = el('div', { class: 'panel', style: 'border-style:dashed;text-align:center;padding:22px', textContent: 'Drop a .docx file here, or use the buttons below.' });
@@ -43,3 +43,9 @@ $('#actions').append(
     tmp.destroy();
   }),
 );
+
+$('#app').append(codePanel(`
+import { importDocx } from 'wysiwyg-editor/docx';
+
+const warnings = await importDocx(editor, file);   // one undoable step; returns conversion warnings
+`));

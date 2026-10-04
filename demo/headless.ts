@@ -1,5 +1,5 @@
 import { createEditor, defaultPlugins } from '../src';
-import { $, button, el } from './samples';
+import { $, button, el, codePanel } from './samples';
 
 const stats = el('pre', { class: 'out' });
 const bar = el('div', { class: 'actions' });
@@ -32,3 +32,10 @@ function refresh() {
 editor.view.dom.addEventListener('keyup', refresh);
 editor.view.dom.addEventListener('mouseup', refresh);
 refresh();
+
+$('#app').append(codePanel(`
+createEditor({ element, toolbar: false });      // no built-in UI
+
+button.onclick = () => editor.execute('bold');
+editor.view.state.selection;                    // read state for your own UI
+`));

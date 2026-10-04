@@ -1,5 +1,5 @@
 import { Comments, createEditor, defaultPlugins, download, exportHTML } from '../src';
-import { $, ARTICLE, button, el, makeImage } from './samples';
+import { $, ARTICLE, button, el, makeImage, codePanel } from './samples';
 
 const content = `${ARTICLE}
 <h2>Results</h2>
@@ -21,3 +21,11 @@ $('#actions').append(
   button('Download HTML', () => download(exportHTML(editor, { title: 'Annual report' }), 'report.html', 'text/html')),
   button('Download Markdown', () => download(editor.getMarkdown(), 'report.md', 'text/markdown')),
 );
+
+$('#app').append(codePanel(`
+import { exportDocx } from 'wysiwyg-editor/docx';
+
+download(await exportDocx(editor), 'report.docx');
+editor.execute('print');                 // browser print dialog with the real page margins
+download(exportHTML(editor), 'report.html', 'text/html');
+`));

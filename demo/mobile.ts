@@ -1,5 +1,5 @@
 import { createEditor } from '../src';
-import { $, ARTICLE, button, el } from './samples';
+import { $, ARTICLE, button, el, codePanel } from './samples';
 
 const frame = el('div', { class: 'phone' }, el('div', { id: 'editor' }));
 const touch = button('Touch-size controls: on', () => {
@@ -13,3 +13,11 @@ $('#app').append(
 );
 frame.classList.add('touch');
 createEditor({ element: $('#editor'), toolbar: ['bold', 'italic', 'underline', '|', 'heading', 'bulletList', 'orderedList', '|', 'link', 'image', 'insertTable'], content: ARTICLE });
+
+$('#app').append(codePanel(`
+createEditor({
+  element,
+  toolbar: ['bold', 'italic', '|', 'heading', 'bulletList', '|', 'link', 'image'],
+});
+// add class "touch" to a wrapper for 40px controls
+`));

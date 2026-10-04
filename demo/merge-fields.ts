@@ -1,5 +1,5 @@
 import { MergeFields, createEditor, defaultPlugins, getMergeFields, renderMergeFields } from '../src';
-import { $, el } from './samples';
+import { $, el, codePanel } from './samples';
 
 const FIELDS = [{ name: 'first_name', label: 'First name' }, { name: 'last_name', label: 'Last name' }, { name: 'company', label: 'Company' }, { name: 'plan', label: 'Plan' }, { name: 'renewal_date', label: 'Renewal date' }];
 const PEOPLE: Record<string, Record<string, string>> = {
@@ -35,3 +35,10 @@ function render() {
 }
 select.addEventListener('change', render);
 render();
+
+$('#app').append(codePanel(`
+createEditor({ element, plugins: [...defaultPlugins, MergeFields([{ name: 'first_name', label: 'First name' }])] });
+
+const html = renderMergeFields(editor.getHTML(), { first_name: 'Ana' });   // values become text, never markup
+getMergeFields(editor.view.state.doc);                                       // ['first_name']
+`));

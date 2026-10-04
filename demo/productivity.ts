@@ -1,5 +1,5 @@
 import { Mentions, SlashCommands, Templates, createEditor, defaultPlugins } from '../src';
-import { $, PEOPLE, el } from './samples';
+import { $, PEOPLE, el, codePanel } from './samples';
 
 $('#app').append(
   el('div', { class: 'panel' }, el('div', { id: 'editor' })),
@@ -15,3 +15,15 @@ createEditor({
   plugins: [...defaultPlugins, Templates(), SlashCommands(), Mentions({ search: (q) => PEOPLE.filter((p) => p.label.toLowerCase().includes(q.toLowerCase())) })],
   content: '<h2>Standup notes</h2><p>Hi @Ana, can you review the draft? Start a new line and press <code>/</code>.</p><p></p>',
 });
+
+$('#app').append(codePanel(`
+createEditor({
+  element,
+  plugins: [
+    ...defaultPlugins,
+    Templates(),
+    SlashCommands(),
+    Mentions({ search: (query) => people.filter((p) => p.label.includes(query)) }),
+  ],
+});
+`));

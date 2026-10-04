@@ -1,5 +1,5 @@
 import { createEditor } from '../src';
-import { $, button, el, makeImage } from './samples';
+import { $, button, el, makeImage, codePanel } from './samples';
 
 const list = el('div', { class: 'status' });
 $('#app').append(
@@ -44,3 +44,15 @@ $('#actions').append(
   button('Add a generated image', () => editor.execute('image', makeImage(400, 240, `Image ${Math.floor(Math.random() * 90 + 10)}`, Math.floor(Math.random() * 360)))),
   button('Upload from device…', () => editor.execute('uploadImage')),
 );
+
+$('#app').append(codePanel(`
+createEditor({
+  element,
+  ribbon: true,
+  uploadImage: async (file) => {
+    const { url } = await upload(file);        // your server; must resolve to https:, a data: URL or a /path
+    return url;
+  },
+});
+editor.execute('imageCrop', { left: 0.1, right: 0.2 });   // crop the selected image
+`));

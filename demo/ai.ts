@@ -1,5 +1,5 @@
 import { AIAssistant, createEditor, defaultPlugins, type AIProvider } from '../src';
-import { $, el } from './samples';
+import { $, el, codePanel } from './samples';
 
 const app = $('#app');
 app.append(
@@ -36,3 +36,14 @@ createEditor({
   plugins: [...defaultPlugins, AIAssistant({ provider: mock })],
   content: `<h1>Quarterly update</h1><p>i recieve teh report yesterday and dont know wich numbers to trust. there is alot of data, and it is very good in some places but really unclear in others.</p><p>The team shipped three features this quarter. Two of them were requested by customers. The third was an internal tool that saves about an hour a week for every engineer. Next quarter we plan to focus on reliability.</p>`,
 });
+
+$('#app').append(codePanel(`
+import { AIAssistant, createFetchProvider } from 'wysiwyg-editor';
+
+createEditor({
+  element,
+  plugins: [...defaultPlugins, AIAssistant({
+    provider: createFetchProvider('/api/ai'),   // your server calls the model; no keys in the browser
+  })],
+});
+`));

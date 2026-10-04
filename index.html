@@ -3,33 +3,119 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>wysiwyg-editor demos</title>
+  <title>wysiwyg-editor: a modular rich-text editor in TypeScript</title>
+  <meta name="description" content="A modular rich-text editor in TypeScript built on ProseMirror, inspired by CKEditor 5: ribbon, pages, comments, collaboration, .docx, code blocks and more." />
   <link rel="stylesheet" href="./demo/demo.css" />
 </head>
-<body>
-  <header class="demo-head">
-    <h1>wysiwyg-editor</h1>
-    <p>A modular rich-text editor in TypeScript, built on ProseMirror and inspired by CKEditor 5. Each demo below is a small, real page that uses the library as you would. <a href="https://github.com/galihlasahido/wysiwyg-editor">Source on GitHub</a>.</p>
-  </header>
-  <main class="demo-main">
-    <div class="cards">
-    <a class="card" href="./demo/feature-rich.html"><h2>Feature-rich editor</h2><p>The whole thing: ribbon, pages and ruler, comments, suggestions, versions and collaboration.</p><div class="tags"><span class="tag">Ribbon</span><span class="tag">Pages</span><span class="tag">Collaboration</span></div></a>
-    <a class="card" href="./demo/ai.html"><h2>AI assistant</h2><p>Improve, fix, shorten, expand, summarize or translate a selection. Streams into a preview you accept or discard.</p><div class="tags"><span class="tag">AI</span><span class="tag">Streaming</span></div></a>
-    <a class="card" href="./demo/collab-realtime.html"><h2>Real-time collaboration</h2><p>Two editors, one document: remote cursors, per-user undo, offline edits that merge.</p><div class="tags"><span class="tag">Yjs</span><span class="tag">Cursors</span></div></a>
-    <a class="card" href="./demo/collab-async.html"><h2>Comments, suggestions and history</h2><p>Threaded comments, accept/reject tracked changes, restore versions.</p><div class="tags"><span class="tag">Review</span><span class="tag">Track changes</span></div></a>
-    <a class="card" href="./demo/editor-types.html"><h2>Different user interfaces</h2><p>Classic, inline with a balloon toolbar, and a document editor with ribbon and pages.</p><div class="tags"><span class="tag">Classic</span><span class="tag">Inline</span><span class="tag">Document</span></div></a>
-    <a class="card" href="./demo/productivity.html"><h2>Productivity</h2><p>Templates, slash commands, @-mentions and Markdown shortcuts.</p><div class="tags"><span class="tag">Slash</span><span class="tag">Mentions</span><span class="tag">Templates</span></div></a>
-    <a class="card" href="./demo/export-word-pdf.html"><h2>Export to Word and PDF</h2><p>Download .docx with page setup, headers and footers, or print to PDF.</p><div class="tags"><span class="tag">.docx</span><span class="tag">PDF</span></div></a>
-    <a class="card" href="./demo/import-word.html"><h2>Import from Word</h2><p>Open a .docx and get clean, schema-validated content. Undoable.</p><div class="tags"><span class="tag">.docx</span><span class="tag">Import</span></div></a>
-    <a class="card" href="./demo/email.html"><h2>Email editing</h2><p>Compose, then preview the table-based, inline-styled HTML and the plain-text part.</p><div class="tags"><span class="tag">Email</span><span class="tag">HTML</span></div></a>
-    <a class="card" href="./demo/merge-fields.html"><h2>Merge fields</h2><p>Placeholders like {{first_name}} rendered per recipient, safely.</p><div class="tags"><span class="tag">Templates</span><span class="tag">Safe</span></div></a>
-    <a class="card" href="./demo/source-editing.html"><h2>Source editing</h2><p>Edit the HTML directly; unsupported or unsafe markup is dropped.</p><div class="tags"><span class="tag">HTML</span><span class="tag">Sanitised</span></div></a>
-    <a class="card" href="./demo/markdown.html"><h2>Markdown editor</h2><p>WYSIWYG and Markdown side by side, kept in sync.</p><div class="tags"><span class="tag">Markdown</span></div></a>
-    <a class="card" href="./demo/headless.html"><h2>Headless editor</h2><p>Drive the engine from your own UI through commands and state.</p><div class="tags"><span class="tag">API</span><span class="tag">Custom UI</span></div></a>
-    <a class="card" href="./demo/images.html"><h2>Images: upload, resize, crop</h2><p>Upload with progress, resize, crop, caption and alt text.</p><div class="tags"><span class="tag">Images</span><span class="tag">Crop</span></div></a>
-    <a class="card" href="./demo/mobile.html"><h2>Mobile friendly</h2><p>A wrapping compact toolbar with touch-sized controls in a 375px frame.</p><div class="tags"><span class="tag">Responsive</span><span class="tag">Touch</span></div></a>
+<body class="landing">
+  <header class="hero">
+    <div class="wrap">
+      <p class="eyebrow">TypeScript · ProseMirror · MIT</p>
+      <h1>wysiwyg-editor</h1>
+      <p class="tagline">A modular rich-text editor inspired by CKEditor 5, aiming at a Google Docs-style editor for the web. Small core, everything is a plugin.</p>
+      <div class="cta">
+        <a class="btn primary" href="#demos">Try the demos</a>
+        <a class="btn" href="https://github.com/galihlasahido/wysiwyg-editor">View on GitHub</a>
+        <a class="btn" href="#quick-start">Quick start</a>
+      </div>
     </div>
-    <p class="status" style="margin-top:24px">Not included (they need external services): equations, a hosted file manager, an image optimiser and a hosted spell checker. Browser spell check is available as a toggle.</p>
+  </header>
+
+  <main class="wrap">
+    <section id="about">
+      <h2>What this is</h2>
+      <p class="lead">An open-source editor engine plus a set of ready-made features and interfaces. Use the whole ribbon-and-pages experience, or take only the engine and build your own UI. The demos below are small real pages built with the library, not mock-ups.</p>
+      <div class="features"><div class="feat"><h3>Ribbon, toolbar or nothing</h3><p>Office-style tabbed ribbon, a compact toolbar, a floating balloon toolbar, or no UI at all and your own buttons.</p></div><div class="feat"><h3>Pages like a word processor</h3><p>Paged layout with a draggable ruler, margins, indents, headers and footers, page numbers, zoom and dark mode.</p></div><div class="feat"><h3>Review and collaboration</h3><p>Comments, tracked changes, version history, and real-time co-editing over Yjs with remote cursors.</p></div><div class="feat"><h3>Word, PDF, Markdown, email</h3><p>Import and export .docx, print to PDF, round-trip Markdown, and email-safe HTML.</p></div><div class="feat"><h3>Code-friendly</h3><p>Language-aware code blocks with syntax highlighting, Copy, smart indentation and header actions.</p></div><div class="feat"><h3>Safe by design</h3><p>A schema decides what exists: unknown markup, event handlers and unsafe URLs are dropped. User text is never parsed as HTML.</p></div><div class="feat"><h3>Accessible</h3><p>ARIA roles, WAI-ARIA toolbar and tabs, keyboard operation, axe-core in the test suite, contrast-checked themes, RTL.</p></div><div class="feat"><h3>Modular</h3><p>Everything is a plugin on a small core. Optional pieces (docx, collaboration, React, Vue) are separate entry points.</p></div></div>
+    </section>
+
+    <section id="quick-start">
+      <h2>Quick start</h2>
+      <p class="lead">Not published to npm yet: clone the repository and build it.</p>
+<pre class="out">git clone https://github.com/galihlasahido/wysiwyg-editor
+cd wysiwyg-editor
+pnpm install
+pnpm dev        # these demos, locally
+pnpm test       # unit, accessibility and server tests
+pnpm build      # the library in dist/</pre>
+<pre class="out">import { createEditor } from 'wysiwyg-editor';
+import 'wysiwyg-editor/style.css';
+
+const editor = createEditor({
+  element: document.getElementById('editor'),
+  content: '&lt;p&gt;Hello&lt;/p&gt;',
+  ribbon: true,                       // Office-style tabs (default: a compact toolbar)
+  pages: { header: 'My document', footer: 'Page {page} of {pages}' },
+  outline: true,
+  onChange: (html) =&gt; save(html),
+});
+
+editor.execute('bold');                // every feature is a command
+editor.getHTML();  editor.getMarkdown();</pre>
+      <table class="spec">
+        <thead><tr><th>Import</th><th>What you get</th><th>Needs</th></tr></thead>
+        <tbody>
+          <tr><td><code>wysiwyg-editor</code></td><td>Editor, all plugins, HTML and email export, document client</td><td>nothing extra</td></tr>
+          <tr><td><code>wysiwyg-editor/docx</code></td><td>.docx import and export</td><td><code>docx</code>, <code>mammoth</code></td></tr>
+          <tr><td><code>wysiwyg-editor/collab</code></td><td>Yjs collaboration and providers</td><td><code>yjs</code>, <code>y-prosemirror</code></td></tr>
+          <tr><td><code>wysiwyg-editor/react</code>, <code>/vue</code></td><td>Components</td><td><code>react</code> or <code>vue</code></td></tr>
+        </tbody>
+      </table>
+      <p class="lead">A plugin is an object: nodes and marks for the schema, commands, ProseMirror plugins and toolbar items.</p>
+<pre class="out">const Highlight = {
+  name: 'highlight-demo',
+  marks: { mark: { parseDOM: [{ tag: 'mark' }], toDOM: () =&gt; ['mark', 0] } },
+  setup(editor) { editor.registerCommand('mark', () =&gt; toggleMark(editor.schema.marks.mark)(editor.view.state, editor.view.dispatch)); },
+  toolbar: [{ name: 'mark', label: 'Mark', command: 'mark' }],
+};</pre>
+    </section>
+
+    <section id="demos">
+      <h2>Demos</h2>
+      <p class="lead">19 examples. Each page has a "Show the code" section with the essential snippet.</p>
+    </section>
+
+    <section id="editors">
+      <h2>Editors</h2>
+      <p class="lead">Complete editors in different shapes.</p>
+      <div class="cards"><a class="card" href="./demo/feature-rich.html"><h3>Feature-rich editor</h3><p>Ribbon, pages and ruler, comments, suggestions, versions and collaboration in one.</p><div class="tags"><span class=tag>Ribbon</span><span class=tag>Pages</span><span class=tag>Ruler</span></div></a><a class="card" href="./demo/editor-types.html"><h3>Different user interfaces</h3><p>Classic, inline with a balloon toolbar, and a document editor with ribbon and pages.</p><div class="tags"><span class=tag>Classic</span><span class=tag>Inline</span><span class=tag>Document</span></div></a><a class="card" href="./demo/headless.html"><h3>Headless editor</h3><p>No built-in UI: drive the engine from your own buttons through commands and state.</p><div class="tags"><span class=tag>API</span><span class=tag>Custom UI</span></div></a><a class="card" href="./demo/mobile.html"><h3>Mobile friendly</h3><p>A wrapping compact toolbar with touch-sized controls in a 375px frame.</p><div class="tags"><span class=tag>Responsive</span><span class=tag>Touch</span></div></a></div>
+    </section>
+    <section id="coding">
+      <h2>Coding</h2>
+      <p class="lead">Developer-oriented UIs built on code blocks.</p>
+      <div class="cards"><a class="card" href="./demo/coding-docs.html"><h3>Developer docs</h3><p>Highlighted code blocks with a language picker, Copy, smart indentation and a sandboxed Run button.</p><div class="tags"><span class=tag>Code</span><span class=tag>Run</span></div></a><a class="card" href="./demo/coding-notebook.html"><h3>Notebook</h3><p>Prose and runnable cells with outputs under each cell and a shared kernel.</p><div class="tags"><span class=tag>Code</span><span class=tag>Notebook</span></div></a><a class="card" href="./demo/coding-playground.html"><h3>Playground</h3><p>HTML, CSS and JavaScript blocks with a live sandboxed preview and console.</p><div class="tags"><span class=tag>HTML/CSS/JS</span><span class=tag>Live</span></div></a><a class="card" href="./demo/coding-readme.html"><h3>README editor</h3><p>Write visually, get Markdown with language fences, or edit the Markdown.</p><div class="tags"><span class=tag>Markdown</span><span class=tag>Code</span></div></a></div>
+    </section>
+    <section id="collaboration-and-review">
+      <h2>Collaboration and review</h2>
+      <p class="lead">Working together, asynchronously or live.</p>
+      <div class="cards"><a class="card" href="./demo/collab-realtime.html"><h3>Real-time collaboration</h3><p>Two editors, one Yjs document: remote cursors, per-user undo, offline edits that merge.</p><div class="tags"><span class=tag>Yjs</span><span class=tag>Cursors</span></div></a><a class="card" href="./demo/collab-async.html"><h3>Comments, suggestions and history</h3><p>Threaded comments, accept or reject tracked changes, restore versions.</p><div class="tags"><span class=tag>Review</span><span class=tag>Track changes</span></div></a></div>
+    </section>
+    <section id="documents">
+      <h2>Documents</h2>
+      <p class="lead">Getting content in and out.</p>
+      <div class="cards"><a class="card" href="./demo/export-word-pdf.html"><h3>Export to Word and PDF</h3><p>Download .docx with page setup, headers and footers, or print to PDF.</p><div class="tags"><span class=tag>.docx</span><span class=tag>PDF</span></div></a><a class="card" href="./demo/import-word.html"><h3>Import from Word</h3><p>Open a .docx and get clean, schema-validated content. One undo step.</p><div class="tags"><span class=tag>.docx</span><span class=tag>Import</span></div></a><a class="card" href="./demo/email.html"><h3>Email editing</h3><p>Compose, then preview the table-based, inline-styled HTML and the plain-text part.</p><div class="tags"><span class=tag>Email</span><span class=tag>HTML</span></div></a><a class="card" href="./demo/markdown.html"><h3>Markdown editor</h3><p>WYSIWYG and Markdown side by side, kept in sync.</p><div class="tags"><span class=tag>Markdown</span></div></a><a class="card" href="./demo/source-editing.html"><h3>Source editing</h3><p>Edit the HTML directly; unsupported or unsafe markup is dropped on the way back.</p><div class="tags"><span class=tag>HTML</span><span class=tag>Sanitised</span></div></a></div>
+    </section>
+    <section id="content-tools">
+      <h2>Content tools</h2>
+      <p class="lead">Helpers that speed up writing.</p>
+      <div class="cards"><a class="card" href="./demo/ai.html"><h3>AI assistant</h3><p>Improve, fix, shorten, expand, summarize or translate. Streams into a preview you accept or discard.</p><div class="tags"><span class=tag>AI</span><span class=tag>Streaming</span></div></a><a class="card" href="./demo/productivity.html"><h3>Productivity</h3><p>Templates, slash commands, @-mentions and Markdown shortcuts.</p><div class="tags"><span class=tag>Slash</span><span class=tag>Mentions</span></div></a><a class="card" href="./demo/merge-fields.html"><h3>Merge fields</h3><p>Placeholders like {{first_name}} rendered per recipient, safely.</p><div class="tags"><span class=tag>Templates</span><span class=tag>Safe</span></div></a><a class="card" href="./demo/images.html"><h3>Images: upload, resize, crop</h3><p>Upload with progress, resize, crop, caption and alt text.</p><div class="tags"><span class=tag>Images</span><span class=tag>Crop</span></div></a></div>
+    </section>
+
+    <section id="limits">
+      <h2>Honest limits</h2>
+      <ul class="tips">
+        <li>Pagination is visual: it measures blocks in the browser and spaces them across pages, so it can differ slightly from print output. Verified in Chrome.</li>
+        <li>Track changes tracks inline edits inside one paragraph; structural edits apply untracked. PDF export is the browser's print dialog.</li>
+        <li>Some demos use stand-ins so they work offline: the AI demo uses a mock provider, collaboration runs two editors in one page.</li>
+        <li>Not included because they need external services: equations, a hosted file manager, an image optimiser, a hosted spell checker.</li>
+      </ul>
+      <p>The full list is in the <a href="https://github.com/galihlasahido/wysiwyg-editor#known-limitations">README</a>.</p>
+    </section>
   </main>
+
+  <footer class="foot">
+    <div class="wrap">
+      <span>MIT licensed. <a href="https://github.com/galihlasahido/wysiwyg-editor">Source on GitHub</a>.</span>
+    </div>
+  </footer>
 </body>
 </html>

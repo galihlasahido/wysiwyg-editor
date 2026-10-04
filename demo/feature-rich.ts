@@ -1,6 +1,7 @@
 import * as Y from 'yjs';
 import { Comments, TrackChanges, Versions, createEditor, defaultPlugins, download } from '../src';
 import { Collaboration, createBroadcastProvider } from '../src/collab';
+import { codePanel } from './samples';
 
 const params = new URLSearchParams(location.search);
 const para = '<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>';
@@ -44,3 +45,13 @@ const editor = createEditor({
   },
 });
 (window as any).editor = editor;
+
+document.querySelector('.demo-main')!.append(codePanel(`
+createEditor({
+  element,
+  ribbon: true,                       // Office-style tabs
+  pages: { header: 'Title', footer: 'Page {page} of {pages}' },
+  outline: true,
+  plugins: [...defaultPlugins, Comments({ author }), TrackChanges({ author }), Versions({ author })],
+});
+`));
