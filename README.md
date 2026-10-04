@@ -1,7 +1,18 @@
 # wysiwyg-editor
 
-A modular, plugin-based WYSIWYG rich-text editor in TypeScript, inspired by
-[CKEditor 5](https://ckeditor.com/ckeditor-5/capabilities/) and built on [ProseMirror](https://prosemirror.net/).
+A modular rich-text editor in TypeScript, inspired by [CKEditor 5](https://ckeditor.com/ckeditor-5/capabilities/),
+built on [ProseMirror](https://prosemirror.net/). The long-term goal is a **Google Docs-style editor for the web**:
+paged layout, comments, suggestions, real-time collaboration, `.docx` import/export, and a backend to store and share documents.
+
+Everything is opt-in plugins; the core is small. It is **not published to npm yet**: clone, `pnpm install`, `pnpm build`.
+
+```sh
+pnpm install
+pnpm dev        # demo at http://localhost:5173  (add ?collab=room&seed=1 to try two-tab collaboration)
+pnpm test       # 146 tests (unit, accessibility with axe-core, server integration)
+pnpm build      # library in dist/
+pnpm server     # reference backend on :8787
+```
 
 ## Quick start
 
@@ -12,86 +23,156 @@ import 'wysiwyg-editor/style.css';
 const editor = createEditor({
   element: document.getElementById('editor')!,
   content: '<p>Hello</p>',
+  pages: { header: 'My document', footer: 'Page {page} of {pages}' }, // Google Docs-style pages (optional)
+  outline: true,                                                      // heading outline sidebar (optional)
   onChange: (html) => console.log(html),
 });
 
 editor.execute('bold');
-editor.getHTML();
+editor.getHTML();       editor.getMarkdown();     editor.getStats();
+editor.setHTML('<p>…</p>');   editor.replaceHTML('<p>…</p>') // the latter is one undoable step
 ```
 
-Pick your own features and toolbar:
+Choose your own features and toolbar:
 
 ```ts
-import { Editor, Essentials, BasicStyles, Heading } from 'wysiwyg-editor';
+import { Editor, Essentials, BasicStyles, Heading, Comments, TrackChanges } from 'wysiwyg-editor';
 
 new Editor({
   element,
-  plugins: [Essentials, BasicStyles, Heading],
-  toolbar: ['undo', 'redo', '|', 'heading', 'bold', 'italic'],
+  plugins: [Essentials, BasicStyles, Heading, Comments({ author: 'Ana' }), TrackChanges({ author: 'Ana' })],
+  toolbar: ['undo', 'redo', '|', 'heading', 'bold', 'italic', 'comment', 'trackChanges'],
 });
 ```
 
-## Features (v0.1)
+Entry points (optional peer dependencies are only needed for the ones you import):
 
-Bold / italic / underline / strike / inline code · headings · text alignment · text color & highlight ·
-bulleted & numbered lists with indent · block quote · code block · horizontal line · links ·
-images (URL, file picker, paste, drag & drop; pluggable `uploadImage` adapter, Base64 by default) · tables ·
-undo/redo · font family/size · line spacing · checklists · Markdown import/export (`getMarkdown()` / `setMarkdown()`) ·
-Markdown-style autoformat (`# `, `- `, `1. `, `> `, ` ``` `, `**bold**`).
+| Import | Contents | Needs |
+|---|---|---|
+| `wysiwyg-editor` | editor, all plugins, HTML export, `DocumentClient` | – |
+| `wysiwyg-editor/style.css` | styles | – |
+| `wysiwyg-editor/docx` | `.docx` import/export | `docx`, `mammoth` |
+| `wysiwyg-editor/collab` | Yjs collaboration + providers | `yjs`, `y-prosemirror`, `y-protocols` |
+| `wysiwyg-editor/react` | `<WysiwygEditor value onChange />` | `react` |
+| `wysiwyg-editor/vue` | `<WysiwygEditor v-model />` | `vue` |
 
-### Paged view (Google Docs-style)
+## Features
+
+**Editing**: bold/italic/underline/strike/code · headings · font family & size · text color & highlight · alignment ·
+line spacing · bulleted, numbered and checklists with indent · block quote · code block · horizontal line · links ·
+images (URL, upload, paste, drag & drop, resize, captions; pluggable `uploadImage`, Base64 by default) · tables
+(add/delete rows & columns, merge/split cells, header row, cell color) · special characters · format painter ·
+footnotes · @-mentions · table of contents · Markdown-style autoformat (`# `, `- `, `1. `, `> `, ` ``` `, `**bold**`) ·
+find & replace · word count · spell check toggle · templates · per-paragraph LTR/RTL.
+
+**Paged view** (`pages: true | {...}`): A4/Letter/Legal, portrait/landscape, margins, per-page header and footer with
+`{page}`/`{pages}`, different first page, manual page breaks (Ctrl/Cmd+Enter), a ruler with draggable margins,
+outline sidebar, print CSS. Paragraphs split between lines (two lines minimum per side); tables split between rows and
+lists between items.
+
+**Review**: `Comments` (threads, replies, resolve, works in read-only mode), `TrackChanges` (suggesting mode with
+accept/reject), `Versions` (named snapshots, restore is undoable, optional autosave and `localStorage` persistence),
+read-only mode (`readOnly` / `setReadOnly`).
+
+**Import / export**: HTML (`exportHTML`), print / save as PDF (`execute('print')`), Markdown (`getMarkdown` / `setMarkdown`),
+`.docx` (`exportDocx`, `importDocx`; keeps headings, formatting, lists, tables, images, footnotes, comments, tracked
+changes, page size/margins/orientation, header/footer, TOC field).
+
+**Collaboration & backend**: real-time co-editing with remote cursors and per-user undo (Yjs); a reference server with
+REST API, owner/share-link permissions (view / comment / edit), optimistic concurrency, and a WebSocket relay;
+`Autosave` with retry and conflict handling.
+
+**AI**: `AIAssistant({ provider })` — improve, fix grammar, shorten, expand, summarize, translate, custom prompt.
+Results are previewed and applied only when accepted.
+
+**Accessibility & i18n**: ARIA roles/labels, WAI-ARIA toolbar keyboard navigation (roving tabindex), axe-core audit in the
+test suite, contrast-checked styles, `forced-colors` support; toolbar translations for `id`, `es`, `ar` (`locale`,
+`registerLocale`), RTL layout, React and Vue wrappers.
+
+## Collaboration
+
+Two browser tabs, no server (`BroadcastChannel`):
 
 ```ts
-createEditor({
-  element,
-  pages: { size: 'a4', header: 'My document', footer: 'Page {page} of {pages}' },
-  outline: true,
-});
+import * as Y from 'yjs';
+import { Collaboration, createBroadcastProvider } from 'wysiwyg-editor/collab';
+
+const ydoc = new Y.Doc();
+const { awareness } = createBroadcastProvider('room-1', ydoc);
+createEditor({ element, plugins: [...defaultPlugins, Collaboration({ ydoc, awareness, user: { name: 'Ana', color: '#e03131' } })] });
 ```
 
-Page cards with A4/Letter/Legal sizes, margins, per-page header and footer with page numbers, manual page
-breaks (Ctrl/Cmd+Enter), a ruler with draggable left/right margins, a heading outline sidebar and print CSS.
-Pagination is visual: the document stays one ProseMirror doc and blocks are measured and spaced across pages.
-Paragraphs split between lines (at least two lines on each side). Tables, lists and other blocks are not split yet:
-a block taller than a page overflows onto its own page.
-Link and image URLs are restricted to safe schemes.
+Across machines, use the reference server and `createWebSocketProvider(url, ydoc)`. Its `synced` promise resolves after the
+first full sync: create the editor (and pass `seed`) after it, or two clients may both seed the same empty document.
+
+## Backend (reference implementation)
+
+`pnpm server` starts `server/index.ts` (file-based storage, zero infrastructure):
+
+| Request | Who | |
+|---|---|---|
+| `POST /api/docs` | anyone | create → `{ id, ownerKey }` (the key is shown once; only its hash is stored) |
+| `GET /api/docs/:id` | any role | load |
+| `PUT /api/docs/:id` | edit, owner | save `{ version, html, … }`; `409` with the server copy on a stale version |
+| `PUT /api/docs/:id/comments` | comment and up | comments only |
+| `POST/GET/DELETE /api/docs/:id/shares` | owner | create `view`/`comment`/`edit` links, list, revoke |
+| `DELETE /api/docs/:id` | owner | delete |
+| `ws://…/collab/:id?token=…` | any role | Yjs relay; view/comment connections are read-only |
+
+```ts
+const client = new DocumentClient('http://localhost:8787');
+const { id, ownerKey, version } = await client.create({ html: '<p>Hi</p>' });
+createEditor({ element, plugins: [...defaultPlugins, Autosave({ save: createHttpSaver({ client, id, secret: ownerKey, version }) })] });
+```
+
+This is a **reference**, not a production server: single process, local files, no user accounts or rate limiting, and the
+WebSocket token travels in the URL query (it can end up in logs). Put it behind TLS and your own auth before real use.
+
+## AI assistant
+
+```ts
+AIAssistant({ provider: createFetchProvider('/api/ai') }) // your server calls the model; never put API keys in the browser
+```
+
+A provider is any `(req) => Promise<string> | AsyncIterable<string>`; stream chunks and the preview updates live.
+Model output is parsed as Markdown with raw HTML disabled, so it cannot inject markup.
 
 ## Writing a plugin
 
 ```ts
-const MyPlugin: EditorPlugin = {
-  name: 'my-plugin',
+const Hello: EditorPlugin = {
+  name: 'hello',
   marks: { /* ProseMirror MarkSpec */ },
-  setup(editor) { editor.registerCommand('hello', () => true); },
-  toolbar: [{ name: 'hello', label: 'Hello', command: 'hello' }],
+  setup(editor) {
+    editor.registerCommand('hello', () => true);
+    return [/* ProseMirror plugins */];
+  },
+  toolbar: [{ name: 'hello', label: 'Hello', icon: '👋', command: 'hello' }],
 };
 ```
 
-## Roadmap — goal: a Google Docs-style editor on the web
+Plugins may set `priority` (keymap order) and `transformTransaction` (rewrite user edits, used by track changes).
 
-- [x] Core editing, lists, tables, images, links, alignment, colors, Markdown
-- [x] **Docs-style editing (partial):** font family/size, line spacing, checklists
-- [x] Table cell merge/split/color, image resize and captions
-- [ ] Still to do: image crop
-- [x] **Page layout:** paginated view, page size/margins, header/footer, page numbers, page breaks, ruler, outline sidebar
-- [x] Paragraphs split across pages (widow/orphan control), landscape, different first page header/footer, table of contents block
-- [ ] Still to do: splitting tables and lists across pages
-- [x] **Productivity:** find & replace, word count, format painter, special characters, footnotes (endnotes), spell check toggle
-- [ ] Templates
-- [ ] **Collaboration:** real-time co-editing with cursors (Yjs), comments, suggesting mode / track changes, version history, mentions
-- [ ] **Import/export:** .docx import/export, PDF, HTML, Markdown, print
-- [ ] **Sharing & storage:** document model/storage backend, permissions, share links, autosave
-- [ ] **AI assistant** hooks (summarize, rewrite, grammar)
-- [ ] React / Vue wrappers, i18n, RTL, WCAG audit
+## Known limitations
 
-## Development
+- **Pagination is visual.** The document stays one ProseMirror doc; blocks are measured in the browser and spaced across
+  pages, so page geometry can differ slightly (a few px, occasionally ~15px on the page where a table turns into a list)
+  from a true layout engine, and from print output. Verified in Chrome only. Header rows do not repeat across pages.
+- Footnotes are collected at the end of the document (endnotes), not at the bottom of each page.
+- **Track changes** tracks inline edits inside one paragraph; structural edits (splitting/joining blocks, tables) apply untracked.
+- **PDF** is the browser's print dialog (Save as PDF), not a generated file.
+- **.docx import** goes through mammoth: alignment, colors, page setup and comments are not imported. Export embeds
+  `data:` images and fetches remote ones when CORS allows; otherwise it writes the alt text.
+- Image **cropping** is not implemented (resize and captions are).
+- Translations cover toolbar labels in 3 languages and have not been reviewed by native speakers.
+- Tested with jsdom (unit), real Chrome (layout, collaboration) and axe-core. Not yet tested in Firefox/Safari or with screen readers.
 
-```sh
-pnpm install
-pnpm dev        # demo at http://localhost:5173
-pnpm test
-pnpm build
-```
+## Security notes
+
+Pasted/loaded HTML goes through the schema: unknown tags and attributes are dropped; link and image URLs are limited to
+safe schemes (`javascript:` is rejected); Markdown import disables raw HTML; user text (comments, mentions, footnotes, AI
+output) is rendered with `textContent`; the server compares secrets in constant time, stores only hashes, bounds request
+size and treats unknown documents and bad credentials identically.
 
 ## License
 
