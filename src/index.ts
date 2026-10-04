@@ -1,5 +1,6 @@
 import './styles.css';
 import { Editor, type EditorConfig } from './editor';
+import { Pages, Outline, type PageOptions } from './plugins';
 import { Alignment, Autoformat, Colors, Fonts, TaskList, BasicStyles, Blocks, Essentials, Heading, Image, Link, List, Table } from './plugins';
 
 export { Editor } from './editor';
@@ -10,6 +11,18 @@ export * from './plugins';
 export const defaultPlugins = [Essentials, BasicStyles, Heading, Fonts, Alignment, Colors, List, TaskList, Blocks, Link, Image, Table, Autoformat];
 
 /** Create an editor with the default feature set. */
-export function createEditor(config: Omit<EditorConfig, 'plugins'> & { plugins?: EditorConfig['plugins'] }): Editor {
-  return new Editor({ ...config, plugins: config.plugins ?? defaultPlugins });
+export function createEditor(
+  config: Omit<EditorConfig, 'plugins'> & {
+    plugins?: EditorConfig['plugins'];
+    /** Enable the paged (Google Docs-style) view. */
+    pages?: boolean | PageOptions;
+    /** Show the outline sidebar. */
+    outline?: boolean;
+  },
+): Editor {
+  const { pages, outline, ...rest } = config;
+  const plugins = [...(rest.plugins ?? defaultPlugins)];
+  if (pages) plugins.push(Pages(pages === true ? {} : pages));
+  if (outline) plugins.push(Outline);
+  return new Editor({ ...rest, plugins });
 }

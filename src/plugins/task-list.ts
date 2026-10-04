@@ -7,12 +7,12 @@ import type { EditorPlugin } from '../types';
 export const TaskList: EditorPlugin = {
   name: 'task-list',
   nodes: {
-    task_list: { content: 'task_item+', group: 'block', parseDOM: [{ tag: 'ul[data-task-list]' }], toDOM: () => ['ul', { 'data-task-list': '' }, 0] },
+    task_list: { content: 'task_item+', group: 'block', parseDOM: [{ tag: 'ul[data-task-list]', priority: 60 }], toDOM: () => ['ul', { 'data-task-list': '' }, 0] },
     task_item: {
       content: 'paragraph block*',
       defining: true,
       attrs: { checked: { default: false } },
-      parseDOM: [{ tag: 'li[data-task]', getAttrs: (n) => ({ checked: (n as HTMLElement).getAttribute('data-checked') === 'true' }) }],
+      parseDOM: [{ tag: 'li[data-task]', priority: 60, getAttrs: (n) => ({ checked: (n as HTMLElement).getAttribute('data-checked') === 'true' }) }],
       toDOM: (n) => ['li', { 'data-task': '', 'data-checked': String(n.attrs.checked) }, 0],
     },
   },

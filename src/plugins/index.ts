@@ -11,3 +11,7 @@ export { Alignment } from './alignment';
 export { Colors } from './colors';
 export { Fonts, FONT_FAMILIES, FONT_SIZES } from './fonts';
 export { TaskList } from './task-list';
+export { Pages, paginate, PAGE_SIZES } from './pages';
+export type { PageOptions, PageSizeName, Margins, BlockMetric, PaginationResult } from './pages';
+export { Outline, getOutline } from './outline';
+export type { OutlineItem } from './outline';

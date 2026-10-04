@@ -120,4 +120,10 @@ describe('Editor', () => {
     e.view.dispatch(state.tr.setNodeMarkup(pos, undefined, { checked: true }));
     expect(e.getMarkdown()).toBe('- [x] todo');
   });
+
+  it('keeps checklists as checklists across an HTML round trip', () => {
+    const e = make('<ul data-task-list><li data-task data-checked="true"><p>a</p></li></ul>');
+    expect(e.getHTML()).toBe('<ul data-task-list=""><li data-task="" data-checked="true"><p>a</p></li></ul>');
+    expect(e.getMarkdown()).toBe('- [x] a');
+  });
 });

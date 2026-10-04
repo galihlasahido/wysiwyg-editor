@@ -29,6 +29,10 @@ export class Editor {
   readonly view: EditorView;
   readonly toolbar: Toolbar;
   readonly root: HTMLElement;
+  /** Flex row holding optional side panels (outline) and the workspace. */
+  readonly body: HTMLElement;
+  /** Scroll area holding the ruler and the editable content. */
+  readonly workspace: HTMLElement;
   readonly uploadImage: (file: File) => Promise<string>;
   private commands = new Map<string, Command>();
   
@@ -46,9 +50,15 @@ export class Editor {
 
     this.root = document.createElement('div');
     this.root.className = 'wy-editor';
+    this.body = document.createElement('div');
+    this.body.className = 'wy-body';
+    this.workspace = document.createElement('div');
+    this.workspace.className = 'wy-workspace';
     const content = document.createElement('div');
     content.className = 'wy-content';
-    this.root.append(content);
+    this.workspace.append(content);
+    this.body.append(this.workspace);
+    this.root.append(this.body);
     config.element.append(this.root);
 
     const byPriority = [...config.plugins].sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0));
