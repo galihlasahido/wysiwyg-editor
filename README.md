@@ -1,5 +1,8 @@
 # wysiwyg-editor
 
+[![Support via PayPal](https://img.shields.io/badge/PayPal-Support-00457C?style=for-the-badge&logo=paypal&logoColor=white)](https://paypal.me/abahido)
+[![Support via Lynk.id](https://img.shields.io/badge/Lynk.id-Support-FB6B35?style=for-the-badge&logo=kofi&logoColor=white)](https://lynk.id/abahido/s/z52m3ekew032)
+
 A modular rich-text editor in TypeScript, inspired by [CKEditor 5](https://ckeditor.com/ckeditor-5/capabilities/),
 built on [ProseMirror](https://prosemirror.net/). The long-term goal is a **Google Docs-style editor for the web**:
 paged layout, comments, suggestions, real-time collaboration, `.docx` import/export, and a backend to store and share documents.

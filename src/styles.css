@@ -430,3 +430,30 @@
 @keyframes wy-deny { 0%, 100% { box-shadow: var(--wy-locked-shadow, none); } 30% { box-shadow: 0 0 0 3px rgba(239, 68, 68, .6); } }
 @media (prefers-reduced-motion: reduce) { .wy-locked.is-denied { animation: none; outline: 2px solid #ef4444; } }
 @media print { .wy-locked, .wy-region { background: none; border-color: transparent; padding: 0; margin: 0 0 12px; } .wy-locked::after, .wy-region::after { display: none; } }
+
+/* ---- Table formulas ---- */
+.wy-formula-cell:not(.is-editing) .wy-fsrc { display: none; }
+.wy-formula-cell.is-editing .wy-fsrc { color: var(--wy-page-muted); font-family: ui-monospace, Menlo, monospace; font-size: .9em; }
+.wy-formula-value { margin-left: .6em; font-weight: 600; color: var(--wy-accent); user-select: none; }
+.wy-formula-cell:not(.is-editing) .wy-formula-value { margin-left: 0; color: var(--wy-page-fg); }
+.wy-formula-cell.is-error .wy-formula-value { color: #dc2626; }
+.wy-formula-cell { background: color-mix(in srgb, var(--wy-accent) 6%, transparent); }
+
+/* ---- Diagram ---- */
+.wy-diagram { position: relative; margin: 14px 0; padding: 8px; border: 1px solid var(--wy-border, #dfe3e8); border-radius: 8px; color: var(--wy-page-fg); background: var(--wy-page-bg); }
+.wy-diagram.ProseMirror-selectednode { outline: 2px solid var(--wy-accent); }
+.wy-diagram-canvas { position: relative; overflow: auto; }
+.wy-diagram-svg { display: block; max-width: 100%; height: auto; margin: 0 auto; user-select: none; }
+.wy-diagram.is-editing .wy-diagram-canvas { cursor: default; background: repeating-linear-gradient(0deg, transparent 0 19px, color-mix(in srgb, currentColor 8%, transparent) 19px 20px), repeating-linear-gradient(90deg, transparent 0 19px, color-mix(in srgb, currentColor 8%, transparent) 19px 20px); }
+.wy-d-label { fill: var(--wy-page-fg); font: 14px system-ui, sans-serif; pointer-events: none; }
+.wy-d-empty { fill: var(--wy-page-muted); font: 14px system-ui, sans-serif; }
+.wy-d-shape.is-selected > :first-child { stroke: var(--wy-accent); stroke-width: 3; }
+.wy-diagram.is-editing .wy-d-shape { cursor: move; }
+.wy-diagram-edit { position: absolute; top: 8px; right: 8px; opacity: 0; font: 12px system-ui, sans-serif; padding: 3px 8px; border-radius: 6px; border: 1px solid var(--wy-border, #cbd5e1); background: var(--wy-page-bg); color: var(--wy-page-fg); cursor: pointer; }
+.wy-diagram:hover .wy-diagram-edit, .wy-diagram:focus-within .wy-diagram-edit, .wy-diagram.is-editing .wy-diagram-edit, .wy-diagram.ProseMirror-selectednode .wy-diagram-edit { opacity: 1; }
+.wy-diagram-bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 6px 0 2px; }
+.wy-diagram-bar button { font: 12px system-ui, sans-serif; padding: 3px 8px; border-radius: 6px; border: 1px solid var(--wy-border, #cbd5e1); background: var(--wy-page-bg); color: var(--wy-page-fg); cursor: pointer; }
+.wy-diagram-bar button.on { background: var(--wy-accent); color: #fff; border-color: var(--wy-accent); }
+.wy-diagram-bar input[type="color"] { width: 28px; height: 24px; padding: 0; border: 1px solid var(--wy-border, #cbd5e1); border-radius: 4px; background: none; }
+.wy-diagram-input { position: absolute; z-index: 5; font: 14px system-ui, sans-serif; text-align: center; border: 2px solid var(--wy-accent); border-radius: 6px; padding: 4px; resize: none; background: var(--wy-page-bg); color: var(--wy-page-fg); }
+@media print { .wy-diagram-edit, .wy-diagram-bar { display: none; } .wy-diagram { border-color: transparent; } }

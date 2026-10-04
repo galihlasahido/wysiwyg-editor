@@ -56,3 +56,7 @@ export { CodeEditing, findMatchingBracket } from './code-editing';
 export type { CodeEditingOptions, CursorInfo } from './code-editing';
 export { RestrictedEditing } from './restricted-editing';
 export type { RestrictedEditingOptions } from './restricted-editing';
+export { TableFormulas, evaluateGrid, computeFormulasInHTML, formatValue, colName } from './table-formulas';
+export type { CellValue } from './table-formulas';
+export { Diagram, parseDiagram, renderDiagram } from './diagram';
+export type { DiagramModel, Shape, Arrow, ShapeType } from './diagram';
