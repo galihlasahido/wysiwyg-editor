@@ -95,6 +95,7 @@ export function Comments(options: CommentsOptions = {}): CommentsPlugin {
     },
     setup(editor: Editor) {
       const safe = { readOnlySafe: true };
+      editor.extensions.comments = store; // lets Autosave include the threads and notice reply/resolve changes
       let hiddenByUser = false;
       let rerender = () => {};
       const sortedAnchors = () => [...findAnchors(editor.view.state.doc).values()].filter((a) => store.get(a.id)).sort((a, b) => a.from - b.from);

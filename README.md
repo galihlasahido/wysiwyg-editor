@@ -131,6 +131,27 @@ Results are previewed and applied only when accepted.
 test suite, contrast-checked styles, `forced-colors` support; toolbar translations for `id`, `es`, `ar` (`locale`,
 `registerLocale`), RTL layout, React and Vue wrappers.
 
+## Saving to your own endpoint (and database)
+
+Comment threads are stored **apart from the HTML** (the document only carries `data-comment-id` marks), so save both. `Autosave`
+hands the threads to your `save` function, and also saves when only a thread changed (a reply, resolve or delete):
+
+```ts
+const comments = Comments({ author: 'Ana', initial: post.comments });          // load saved threads
+createEditor({
+  element, content: post.html,
+  plugins: [...defaultPlugins, comments, Autosave({
+    save: createEndpointSaver({ url: `/api/posts/${post.id}`, method: 'PUT', headers: () => ({ Authorization: `Bearer ${token}` }) }),
+  })],
+});
+// or write it yourself:  Autosave({ save: async (html, { comments }) => { await fetch(url, { method: 'PUT', body: JSON.stringify({ html, comments }) }); } })
+```
+
+`createEndpointSaver` sends JSON `{ title, html, comments }` (reshape it with `body`), retries failures with backoff and stops on a
+`409`. On your side, store `html` in a text column and `comments` in a JSON column (or a `comments` table with `id, post_id, author, text,
+created_at, resolved` and a `replies` table). Validate and sanitise on the server too: the editor's schema cleans HTML on the way in, but a
+server must not trust a client.
+
 ## Collaboration
 
 Two browser tabs, no server (`BroadcastChannel`):

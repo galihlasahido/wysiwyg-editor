@@ -1,12 +1,19 @@
 import { Plugin } from 'prosemirror-state';
 import { ApiError } from '../storage';
 import type { EditorPlugin } from '../types';
+import type { CommentThread } from './comments';
+
+/** What a save receives besides the HTML. */
+export interface SaveContext {
+  /** The comment threads (empty without the Comments plugin). Comments live outside the HTML, so they must be saved with it. */
+  comments: CommentThread[];
+}
 
 export type SaveStatus = 'saved' | 'unsaved' | 'saving' | 'error' | 'conflict';
 
 export interface AutosaveOptions {
   /** Persist the document. Reject to signal failure (retried with backoff). */
-  save: (html: string) => Promise<void>;
+  save: (html: string, context: SaveContext) => Promise<void>;
   /** Wait this long after the last change before saving. Default 1000. */
   delayMs?: number;
   /** Save at least this often while the user keeps typing. Default 10000. */
@@ -51,7 +58,8 @@ export function Autosave(options: AutosaveOptions): EditorPlugin {
         dirty = false;
         firstChangeAt = 0;
         setStatus('saving');
-        saving = options.save(editor.getHTML()).then(
+        const store = editor.extensions.comments as { toJSON(): CommentThread[] } | undefined;
+        saving = options.save(editor.getHTML(), { comments: store?.toJSON() ?? [] }).then(
           () => {
             failures = 0;
             saving = null;
@@ -76,15 +84,25 @@ export function Autosave(options: AutosaveOptions): EditorPlugin {
         timer = setTimeout(() => void run(), Math.max(0, Math.min(delay, maxWait - waited)));
       };
 
-      const prev = editor.config.onChange;
-      editor.config.onChange = (html) => {
-        prev?.(html);
+      const markDirty = () => {
         if (status === 'conflict') return;
         dirty = true;
         firstChangeAt ||= Date.now();
         if (status !== 'saving' && status !== 'error') setStatus('unsaved');
         if (status !== 'error') schedule(); // while failing, the backoff timer owns retries
       };
+      const prev = editor.config.onChange;
+      editor.config.onChange = (html) => {
+        prev?.(html);
+        markDirty();
+      };
+      // A reply, resolve or delete changes the comment threads but not the document, so listen to the store as well.
+      // (Deferred: the Comments plugin may be set up after this one.)
+      let unsubComments = () => {};
+      queueMicrotask(() => {
+        const store = editor.extensions.comments as { subscribe(fn: () => void): () => void } | undefined;
+        if (store && !destroyed) unsubComments = store.subscribe(markDirty);
+      });
 
       editor.registerCommand('saveNow', () => {
         clearTimeout(timer);
@@ -108,6 +126,7 @@ export function Autosave(options: AutosaveOptions): EditorPlugin {
           view: () => ({
             destroy() {
               destroyed = true;
+              unsubComments();
               clearTimeout(timer);
               window.removeEventListener('beforeunload', warn);
               document.removeEventListener('visibilitychange', onHide);

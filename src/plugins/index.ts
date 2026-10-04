@@ -34,7 +34,7 @@ export type { Version, VersionsOptions, VersionsPlugin, VersionPersistence } fro
 export { Mentions } from './mentions';
 export type { MentionItem, MentionsOptions } from './mentions';
 export { Autosave } from './autosave';
-export type { AutosaveOptions, SaveStatus } from './autosave';
+export type { AutosaveOptions, SaveStatus, SaveContext } from './autosave';
 export { AIAssistant, createFetchProvider, DEFAULT_AI_ACTIONS } from './ai';
 export type { AIProvider, AIRequest, AIAction, AIOptions } from './ai';
 export { Direction } from './direction';

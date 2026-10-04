@@ -74,13 +74,49 @@ export class DocumentClient {
 /** A `save` function for `Autosave` that tracks the document version and surfaces conflicts. */
 export function createHttpSaver(options: { client: DocumentClient; id: string; secret: string; version: number; getComments?: () => unknown[]; title?: () => string }) {
   let version = options.version;
-  return async (html: string) => {
+  return async (html: string, ctx?: { comments: unknown[] }) => {
     const r = await options.client.save(options.id, options.secret, {
       version,
       html,
       title: options.title?.(),
-      comments: options.getComments?.(),
+      comments: options.getComments?.() ?? ctx?.comments,
     });
     version = r.version;
+  };
+}
+
+export interface EndpointSaverOptions {
+  /** Where to send the document. */
+  url: string | (() => string);
+  /** Default POST. */
+  method?: 'POST' | 'PUT' | 'PATCH';
+  /** Extra headers, such as `Authorization` or a CSRF token. May be async. */
+  headers?: Record<string, string> | (() => Record<string, string> | Promise<Record<string, string>>);
+  title?: () => string;
+  /** Reshape the payload (default `{ title, html, comments }`) to match your API. */
+  body?: (payload: { title?: string; html: string; comments: unknown[] }) => unknown;
+  credentials?: RequestCredentials;
+  fetch?: typeof fetch;
+  /** Called with the parsed JSON response (or undefined), e.g. to remember a new version number. */
+  onSaved?: (response: unknown) => void;
+}
+
+/**
+ * A `save` function for `Autosave` that sends the document to any HTTP endpoint (your own API in front of your database).
+ * The body is JSON `{ title, html, comments }`: the comment threads travel with the HTML because they are stored apart from it.
+ * A 409 response stops retrying and shows the conflict state; other failures are retried with backoff.
+ */
+export function createEndpointSaver(options: EndpointSaverOptions) {
+  return async (html: string, ctx?: { comments: unknown[] }): Promise<void> => {
+    const payload = { title: options.title?.(), html, comments: ctx?.comments ?? [] };
+    const headers = typeof options.headers === 'function' ? await options.headers() : options.headers ?? {};
+    const res = await (options.fetch ?? ((...a: Parameters<typeof fetch>) => fetch(...a)))(typeof options.url === 'function' ? options.url() : options.url, {
+      method: options.method ?? 'POST',
+      headers: { 'content-type': 'application/json', ...headers },
+      body: JSON.stringify(options.body ? options.body(payload) : payload),
+      credentials: options.credentials,
+    });
+    if (!res.ok) throw new ApiError(res.status, (await res.text().catch(() => '')).slice(0, 200) || res.statusText);
+    options.onSaved?.(res.status === 204 ? undefined : await res.json().catch(() => undefined));
   };
 }

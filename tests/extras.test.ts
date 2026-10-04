@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { TextSelection } from 'prosemirror-state';
 import { Awareness } from 'y-protocols/awareness';
 import * as Y from 'yjs';
-import { BalloonToolbar, Comments, Editor, askDialog, TrackChanges, MergeFields, SlashCommands, SourceEditing, createEditor, defaultPlugins, formatHtml, getMergeFields, renderMergeFields, toEmailHTML, toEmailText } from '../src';
+import { Autosave, BalloonToolbar, Comments, createEndpointSaver, Editor, askDialog, TrackChanges, MergeFields, SlashCommands, SourceEditing, createEditor, defaultPlugins, formatHtml, getMergeFields, renderMergeFields, toEmailHTML, toEmailText } from '../src';
 import { linkAwareness } from '../src/collab';
 
 const editors: Editor[] = [];
@@ -408,5 +408,52 @@ describe('askDialog (modal instead of window.prompt)', () => {
     const html = ed.getHTML();
     expect(html).toMatch(/data-comment-id="[^"]+"[^>]*>world</);
     ed.destroy();
+  });
+});
+
+describe('saving comments to an endpoint', () => {
+  const host = () => document.body.appendChild(document.createElement('div'));
+  const flush = (ms = 30) => new Promise((r) => setTimeout(r, ms));
+
+  it('Autosave hands the comment threads to save, and a reply (no document change) triggers a save', async () => {
+    const saves: { html: string; comments: any[] }[] = [];
+    const comments = Comments({ author: 'Ana' });
+    const ed = createEditor({ element: host(), content: '<p>hello world</p>', plugins: [...defaultPlugins, comments, Autosave({ save: async (html, ctx) => void saves.push({ html, comments: ctx.comments }), delayMs: 5 })] });
+    await flush();
+    ed.view.dispatch(ed.view.state.tr.setSelection(TextSelection.create(ed.view.state.doc, 1, 6)));
+    ed.execute('addComment', 'first');
+    await flush(60);
+    expect(saves.at(-1)!.comments).toHaveLength(1);
+    expect(saves.at(-1)!.html).toContain('data-comment-id');
+    const n = saves.length;
+    const id = comments.store.list()[0].id;
+    ed.execute('replyComment', id, 'a reply'); // only the store changes, not the document
+    await flush(60);
+    expect(saves.length).toBeGreaterThan(n);
+    expect(saves.at(-1)!.comments[0].replies).toHaveLength(1);
+    ed.execute('resolveComment', id, true);
+    await flush(60);
+    expect(saves.at(-1)!.comments[0].resolved).toBe(true);
+    ed.destroy();
+  });
+
+  it('createEndpointSaver posts { title, html, comments } with your headers, and stops on a 409', async () => {
+    const calls: { url: string; init: RequestInit }[] = [];
+    let status = 200;
+    const fakeFetch = (async (url: string, init: RequestInit) => (calls.push({ url, init }), new Response(status === 200 ? '{"version":2}' : 'stale', { status }))) as unknown as typeof fetch;
+    let seen: unknown;
+    const save = createEndpointSaver({ url: 'https://api.test/posts/7', method: 'PUT', headers: async () => ({ Authorization: 'Bearer t0k' }), title: () => 'My post', fetch: fakeFetch, onSaved: (r) => (seen = r) });
+    await save('<p>x</p>', { comments: [{ id: 'c1' }] });
+    expect(calls[0].url).toBe('https://api.test/posts/7');
+    expect(calls[0].init.method).toBe('PUT');
+    expect((calls[0].init.headers as Record<string, string>).Authorization).toBe('Bearer t0k');
+    expect(JSON.parse(calls[0].init.body as string)).toEqual({ title: 'My post', html: '<p>x</p>', comments: [{ id: 'c1' }] });
+    expect(seen).toEqual({ version: 2 });
+    status = 409;
+    await expect(save('<p>y</p>')).rejects.toMatchObject({ status: 409 });
+    const custom = createEndpointSaver({ url: 'https://api.test/x', fetch: fakeFetch, body: (p) => ({ content: p.html, threads: p.comments }) });
+    status = 200;
+    await custom('<p>z</p>', { comments: [] });
+    expect(JSON.parse(calls.at(-1)!.init.body as string)).toEqual({ content: '<p>z</p>', threads: [] });
   });
 });

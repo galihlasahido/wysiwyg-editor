@@ -28,8 +28,8 @@ export function createEditor(
 }
 export { exportHTML, download } from './export';
 export type { PageSettings } from './plugins/pages';
-export { DocumentClient, ApiError, ConflictError, createHttpSaver } from './storage';
-export type { RemoteDocument, ShareRole } from './storage';
+export { DocumentClient, ApiError, ConflictError, createHttpSaver, createEndpointSaver } from './storage';
+export type { RemoteDocument, ShareRole, EndpointSaverOptions } from './storage';
 export { registerLocale, translate, isRtlLocale } from './i18n';
 export type { Locale } from './i18n';
 export { openDialog, askDialog, avatar, avatarColor } from './dialog';
