@@ -1,5 +1,6 @@
 import type { Node as PMNode } from 'prosemirror-model';
 import { Plugin, TextSelection } from 'prosemirror-state';
+import { askDialog, avatar } from '../dialog';
 import type { Editor } from '../editor';
 import type { EditorPlugin } from '../types';
 
@@ -118,15 +119,35 @@ export function Comments(options: CommentsOptions = {}): CommentsPlugin {
         const at = sortedAnchors().find((a) => a.from <= from && from <= a.to);
         return at ? e.execute('deleteComment', at.id) : false;
       }, safe);
-      editor.registerCommand('addComment', (e, text?: string) => {
+      const attach = (e: Editor, from: number, to: number, quote: string, body: string) => {
         const { state, dispatch } = e.view;
-        const { from, to, empty } = state.selection;
-        if (empty) return false;
-        const body = text ?? window.prompt('Comment');
-        if (!body || !body.trim()) return false;
+        // The document may have changed while the dialog was open (a collaborator typing): find the same words again.
+        let a = from;
+        let b = to;
+        if (state.doc.textBetween(Math.min(a, state.doc.content.size), Math.min(b, state.doc.content.size), ' ') !== quote) {
+          let found = -1;
+          state.doc.descendants((n, pos) => {
+            if (found >= 0 || !n.isText) return;
+            const i = (n.text ?? '').indexOf(quote);
+            if (i >= 0) found = pos + i;
+          });
+          if (found < 0) return false;
+          a = found;
+          b = found + quote.length;
+        }
         const id = newId();
         store.add({ id, author, text: body.trim(), createdAt: Date.now(), resolved: false, replies: [] });
-        dispatch(state.tr.addMark(from, to, state.schema.marks.comment.create({ id })));
+        dispatch(state.tr.addMark(a, b, state.schema.marks.comment.create({ id })));
+        return true;
+      };
+      editor.registerCommand('addComment', (e, text?: string) => {
+        const { state } = e.view;
+        const { from, to, empty } = state.selection;
+        if (empty) return false;
+        const quote = state.doc.textBetween(from, to, ' ');
+        if (text !== undefined) return text.trim() ? attach(e, from, to, quote, text) : false;
+        // No text given: ask for it in a modal that shows what is being commented on.
+        void askDialog(e.root, { title: 'Add a comment', quote, author, placeholder: 'Write a comment…', multiline: true, submitLabel: 'Comment', maxLength: 4000 }).then((body) => body && attach(e, from, to, quote, body));
         return true;
       }, safe);
       editor.registerCommand('replyComment', (_e, id: string, text: string) => {
@@ -174,8 +195,12 @@ export function Comments(options: CommentsOptions = {}): CommentsPlugin {
               add('wy-comment-quote', view.state.doc.textBetween(a.from, a.to, ' ').slice(0, 80));
               const head = add('wy-comment-head', `${t.author} · ${new Date(t.createdAt).toLocaleString()}`);
               head.setAttribute('data-author', t.author);
+              head.prepend(avatar(t.author, 20));
               add('wy-comment-text', t.text);
-              for (const r of t.replies) add('wy-comment-reply', `${r.author}: ${r.text}`);
+              for (const r of t.replies) {
+                const row = add('wy-comment-reply', `${r.author}: ${r.text}`);
+                row.prepend(avatar(r.author, 16));
+              }
               const btn = (label: string, fn: () => void) => {
                 const b = document.createElement('button');
                 b.type = 'button';
@@ -188,8 +213,23 @@ export function Comments(options: CommentsOptions = {}): CommentsPlugin {
               actions.className = 'wy-comment-actions';
               actions.append(
                 btn('Reply', () => {
-                  const text = window.prompt('Reply');
-                  if (text) editor.execute('replyComment', t.id, text);
+                  const thread = document.createElement('div');
+                  thread.className = 'wy-ask-thread';
+                  for (const m of [{ author: t.author, text: t.text, createdAt: t.createdAt }, ...t.replies]) {
+                    const row = document.createElement('div');
+                    row.className = 'wy-ask-msg';
+                    const body = document.createElement('div');
+                    const who = document.createElement('b');
+                    who.textContent = m.author;
+                    const when = document.createElement('small');
+                    when.textContent = new Date(m.createdAt).toLocaleString();
+                    const txt = document.createElement('div');
+                    txt.textContent = m.text; // user text only ever as textContent
+                    body.append(who, when, txt);
+                    row.append(avatar(m.author, 24), body);
+                    thread.append(row);
+                  }
+                  void askDialog(editor.root, { title: 'Reply', quote: view.state.doc.textBetween(a.from, a.to, ' '), context: thread, author, placeholder: 'Write a reply…', multiline: true, submitLabel: 'Reply', maxLength: 4000 }).then((text) => text && editor.execute('replyComment', t.id, text));
                 }),
                 btn(t.resolved ? 'Reopen' : 'Resolve', () => editor.execute('resolveComment', t.id, !t.resolved)),
                 btn('Delete', () => editor.execute('deleteComment', t.id)),

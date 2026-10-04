@@ -1,4 +1,4 @@
-import { Versions, createEditor, defaultPlugins } from '../src';
+import { Versions, askDialog, createEditor, defaultPlugins } from '../src';
 import { $, button, codePanel, el } from './samples';
 
 const KEY = 'wysiwyg-wiki-v1';
@@ -28,7 +28,7 @@ const search = el('input', { class: 'out', placeholder: 'Search pages…', 'aria
 const nav = el('ul', { class: 'tips', style: 'list-style:none;padding:0;margin:8px 0' });
 const back = el('ul', { class: 'tips' });
 $('#app').append(el('div', { class: 'cols', style: 'grid-template-columns:240px 1fr' },
-  el('div', { class: 'panel' }, el('h2', {}, 'Pages'), search, nav, el('div', { class: 'actions' }, button('New page', () => { const n = prompt('Page name'); if (n?.trim()) { if (!Object.hasOwn(pages, n.trim())) pages[n.trim()] = `<h1>${n.trim().replace(/[<&]/g, '')}</h1><p></p>`; open(n.trim()); } })), el('h2', {}, 'Linked from'), back),
+  el('div', { class: 'panel' }, el('h2', {}, 'Pages'), search, nav, el('div', { class: 'actions' }, button('New page', () => void askDialog(editor.root, { title: 'New page', label: 'Page name', placeholder: 'e.g. Release checklist', submitLabel: 'Create', maxLength: 100, validate: (v) => (Object.hasOwn(pages, v) ? 'A page with this name already exists.' : null) }).then((n) => { if (!n) return; pages[n] = `<h1>${n.replace(/[<&>]/g, '')}</h1><p></p>`; open(n); }))), el('h2', {}, 'Linked from'), back),
   el('div', { class: 'panel' }, el('div', { id: 'editor' })),
 ));
 

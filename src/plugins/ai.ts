@@ -1,5 +1,6 @@
 import { Plugin, PluginKey } from 'prosemirror-state';
 import type { Editor } from '../editor';
+import { askDialog } from '../dialog';
 import { markdownToDoc } from '../markdown';
 import type { EditorPlugin } from '../types';
 
@@ -99,8 +100,8 @@ export function AIAssistant(options: AIOptions): EditorPlugin {
         if (!action) return false;
         let input = extra;
         if (action.prompt && input === undefined) {
-          input = window.prompt(action.prompt) ?? undefined;
-          if (!input?.trim()) return false;
+          void askDialog(e.root, { title: action.label, label: action.prompt, multiline: true, submitLabel: 'Run', maxLength: 1000 }).then((value) => value && e.execute('ai', id, value));
+          return true;
         }
         const instruction = typeof action.instruction === 'function' ? action.instruction(input ?? '') : action.instruction;
         const { state } = e.view;

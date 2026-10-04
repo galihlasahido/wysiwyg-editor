@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { TextSelection } from 'prosemirror-state';
 import { Awareness } from 'y-protocols/awareness';
 import * as Y from 'yjs';
-import { BalloonToolbar, Editor, TrackChanges, MergeFields, SlashCommands, SourceEditing, createEditor, defaultPlugins, formatHtml, getMergeFields, renderMergeFields, toEmailHTML, toEmailText } from '../src';
+import { BalloonToolbar, Comments, Editor, askDialog, TrackChanges, MergeFields, SlashCommands, SourceEditing, createEditor, defaultPlugins, formatHtml, getMergeFields, renderMergeFields, toEmailHTML, toEmailText } from '../src';
 import { linkAwareness } from '../src/collab';
 
 const editors: Editor[] = [];
@@ -340,6 +340,73 @@ describe('track changes leaves undo and remote transactions alone', () => {
     ed.view.dispatch(ed.view.state.tr.insertText('Z', 4).setMeta('y-sync$', { isChangeOrigin: true }));
     expect(ed.getHTML()).toContain('abcZ');
     expect(ed.getHTML()).not.toMatch(/insertion|data-change/i);
+    ed.destroy();
+  });
+});
+
+describe('askDialog (modal instead of window.prompt)', () => {
+  const host = () => document.body.appendChild(document.createElement('div'));
+  const type = (el: HTMLInputElement | HTMLTextAreaElement, v: string) => { el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); };
+
+  it('resolves with the trimmed text when submitted and focuses the field', async () => {
+    const root = host();
+    const p = askDialog(root, { title: 'T', multiline: true });
+    const input = root.querySelector('textarea') as HTMLTextAreaElement;
+    expect(document.activeElement).toBe(input);
+    expect((root.querySelector('button[type=submit]') as HTMLButtonElement).disabled).toBe(true); // required and empty
+    type(input, '  hello  ');
+    (root.querySelector('form') as HTMLFormElement).requestSubmit();
+    await expect(p).resolves.toBe('hello');
+    expect(root.querySelector('.wy-ask-backdrop')).toBeNull();
+  });
+  it('resolves null on Escape or Cancel and keeps a draft when the backdrop is clicked', async () => {
+    const root = host();
+    const p = askDialog(root, { title: 'T' });
+    (root.querySelector('input') as HTMLInputElement).dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await expect(p).resolves.toBeNull();
+    const q = askDialog(root, { title: 'T', value: 'draft' });
+    root.querySelector('.wy-ask-backdrop')!.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    expect(root.querySelector('.wy-ask-backdrop')).not.toBeNull(); // not lost by a stray click
+    (root.querySelector('button[type=button]') as HTMLButtonElement).click();
+    await expect(q).resolves.toBeNull();
+  });
+  it('shows validation errors instead of closing, and shows text as text', async () => {
+    const root = host();
+    const p = askDialog(root, { title: 'T', quote: '<img src=x onerror=alert(1)>', validate: (v) => (v === 'bad' ? 'Not allowed' : null) });
+    expect(root.querySelector('img')).toBeNull();
+    expect(root.querySelector('.wy-ask-quote')!.textContent).toContain('<img');
+    const input = root.querySelector('input') as HTMLInputElement;
+    type(input, 'bad');
+    (root.querySelector('form') as HTMLFormElement).requestSubmit();
+    expect(root.querySelector('.wy-ask-error')!.textContent).toBe('Not allowed');
+    type(input, 'good');
+    (root.querySelector('form') as HTMLFormElement).requestSubmit();
+    await expect(p).resolves.toBe('good');
+  });
+  it('addComment without text opens the modal, quotes the selection and attaches the comment on submit', async () => {
+    const comments = Comments({ author: 'Ana' });
+    const ed = createEditor({ element: host(), content: '<p>hello world</p>', plugins: [...defaultPlugins, comments] });
+    ed.view.dispatch(ed.view.state.tr.setSelection(TextSelection.create(ed.view.state.doc, 1, 6)));
+    expect(ed.execute('addComment')).toBe(true);
+    expect(ed.root.querySelector('.wy-ask-quote')!.textContent).toBe('hello');
+    type(ed.root.querySelector('textarea')!, 'Please rephrase');
+    (ed.root.querySelector('form') as HTMLFormElement).requestSubmit();
+    await new Promise((r) => setTimeout(r));
+    expect(comments.store.list()[0]).toMatchObject({ author: 'Ana', text: 'Please rephrase' });
+    expect(ed.getHTML()).toContain('data-comment-id');
+    ed.destroy();
+  });
+  it('the comment still lands on the same words when the text moved while the dialog was open', async () => {
+    const comments = Comments({ author: 'Ana' });
+    const ed = createEditor({ element: host(), content: '<p>hello world</p>', plugins: [...defaultPlugins, comments] });
+    ed.view.dispatch(ed.view.state.tr.setSelection(TextSelection.create(ed.view.state.doc, 7, 12))); // "world"
+    ed.execute('addComment');
+    ed.view.dispatch(ed.view.state.tr.insertText('XXXX ', 1)); // a collaborator types in front
+    type(ed.root.querySelector('textarea')!, 'ok');
+    (ed.root.querySelector('form') as HTMLFormElement).requestSubmit();
+    await new Promise((r) => setTimeout(r));
+    const html = ed.getHTML();
+    expect(html).toMatch(/data-comment-id="[^"]+"[^>]*>world</);
     ed.destroy();
   });
 });

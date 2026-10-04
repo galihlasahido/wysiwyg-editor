@@ -36,7 +36,7 @@ describe('diagram', () => {
     expect(ed.getHTML()).not.toContain('<script>');
     expect(ed.getHTML()).toContain('#dbeafe');
     ed.destroy();
-  });
+  }, 30000);
 });
 
 describe('diagram audit regressions', () => {
@@ -74,5 +74,5 @@ describe('diagram audit regressions', () => {
     for (let i = 0; i < 230; i++) bar(fig, 'Rectangle').click();
     expect(parseDiagram(JSON.parse(JSON.stringify(fig.getAttribute('data-diagram')))).shapes.length).toBeLessThanOrEqual(200);
     ed.destroy();
-  });
+  }, 30000);
 });

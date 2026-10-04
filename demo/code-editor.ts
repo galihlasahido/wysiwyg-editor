@@ -1,4 +1,4 @@
-import { createCodeEditor, languageForFilename, type CursorInfo } from '../src';
+import { askDialog, createCodeEditor, languageForFilename, type CursorInfo } from '../src';
 import { $, Kernel, codePanel, el } from './samples';
 
 interface File { id: string; name: string; value: string }
@@ -272,12 +272,21 @@ function close(id: string) {
 }
 
 function newFile() {
-  const name = window.prompt('File name (the extension picks the language)', `untitled-${files.length + 1}.js`)?.trim();
-  if (!name || name.length > 80 || /[\\/]/.test(name) || files.some((f) => f.name === name)) return;
-  const id = `f${Date.now().toString(36)}`;
-  files.push({ id, name, value: '' });
-  original.set(id, '');
-  open(id);
+  void askDialog(ce.editor.root, {
+    title: 'New file',
+    label: 'File name',
+    description: 'The extension picks the language (main.ts, index.html, notes.md …).',
+    value: `untitled-${files.length + 1}.js`,
+    submitLabel: 'Create',
+    maxLength: 80,
+    validate: (v) => (/[\\/]/.test(v) ? 'A file name cannot contain / or \\.' : files.some((f) => f.name === v) ? 'A file with this name already exists.' : null),
+  }).then((name) => {
+    if (!name) return;
+    const id = `f${Date.now().toString(36)}`;
+    files.push({ id, name, value: '' });
+    original.set(id, '');
+    open(id);
+  });
 }
 
 // ---- run ----------------------------------------------------------------------------------------------------------

@@ -1,5 +1,6 @@
 import { NodeSelection, Plugin, PluginKey } from 'prosemirror-state';
 import { Decoration, DecorationSet } from 'prosemirror-view';
+import { askDialog } from '../dialog';
 import type { EditorPlugin } from '../types';
 
 /**
@@ -22,17 +23,24 @@ export const Footnotes: EditorPlugin = {
   setup(editor) {
     const key = new PluginKey('footnotes');
     const edit = (pos: number, current: string) => {
-      const text = window.prompt('Footnote', current);
-      if (text === null) return;
-      const { state, dispatch } = editor.view;
-      if (text.trim()) dispatch(state.tr.setNodeMarkup(pos, undefined, { text: text.trim() }));
-      else dispatch(state.tr.delete(pos, pos + 1)); // empty text removes the footnote
+      void askDialog(editor.root, { title: 'Footnote', label: 'Note text', description: 'Leave it empty to remove the footnote.', value: current, required: false, multiline: true, submitLabel: 'Save', maxLength: 1000 }).then((text) => {
+        if (text === null) return;
+        const { state, dispatch } = editor.view;
+        const at = state.doc.nodeAt(pos);
+        if (!at || at.type.name !== 'footnote') return; // moved or removed while the dialog was open
+        if (text.trim()) dispatch(state.tr.setNodeMarkup(pos, undefined, { text: text.trim() }));
+        else dispatch(state.tr.delete(pos, pos + 1)); // empty text removes the footnote
+      });
     };
 
     editor.registerCommand('footnote', (e, text?: string) => {
       const { state, dispatch } = e.view;
-      const t = text ?? window.prompt('Footnote');
-      if (!t || !t.trim()) return false;
+      if (text === undefined) {
+        void askDialog(e.root, { title: 'Insert footnote', label: 'Note text', multiline: true, submitLabel: 'Insert', maxLength: 1000 }).then((t) => t && e.execute('footnote', t));
+        return true;
+      }
+      const t = text;
+      if (!t.trim()) return false;
       dispatch(state.tr.replaceSelectionWith(state.schema.nodes.footnote.create({ text: t.trim() }), false).scrollIntoView());
       return true;
     });

@@ -2,6 +2,7 @@ import { NodeSelection, Plugin } from 'prosemirror-state';
 import type { Node as PMNode } from 'prosemirror-model';
 import type { EditorView, NodeView } from 'prosemirror-view';
 import { cropFromString, cropLayout, cropToString, dragCrop, normalizeCrop, visibleSize, type Crop, type Handle } from '../crop';
+import { askDialog } from '../dialog';
 import type { EditorPlugin } from '../types';
 import { isSafeSrc } from '../url';
 
@@ -106,17 +107,23 @@ export const Image: EditorPlugin = {
     editor.registerCommand('imageCaption', (e, caption?: string | null) => {
       const sel = selectedImage(e);
       if (!sel) return false;
-      const text = caption === undefined ? window.prompt('Caption', sel.node.attrs.caption ?? '') : caption;
-      if (text === null) return false;
-      updateImage(e, sel.from, { ...sel.node.attrs, caption: text || null });
+      if (caption === undefined) {
+        void askDialog(e.root, { title: 'Image caption', label: 'Caption', value: sel.node.attrs.caption ?? '', required: false, description: 'Leave it empty to remove the caption.', submitLabel: 'Save', maxLength: 300 }).then((text) => text !== null && e.execute('imageCaption', text));
+        return true;
+      }
+      if (caption === null) return false; // cancelled
+      updateImage(e, sel.from, { ...sel.node.attrs, caption: caption || null });
       return true;
     });
     editor.registerCommand('imageAlt', (e, text?: string | null) => {
       const sel = selectedImage(e);
       if (!sel) return false;
-      const alt = text === undefined ? window.prompt('Alternative text (describe the image for screen readers)', sel.node.attrs.alt ?? '') : text;
-      if (alt === null) return false;
-      updateImage(e, sel.from, { ...sel.node.attrs, alt: alt.trim() || null });
+      if (text === undefined) {
+        void askDialog(e.root, { title: 'Alternative text', label: 'Describe the image', description: 'Read aloud by screen readers and shown when the image cannot load.', value: sel.node.attrs.alt ?? '', required: false, multiline: true, submitLabel: 'Save', maxLength: 500 }).then((alt) => alt !== null && e.execute('imageAlt', alt));
+        return true;
+      }
+      if (text === null) return false;
+      updateImage(e, sel.from, { ...sel.node.attrs, alt: text.trim() || null });
       return true;
     });
     /** Natural size of the selected image: known from a previous crop, passed in, or read from the loaded <img>. */
@@ -150,7 +157,11 @@ export const Image: EditorPlugin = {
       return view ? view.startCrop((crop, nat) => e.execute('imageCrop', crop, nat)) : false;
     });
     editor.registerCommand('image', (e, src?: string) => {
-      const url = src ?? window.prompt('Image URL');
+      if (src === undefined) {
+        void askDialog(e.root, { title: 'Insert image', label: 'Image address', placeholder: 'https://example.com/photo.png', submitLabel: 'Insert', validate: (v) => (isSafeSrc(v) ? null : 'Use an http(s) address, a /path or a base64 image.') }).then((url) => url && e.execute('image', url));
+        return true;
+      }
+      const url = src;
       if (!url || !SAFE_SRC.test(url)) return false;
       const { state, dispatch } = e.view;
       dispatch(state.tr.replaceSelectionWith(e.schema.nodes.image.create({ src: url })).scrollIntoView());

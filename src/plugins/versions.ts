@@ -1,3 +1,4 @@
+import { askDialog } from '../dialog';
 import type { Editor } from '../editor';
 import type { EditorPlugin } from '../types';
 
@@ -116,7 +117,7 @@ export function Versions(options: VersionsOptions = {}): VersionsPlugin {
         save.type = 'button';
         save.className = 'wy-btn';
         save.textContent = 'Save version';
-        save.addEventListener('click', () => editor.execute('saveVersion', window.prompt('Version name') ?? undefined));
+        save.addEventListener('click', () => void askDialog(editor.root, { title: 'Save version', label: 'Version name', description: 'Optional. A name makes it easy to find later.', placeholder: 'e.g. Sent to legal', required: false, submitLabel: 'Save', maxLength: 120 }).then((name) => name !== null && editor.execute('saveVersion', name || undefined)));
         panel.append(title, save);
         for (const v of store.list()) {
           const row = document.createElement('div');

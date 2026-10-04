@@ -1,4 +1,5 @@
 import { toggleMark } from 'prosemirror-commands';
+import { askDialog } from '../dialog';
 import type { EditorPlugin } from '../types';
 import { isSafeHref } from '../url';
 import { markActive } from './helpers';
@@ -28,9 +29,13 @@ export const Link: EditorPlugin = {
       const type = e.schema.marks.link;
       const { state, dispatch } = e.view;
       if (markActive(state, type)) return toggleMark(type)(state, dispatch);
-      const url = href ?? window.prompt('Link URL');
-      if (!url || !isSafeHref(url)) return false;
-      return toggleMark(type, { href: url })(state, dispatch);
+      if (href === undefined) {
+        const quote = state.selection.empty ? '' : state.doc.textBetween(state.selection.from, state.selection.to, ' ');
+        void askDialog(e.root, { title: 'Insert link', label: 'Address', description: 'http(s), mailto, tel, #anchor or a /path.', quote, placeholder: 'https://example.com', submitLabel: 'Insert', validate: (v) => (isSafeHref(v) ? null : 'Use an address that starts with https://, http://, mailto:, tel:, # or /.') }).then((url) => url && e.execute('link', url));
+        return true;
+      }
+      if (!isSafeHref(href)) return false;
+      return toggleMark(type, { href })(state, dispatch);
     });
   },
   toolbar: [{ name: 'link', label: 'Link', icon: '🔗', command: 'link', isActive: (s) => markActive(s, s.schema.marks.link) }],

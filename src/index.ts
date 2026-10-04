@@ -32,7 +32,8 @@ export { DocumentClient, ApiError, ConflictError, createHttpSaver } from './stor
 export type { RemoteDocument, ShareRole } from './storage';
 export { registerLocale, translate, isRtlLocale } from './i18n';
 export type { Locale } from './i18n';
-export { openDialog } from './dialog';
+export { openDialog, askDialog, avatar, avatarColor } from './dialog';
+export type { AskOptions } from './dialog';
 export { Ribbon, DEFAULT_RIBBON } from './ribbon';
 export type { RibbonOptions, RibbonTab, RibbonGroup, RibbonControl } from './ribbon';
 export { icon, ICONS, hasIcon } from './icons';
