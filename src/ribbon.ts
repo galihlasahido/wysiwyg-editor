@@ -125,8 +125,9 @@ export const DEFAULT_RIBBON: RibbonTab[] = [
       {
         id: 'illustrations',
         label: 'Illustrations',
-        controls: [{ kind: 'menu', id: 'picture', label: 'Picture', icon: 'image', need: 'image', size: 'large', entries: () => [{ label: 'Upload from device…', command: 'uploadImage', icon: 'uploadImage' }, { label: 'From URL…', command: 'image', icon: 'link' }, { label: 'From the file library…', command: 'openFiles', icon: 'folder' }] }],
+        controls: [{ kind: 'menu', id: 'picture', label: 'Picture', icon: 'image', need: 'image', size: 'large', entries: () => [{ label: 'Upload from device…', command: 'uploadImage', icon: 'uploadImage' }, { label: 'From URL…', command: 'image', icon: 'link' }, { label: 'From the file library…', command: 'openFiles', icon: 'folder' }, { label: 'Diagram (Mermaid)…', command: 'insertMermaid', icon: 'mermaid' }] }],
       },
+      { id: 'equations', label: 'Equations', controls: [{ kind: 'menu', id: 'equation', label: 'Equation', icon: 'equation', need: 'insertMath', size: 'large', entries: () => [{ label: 'Inline equation…', command: 'insertMath', icon: 'equation' }, { label: 'Display equation…', command: 'insertMathBlock', icon: 'equation' }] }] },
       { id: 'links', label: 'Links', controls: [it('link', { size: 'large', label: 'Link', icon: 'link' })] },
       { id: 'toc', label: 'Table of Contents', controls: [it('toc', { size: 'large', label: 'Table of Contents', icon: 'toc' })] },
       { id: 'comments', label: 'Comments', controls: [it('comment', { size: 'large', label: 'New Comment', icon: 'comment' })] },

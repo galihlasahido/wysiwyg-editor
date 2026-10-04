@@ -81,6 +81,16 @@ export interface AskOptions {
   maxLength?: number;
   /** Return an error message to refuse the value. */
   validate?: (value: string) => string | null;
+  /** Show a live preview under the field. Called when the dialog opens and (debounced) after each change. */
+  preview?: (value: string, host: HTMLElement) => void | Promise<void>;
+  /** Buttons that insert a piece of text at the cursor (formula templates, diagram starters). */
+  snippets?: { label: string; value: string; title?: string; /** Replace the whole text instead of inserting at the cursor (a starter template). */ replace?: boolean }[];
+  /** Fixed-width font, for code and formulas. */
+  monospace?: boolean;
+  /** Visible lines of a multi-line field. Default 3. */
+  rows?: number;
+  /** Wider dialog, for editors with a preview. */
+  wide?: boolean;
 }
 
 /** A stable colour for a name, so the same person always gets the same avatar. */
@@ -114,7 +124,7 @@ export function askDialog(root: HTMLElement, o: AskOptions): Promise<string | nu
     const backdrop = document.createElement('div');
     backdrop.className = 'wy-ask-backdrop';
     const dlg = document.createElement('form');
-    dlg.className = 'wy-dialog wy-ask';
+    dlg.className = `wy-dialog wy-ask${o.wide ? ' is-wide' : ''}`;
     dlg.setAttribute('role', 'dialog');
     dlg.setAttribute('aria-modal', 'true');
     dlg.setAttribute('aria-labelledby', `wy-ask-t-${id}`);
@@ -155,8 +165,9 @@ export function askDialog(root: HTMLElement, o: AskOptions): Promise<string | nu
     const input = o.multiline ? document.createElement('textarea') : document.createElement('input');
     input.id = `wy-ask-f-${id}`;
     input.className = 'wy-ask-input';
-    if (input instanceof HTMLTextAreaElement) input.rows = 3;
+    if (input instanceof HTMLTextAreaElement) input.rows = o.rows ?? 3;
     else input.type = 'text';
+    if (o.monospace) input.classList.add('is-mono');
     input.value = o.value ?? '';
     if (o.placeholder) input.placeholder = o.placeholder;
     if (o.maxLength) input.maxLength = o.maxLength;
@@ -165,9 +176,37 @@ export function askDialog(root: HTMLElement, o: AskOptions): Promise<string | nu
     error.id = `wy-ask-e-${id}`;
     error.setAttribute('role', 'alert');
     input.setAttribute('aria-describedby', error.id);
+    if (o.snippets?.length) {
+      const bar = document.createElement('div');
+      bar.className = 'wy-ask-snippets';
+      for (const sn of o.snippets) {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'wy-btn';
+        b.textContent = sn.label;
+        if (sn.title) b.title = sn.title;
+        b.addEventListener('click', () => {
+          const s = sn.replace ? 0 : input.selectionStart ?? input.value.length;
+          const e = sn.replace ? input.value.length : input.selectionEnd ?? s;
+          input.setRangeText(sn.value, s, e, 'end');
+          input.focus();
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+        });
+        bar.append(b);
+      }
+      field.append(bar);
+    }
     field.append(input, error);
     row.append(field);
     dlg.append(row);
+    let previewHost: HTMLElement | null = null;
+    if (o.preview) {
+      previewHost = document.createElement('div');
+      previewHost.className = 'wy-ask-preview';
+      previewHost.setAttribute('aria-live', 'polite');
+      previewHost.setAttribute('aria-label', 'Preview');
+      dlg.append(previewHost);
+    }
 
     const bar = document.createElement('div');
     bar.className = 'wy-ask-actions';
@@ -192,15 +231,19 @@ export function askDialog(root: HTMLElement, o: AskOptions): Promise<string | nu
     const finish = (value: string | null) => {
       if (done) return;
       done = true;
+      clearTimeout(previewTimer);
       backdrop.remove();
       previous?.focus?.();
       resolve(value);
     };
     const problem = (v: string): string | null => (required && !v ? 'Write something first.' : o.validate?.(v) ?? null);
+    let previewTimer: ReturnType<typeof setTimeout> | undefined;
+    const showPreview = () => { if (previewHost && o.preview) void Promise.resolve(o.preview(input.value, previewHost)).catch(() => {}); };
     const refresh = () => {
       const v = input.value.trim();
       submit.disabled = required && !v;
       if (error.textContent) error.textContent = '';
+      if (previewHost) { clearTimeout(previewTimer); previewTimer = setTimeout(showPreview, 150); }
     };
     input.addEventListener('input', refresh);
     dlg.addEventListener('submit', (e) => {
@@ -232,6 +275,7 @@ export function askDialog(root: HTMLElement, o: AskOptions): Promise<string | nu
     for (const t of ['keypress', 'keyup', 'beforeinput', 'paste', 'cut', 'copy']) backdrop.addEventListener(t, (e) => e.stopPropagation());
     root.append(backdrop);
     refresh();
+    showPreview();
     input.focus();
     input.setSelectionRange(input.value.length, input.value.length);
     // `editor.execute` hands focus back to the editor right after the command returns: take it again once that has happened.

@@ -49,6 +49,7 @@ GROUPS = [
    ('ai', 'AI assistant', 'Improve, fix, shorten, expand, summarize or translate. Streams into a preview you accept or discard.', ['AI', 'Streaming']),
    ('productivity', 'Productivity', 'Templates, slash commands, @-mentions and Markdown shortcuts.', ['Slash', 'Mentions']),
    ('merge-fields', 'Merge fields', 'Placeholders like {{first_name}} rendered per recipient, safely.', ['Templates', 'Safe']),
+   ('math-diagrams', 'Math and diagrams', 'LaTeX equations drawn by KaTeX and Mermaid diagrams (flowchart, sequence, class, state, ER, Gantt, pie, mind map), with dialogs that preview as you type.', ['KaTeX', 'Mermaid']),
    ('file-manager', 'Files and image editing', 'A file library (upload, drag and drop, search, rename, download, delete) and an image editor: crop, rotate, resize, adjust, filters, draw, text.', ['Files', 'Image editor']),
    ('images', 'Images: upload, resize, crop', 'Upload with progress, resize, crop, caption and alt text.', ['Images', 'Crop']),
  ]),

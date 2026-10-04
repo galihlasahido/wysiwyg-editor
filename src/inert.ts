@@ -24,3 +24,28 @@ export function stripActiveContent(root: Element): void {
     }
   }
 }
+
+const SCRIPTY = 'script, iframe, object, embed, frame, frameset, applet, link, meta, base, form, foreignObject, animate, set, animateTransform, animateMotion';
+const UNSAFE_REF = /^\s*(?:javascript|vbscript|data\s*:\s*text\/html)/i;
+
+/**
+ * Remove executable content from rendered markup that legitimately contains `svg` and `math` (a formula, a diagram):
+ * scripts, frames, `foreignObject`, animations that can set attributes, `on*` handlers and script URLs. In place.
+ */
+export function stripScriptsKeepGraphics(root: Element): void {
+  root.querySelectorAll(SCRIPTY).forEach((e) => e.remove());
+  for (const el of Array.from(root.querySelectorAll('*'))) {
+    for (const attr of Array.from(el.attributes)) {
+      const name = attr.name.toLowerCase();
+      if (name.startsWith('on')) el.removeAttribute(attr.name);
+      else if ((name === 'href' || name === 'xlink:href' || name === 'src' || name === 'action') && UNSAFE_REF.test(attr.value.replace(/[\u0000- ]/g, ''))) el.removeAttribute(attr.name);
+    }
+  }
+}
+
+/** Parse markup from a renderer, drop executable parts, and return the cleaned HTML. */
+export function cleanRendered(html: string): string {
+  const box = inertElement(html);
+  stripScriptsKeepGraphics(box);
+  return box.innerHTML;
+}

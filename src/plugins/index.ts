@@ -65,3 +65,7 @@ export type { CodeAdvancedOptions } from './code-advanced';
 export type { FoldingProvider } from './code-blocks';
 export { FileManager } from './file-manager';
 export type { FileManagerPluginOptions } from './file-manager';
+export { Equations, MATH_SNIPPETS } from './math';
+export type { EquationsOptions, KatexLike, MathApi } from './math';
+export { Mermaid, MERMAID_TEMPLATES } from './mermaid';
+export type { MermaidOptions, MermaidLike, MermaidApi } from './mermaid';

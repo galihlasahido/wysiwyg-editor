@@ -1,6 +1,6 @@
 import MarkdownIt from 'markdown-it';
 import { MarkdownParser, MarkdownSerializer, type MarkdownSerializerState } from 'prosemirror-markdown';
-import type { Node as PMNode, Schema } from 'prosemirror-model';
+import { Fragment, type Node as PMNode, type Schema } from 'prosemirror-model';
 import { markdownUrl } from './url';
 
 const noMark = { open: '', close: '', mixable: true, expelEnclosingWhitespace: true };
@@ -31,6 +31,20 @@ const knownNodes: Record<string, (state: MarkdownSerializerState, node: PMNode, 
     ordered_list(state, node) {
       const start = node.attrs.order || 1;
       state.renderList(node, '   ', (i) => `${start + i}. `);
+    },
+    math_inline(state, node) {
+      state.write(`$${node.attrs.tex}$`);
+    },
+    math_block(state, node) {
+      state.write(`$$\n${node.attrs.tex}\n$$`);
+      state.closeBlock(node);
+    },
+    mermaid_diagram(state, node) {
+      state.write('```mermaid\n');
+      state.text(node.attrs.code, false);
+      state.ensureNewLine();
+      state.write('```');
+      state.closeBlock(node);
     },
     merge_field(state, node) {
       state.write(`{{${node.attrs.name}}}`);
@@ -162,5 +176,15 @@ export function markdownToDoc(schema: Schema, md: string): PMNode {
     };
   // 'zero' disables raw HTML; commonmark preset keeps links/images safe-by-validateLink.
   const md_ = new MarkdownIt('commonmark', { html: false });
-  return new MarkdownParser(schema, md_ as unknown as ConstructorParameters<typeof MarkdownParser>[1], tokens).parse(md);
+  const parsed = new MarkdownParser(schema, md_ as unknown as ConstructorParameters<typeof MarkdownParser>[1], tokens).parse(md);
+  return nodes.mermaid_diagram ? mermaidFences(parsed, schema) : parsed;
+}
+
+/** A ```mermaid fence becomes a diagram node (the parser itself only knows code blocks). */
+function mermaidFences(node: PMNode, schema: Schema): PMNode {
+  if (node.type.name === 'code_block' && node.attrs.language === 'mermaid') return schema.nodes.mermaid_diagram.create({ code: node.textContent.slice(0, 20000) });
+  if (node.isLeaf) return node;
+  const kids: PMNode[] = [];
+  node.forEach((c) => kids.push(mermaidFences(c, schema)));
+  return node.copy(Fragment.from(kids));
 }

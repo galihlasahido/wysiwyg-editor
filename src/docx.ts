@@ -206,6 +206,10 @@ function inlineChildren(node: PMNode, ctx: Ctx): D.ParagraphChild[] {
       else run = new D.TextRun({ text, ...o });
     } else if (child.type.name === 'mention') {
       run = new D.TextRun({ text: `@${child.attrs.label}`, color: '1D4ED8', ...o });
+    } else if (child.type.name === 'math_inline') {
+      run = new D.TextRun({ text: child.attrs.tex, font: 'Cambria Math', italics: true, ...o }); // the LaTeX source: Word's own equation format is not produced
+    } else if (child.type.name === 'attachment') {
+      run = new D.TextRun({ text: `[${child.attrs.name}]`, color: '1D4ED8', ...o });
     } else if (child.type.name === 'hard_break') {
       run = new D.TextRun({ break: 1 });
     } else if (child.type.name === 'footnote') {
@@ -324,6 +328,14 @@ function blocks(node: PMNode, ctx: Ctx): Block[] {
     }
     case 'code_block':
       return node.textContent.split('\n').map((line) => new D.Paragraph({ children: [new D.TextRun({ text: line, font: 'Courier New', size: 20 })], shading: { type: D.ShadingType.CLEAR, fill: 'F0F0F0', color: 'auto' } }));
+    case 'math_block':
+      return [new D.Paragraph({ alignment: D.AlignmentType.CENTER, spacing: { before: 120, after: 120 }, children: [new D.TextRun({ text: node.attrs.tex, font: 'Cambria Math', italics: true })] })];
+    case 'mermaid_diagram':
+      // a picture of the diagram would need a rasteriser: keep the source, clearly labelled
+      return [
+        new D.Paragraph({ children: [new D.TextRun({ text: 'Diagram (Mermaid source)', italics: true, color: '6B7280', size: 18 })] }),
+        ...String(node.attrs.code).split('\n').map((line) => new D.Paragraph({ children: [new D.TextRun({ text: line, font: 'Courier New', size: 20 })], shading: { type: D.ShadingType.CLEAR, fill: 'F0F0F0', color: 'auto' } })),
+      ];
     case 'horizontal_rule':
       return [new D.Paragraph({ border: { bottom: { style: D.BorderStyle.SINGLE, size: 6, color: '999999', space: 1 } } })];
     case 'page_break':

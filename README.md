@@ -11,13 +11,13 @@ Everything is opt-in plugins; the core is small. It is **not published to npm ye
 
 ```sh
 pnpm install
-pnpm dev        # the demo gallery at http://localhost:5173 (34 examples)
+pnpm dev        # the demo gallery at http://localhost:5173 (35 examples)
 pnpm test       # 196 tests (unit, accessibility with axe-core, server integration)
 pnpm build      # library in dist/
 pnpm server     # reference backend on :8787
 ```
 
-**Live demos:** https://galihlasahido.github.io/wysiwyg-editor/ — a landing page plus 34 small real pages (classic, inline and
+**Live demos:** https://galihlasahido.github.io/wysiwyg-editor/ — a landing page plus 35 small real pages (classic, inline and
 document editors, a headless editor, developer docs with runnable code blocks, a notebook, a playground, a README editor,
 real-time and asynchronous collaboration, Word import/export, email, merge fields, source editing, Markdown, AI, images, mobile).
 Each has a "Show the code" section.
@@ -102,6 +102,13 @@ preview, rename, download, delete, multi-select) and `attachment` chips for non-
 (`IndexedDBFileStore`, or implement `FileStore` for a server) and are checked on the way in (size, accepted types, programs and scripts refused,
 unique clean names). `editImage` / `openImageEditor` edit a picture on a canvas: crop (free or fixed ratio), rotate, flip and straighten, resize, brightness, contrast,
 saturation, warmth, blur, nine filters, freehand pen and highlighter, text, undo and redo, PNG / JPEG / WebP output. Give `resolveUrl` your upload function to make attachments work for every reader.
+
+**Equations and diagrams** (optional peers `katex` and `mermaid`, loaded only when used): `Equations()` adds inline `$…$` and display
+LaTeX equations drawn by KaTeX with MathML for screen readers; type `$x^2$`, use the ∑ / ∫ buttons or double-click to edit in a dialog with templates
+(fraction, sum, integral, matrix …) and a live preview; invalid LaTeX shows the error in place. `Mermaid()` adds text-written diagrams (flowchart, sequence,
+class, state, ER, Gantt, pie, mind map) with starter templates and a live preview; it forces `securityLevel: 'strict'`, draws labels as SVG text, strips scripts from the
+SVG, follows the light or dark page colours, renders one diagram at a time, and shows Mermaid's message instead of throwing. Import KaTeX's CSS in your page
+(`katex/dist/katex.min.css`). Markdown round-trips as `$x$`, `$$ … $$` and ```` ```mermaid ```` fences; Word export writes the LaTeX and the Mermaid source as text.
 
 **Restricted editing**: `RestrictedEditing()` adds `locked_section` blocks (a title with the table of contents, legal
 text) that cannot be changed, and `editable_region` blocks that can, while everything else stays ordinary text. It is

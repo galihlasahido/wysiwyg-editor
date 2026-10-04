@@ -15,9 +15,9 @@ export default defineConfig({
       formats: ['es'],
       cssFileName: 'style',
     },
-    rollupOptions: { external: [/^prosemirror-/, /^markdown-it/, /^y-/, /^yjs/, /^lib0/, /^docx$/, /^mammoth/, /^react/, /^vue/] },
+    rollupOptions: { external: [/^prosemirror-/, /^markdown-it/, /^y-/, /^yjs/, /^lib0/, /^docx$/, /^mammoth/, /^katex/, /^mermaid/, /^react/, /^vue/] },
   },
   // Pre-bundle the lazily imported optional packages so the dev server does not reload the page when it first meets them.
-  optimizeDeps: { include: ['docx', 'mammoth', 'yjs', 'y-prosemirror', 'y-protocols/awareness', 'y-protocols/sync', 'lib0/encoding', 'lib0/decoding'] },
+  optimizeDeps: { include: ['katex', 'mermaid', 'docx', 'mammoth', 'yjs', 'y-prosemirror', 'y-protocols/awareness', 'y-protocols/sync', 'lib0/encoding', 'lib0/decoding'] },
   test: { environment: 'jsdom', include: ['tests/**/*.test.ts'], setupFiles: ['tests/setup.ts'] },
 });

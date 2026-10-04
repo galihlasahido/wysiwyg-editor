@@ -608,3 +608,28 @@ textarea.wy-ask-input { min-height: 84px; max-height: 40vh; }
 .wy-attachment:hover { border-color: var(--wy-accent); }
 .wy-attachment.ProseMirror-selectednode { outline: 2px solid var(--wy-accent); }
 .wy-att-size { color: var(--wy-muted); font-size: .85em; }
+
+.wy-ask.is-wide { width: min(720px, 100%); }
+.wy-ask-input.is-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; tab-size: 2; }
+.wy-ask-snippets { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
+.wy-ask-snippets .wy-btn { height: 26px; padding: 0 8px; font-size: 12px; border-radius: 6px; }
+.wy-ask-preview { margin-top: 8px; padding: 10px; min-height: 56px; max-height: 38vh; overflow: auto; border: 1px dashed var(--wy-border-2); border-radius: 8px; background: var(--wy-surface); display: flex; align-items: center; justify-content: center; }
+.wy-ask-preview svg { max-width: 100%; height: auto; }
+.wy-ask-preview .wy-preview-error { color: #dc2626; font: 12px ui-monospace, Menlo, monospace; white-space: pre-wrap; align-self: stretch; }
+
+/* ---- Equations and Mermaid diagrams ---- */
+.wy-math { display: inline-block; padding: 0 2px; border-radius: 4px; cursor: pointer; max-width: 100%; vertical-align: baseline; }
+.wy-math:hover { background: color-mix(in srgb, var(--wy-accent) 10%, transparent); }
+.wy-math.ProseMirror-selectednode { outline: 2px solid var(--wy-accent); }
+.wy-math-block { display: block; margin: 12px 0; padding: 4px 0; text-align: center; overflow-x: auto; overflow-y: hidden; }
+.wy-math-block .katex-display { margin: 0; }
+.wy-math.is-error { color: #dc2626; font-family: ui-monospace, Menlo, monospace; font-size: .9em; text-decoration: underline wavy #dc2626; text-underline-offset: 3px; }
+.wy-math.is-empty { color: var(--wy-muted); font-style: italic; }
+.wy-mermaid { position: relative; margin: 14px 0; padding: 12px; border: 1px solid var(--wy-border); border-radius: 8px; text-align: center; background: color-mix(in srgb, var(--wy-surface) 50%, transparent); }
+.wy-mermaid.ProseMirror-selectednode { outline: 2px solid var(--wy-accent); }
+.wy-mermaid-out svg { max-width: 100%; height: auto; }
+.wy-mermaid-out.is-empty { color: var(--wy-muted); }
+.wy-mermaid-out.is-error pre { margin: 0; padding: 8px; text-align: left; white-space: pre-wrap; color: #dc2626; font: 12px/1.5 ui-monospace, Menlo, monospace; border-radius: 6px; background: color-mix(in srgb, #dc2626 8%, transparent); }
+.wy-mermaid-edit { position: absolute; top: 8px; right: 8px; opacity: 0; padding: 3px 8px; border: 1px solid var(--wy-border-2); border-radius: 6px; background: var(--wy-bg); color: inherit; font: 12px system-ui, sans-serif; cursor: pointer; }
+.wy-mermaid:hover .wy-mermaid-edit, .wy-mermaid:focus-within .wy-mermaid-edit, .wy-mermaid.ProseMirror-selectednode .wy-mermaid-edit { opacity: 1; }
+@media print { .wy-mermaid-edit { display: none; } .wy-mermaid { border-color: transparent; } }
