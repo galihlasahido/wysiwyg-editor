@@ -24,6 +24,17 @@ const find = (text: string) => {
 const insertAt = (pos: number, text: string) => ed.view.dispatch(ed.view.state.tr.insertText(text, pos));
 afterEach(() => ed?.destroy());
 
+describe('RestrictedEditing styling', () => {
+  it('adds custom classes, keeps variants and can hide labels', () => {
+    ed = createEditor({ element: document.body.appendChild(document.createElement('div')), content: '<section data-locked data-variant="legal"><p>x</p></section><div data-editable-region><p>y</p></div><section data-locked data-variant="bad value"><p>z</p></section>', plugins: [...defaultPlugins, RestrictedEditing({ lockedClass: 'my-lock', regionClass: 'my-fill', labels: false })] });
+    const lock = ed.view.dom.querySelector('section[data-locked]')!;
+    expect(lock.classList.contains('my-lock') && lock.classList.contains('wy-locked') && lock.classList.contains('wy-no-label')).toBe(true);
+    expect(lock.getAttribute('data-variant')).toBe('legal');
+    expect(ed.view.dom.querySelector('.wy-region')!.classList.contains('my-fill')).toBe(true);
+    expect(ed.view.dom.querySelectorAll('section[data-locked]')[1].hasAttribute('data-variant')).toBe(false);
+  });
+});
+
 describe('RestrictedEditing', () => {
   it('rejects typing inside a locked section', () => {
     make();

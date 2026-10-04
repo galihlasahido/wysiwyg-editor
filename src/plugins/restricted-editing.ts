@@ -7,7 +7,16 @@ import type { EditorPlugin } from '../types';
 export interface RestrictedEditingOptions {
   /** Start in author mode: everything is editable and the lock commands work. Default false. */
   authorMode?: boolean;
+  /** Extra class name(s) added to every locked section, so you can style them with your own CSS. */
+  lockedClass?: string;
+  /** Extra class name(s) added to every fill-in region. */
+  regionClass?: string;
+  /** Show the small label badge ("Title block", "Fill in"). Default true. */
+  labels?: boolean;
 }
+
+const cleanVariant = (v: unknown): string | null => (typeof v === 'string' && /^[\w-]{1,30}$/.test(v) ? v : null);
+const cls = (base: string, extra?: string) => [base, ...(extra ?? '').split(/\s+/).filter((c) => /^[\w-]+$/.test(c))].join(' ');
 
 /** Transactions with these metas are programmatic or remote (app code, collaboration, version restore): never blocked. */
 const BYPASS_META = ['wy-raw', 'y-sync$'];
@@ -95,18 +104,18 @@ export function RestrictedEditing(options: RestrictedEditingOptions = {}): Edito
         content: 'block+',
         defining: true,
         isolating: true,
-        attrs: { label: { default: null } },
-        parseDOM: [{ tag: 'section[data-locked]', getAttrs: (n) => ({ label: cleanLabel((n as HTMLElement).getAttribute('data-label')) }) }],
-        toDOM: (n) => ['section', { class: 'wy-locked', 'data-locked': '', role: 'group', 'aria-label': n.attrs.label ?? 'Locked section', 'data-label': n.attrs.label ?? 'Locked' }, 0],
+        attrs: { label: { default: null }, variant: { default: null } },
+        parseDOM: [{ tag: 'section[data-locked]', getAttrs: (n) => ({ label: cleanLabel((n as HTMLElement).getAttribute('data-label')), variant: cleanVariant((n as HTMLElement).getAttribute('data-variant')) }) }],
+        toDOM: (n) => ['section', { class: cls('wy-locked', options.lockedClass) + (options.labels === false ? ' wy-no-label' : ''), 'data-locked': '', role: 'group', 'aria-label': n.attrs.label ?? 'Locked section', 'data-label': n.attrs.label ?? 'Locked', ...(n.attrs.variant ? { 'data-variant': n.attrs.variant } : {}) }, 0],
       },
       editable_region: {
         group: 'block',
         content: 'block+',
         defining: true,
         isolating: true,
-        attrs: { label: { default: null } },
-        parseDOM: [{ tag: 'div[data-editable-region]', getAttrs: (n) => ({ label: cleanLabel((n as HTMLElement).getAttribute('data-label')) }) }],
-        toDOM: (n) => ['div', { class: 'wy-region', 'data-editable-region': '', role: 'group', 'aria-label': n.attrs.label ?? 'Fill in', 'data-label': n.attrs.label ?? 'Fill in' }, 0],
+        attrs: { label: { default: null }, variant: { default: null } },
+        parseDOM: [{ tag: 'div[data-editable-region]', getAttrs: (n) => ({ label: cleanLabel((n as HTMLElement).getAttribute('data-label')), variant: cleanVariant((n as HTMLElement).getAttribute('data-variant')) }) }],
+        toDOM: (n) => ['div', { class: cls('wy-region', options.regionClass) + (options.labels === false ? ' wy-no-label' : ''), 'data-editable-region': '', role: 'group', 'aria-label': n.attrs.label ?? 'Fill in', 'data-label': n.attrs.label ?? 'Fill in', ...(n.attrs.variant ? { 'data-variant': n.attrs.variant } : {}) }, 0],
       },
     },
     setup(ed: Editor) {
@@ -167,6 +176,19 @@ export function RestrictedEditing(options: RestrictedEditingOptions = {}): Edito
           const node = $from.node(d);
           if (node.type.name === 'locked_section' || node.type.name === 'editable_region') {
             dispatch(state.tr.setNodeMarkup($from.before(d), undefined, { ...node.attrs, label: cleanLabel(label) }));
+            return true;
+          }
+        }
+        return false;
+      }));
+      /** Name a style variant (`data-variant`) for the section or region around the cursor, to target from your CSS. */
+      ed.registerCommand('setSectionVariant', authorOnly((e, variant: string | null) => {
+        const { state, dispatch } = e.view;
+        const { $from } = state.selection;
+        for (let d = $from.depth; d > 0; d--) {
+          const node = $from.node(d);
+          if (node.type.name === 'locked_section' || node.type.name === 'editable_region') {
+            dispatch(state.tr.setNodeMarkup($from.before(d), undefined, { ...node.attrs, variant: cleanVariant(variant) }));
             return true;
           }
         }

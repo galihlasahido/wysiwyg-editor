@@ -5,6 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Locked sections · wysiwyg-editor</title>
   <link rel="stylesheet" href="./demo.css" />
+  <style>
+    /* Your own look: it is only CSS variables and classes. */
+    .wy-locked[data-variant="title"] { --wy-locked-bg: transparent; --wy-locked-bar: 0; --wy-locked-padding: 0 0 8px; --wy-locked-border: 0; border-bottom: 2px solid #111827; border-radius: 0; }
+    .wy-locked[data-variant="title"]::after { display: none; }
+    .wy-locked[data-variant="legal"] { --wy-locked-bg: #fff7ed; --wy-locked-bar: 4px solid #ea580c; --wy-label-border: #ea580c; --wy-label-color: #9a3412; }
+    .wy-region[data-variant="plain"] { --wy-region-bg: transparent; --wy-region-border: 1px solid #cbd5e1; --wy-region-radius: 2px; }
+  </style>
 </head>
 <body>
   <header class="demo-head">
