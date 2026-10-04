@@ -110,3 +110,15 @@
 .is-readonly .wy-toolbar { opacity: .6; }
 .is-readonly .wy-toolbar .wy-btn:not([aria-label="Add comment"]) { pointer-events: none; }
 @media print { .wy-comments { display: none !important; } .wy-comment { background: none; border: 0; } }
+
+/* ---- Track changes ---- */
+.wy-ins { color: #15803d; text-decoration: underline; background: rgba(34,197,94,.12); }
+.wy-del { color: #b91c1c; text-decoration: line-through; background: rgba(239,68,68,.1); }
+
+/* ---- Version history ---- */
+.wy-versions { width: 240px; flex: none; overflow-y: auto; border-left: 1px solid #e3e3e3; background: #fafafa; padding: 8px; font-size: 13px; }
+.wy-versions[hidden] { display: none; }
+.wy-versions-title { font-weight: 600; margin-bottom: 6px; }
+.wy-version { background: #fff; border: 1px solid #e5e7eb; border-radius: 6px; padding: 8px; margin-top: 8px; }
+.wy-version-meta { font-size: 11px; color: #6b7280; margin-bottom: 4px; }
+@media print { .wy-versions { display: none !important; } }

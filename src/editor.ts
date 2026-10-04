@@ -130,6 +130,13 @@ export class Editor {
     return div.innerHTML;
   }
 
+  /** Replace the whole document as one undoable transaction (unlike `setHTML`, history is kept). */
+  replaceHTML(html: string): void {
+    const doc = this.parseHTML(html);
+    const { state } = this.view;
+    this.view.dispatch(state.tr.replaceWith(0, state.doc.content.size, doc.content).setMeta('wy-raw', true));
+  }
+
   setHTML(html: string): void {
     const doc = this.parseHTML(html);
     const state = EditorState.create({ doc, plugins: this.view.state.plugins });

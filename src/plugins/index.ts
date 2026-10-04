@@ -27,3 +27,7 @@ export type { SpellCheckOptions } from './spellcheck';
 export { TableOfContents } from './toc';
 export { Comments, CommentStore } from './comments';
 export type { CommentThread, CommentReply, CommentsOptions, CommentsPlugin } from './comments';
+export { TrackChanges, getChanges } from './track-changes';
+export type { Change, TrackChangesOptions } from './track-changes';
+export { Versions, VersionStore, localStorageVersions } from './versions';
+export type { Version, VersionsOptions, VersionsPlugin, VersionPersistence } from './versions';

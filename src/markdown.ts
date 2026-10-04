@@ -95,6 +95,8 @@ const serializer = new MarkdownSerializer(
     text_color: noMark,
     highlight: noMark,
     comment: noMark,
+    insertion: noMark,
+    deletion: noMark,
   },
 );
 
