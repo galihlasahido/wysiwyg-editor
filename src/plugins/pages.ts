@@ -196,6 +196,12 @@ export function Pages(options: PageOptions = {}): EditorPlugin {
               });
               positions.push(offset);
             });
+            // Endnotes sit after the last block; count them so the last page's footer stays below them.
+            const notes = view.dom.querySelector<HTMLElement>('.wy-footnotes');
+            if (notes) {
+              metrics.push({ height: notes.getBoundingClientRect().height });
+              positions.push(doc.content.size);
+            }
             const result = paginate(metrics, contentHeight());
             const sig = JSON.stringify([result, settings]);
             if (!force && sig === lastSig) return;

@@ -21,3 +21,6 @@ export { WordCount, getStats } from './word-count';
 export type { Stats } from './word-count';
 export { SpecialCharacters, SPECIAL_CHARACTERS } from './special-characters';
 export { FormatPainter } from './format-painter';
+export { Footnotes } from './footnotes';
+export { SpellCheck } from './spellcheck';
+export type { SpellCheckOptions } from './spellcheck';

@@ -257,3 +257,49 @@ describe('Special characters and format painter', () => {
     expect(e.getHTML()).toBe('<p><strong>b</strong> c</p>');
   });
 });
+
+describe('Footnotes and spell check', () => {
+  beforeEach(() => (document.body.innerHTML = ''));
+
+  it('inserts footnotes and renders them as a numbered list in order', () => {
+    const e = make('<p>a b</p>');
+    e.view.dispatch(e.view.state.tr.setSelection(TextSelection.create(e.view.state.doc, 4)));
+    e.execute('footnote', 'Second');
+    e.view.dispatch(e.view.state.tr.setSelection(TextSelection.create(e.view.state.doc, 2)));
+    e.execute('footnote', 'First');
+    expect([...e.root.querySelectorAll('.wy-footnotes li')].map((l) => l.textContent)).toEqual(['First', 'Second']);
+    expect(e.execute('footnote', '   ')).toBe(false);
+  });
+
+  it('never interprets footnote text as HTML', () => {
+    const e = make('<p>a</p>');
+    e.execute('footnote', '<img src=x onerror=alert(1)>');
+    expect(e.root.querySelector('.wy-footnotes img')).toBeNull();
+    expect(e.root.querySelector('.wy-footnotes li')!.textContent).toBe('<img src=x onerror=alert(1)>');
+  });
+
+  it('round-trips footnotes through HTML and exports Markdown', () => {
+    const e = make('<p>a</p>');
+    e.execute('footnote', 'Note');
+    e.setHTML(e.getHTML());
+    expect(e.getHTML()).toContain('data-footnote="Note"');
+    expect(e.getMarkdown()).toBe('^[Note]a');
+  });
+
+  it('edits and removes a footnote', () => {
+    const e = make('<p>a</p>');
+    e.execute('footnote', 'Old');
+    let pos = -1;
+    e.view.state.doc.descendants((n, p) => void (n.type.name === 'footnote' && (pos = p)));
+    e.view.dispatch(e.view.state.tr.setSelection(NodeSelection.create(e.view.state.doc, pos)));
+    expect(e.execute('editFootnote', 'New')).toBe(true);
+    expect(e.getHTML()).toContain('data-footnote="New"');
+  });
+
+  it('toggles spell check on the editable element', () => {
+    const e = make('<p>a</p>');
+    expect(e.view.dom.getAttribute('spellcheck')).toBe('true');
+    e.execute('toggleSpellcheck');
+    expect(e.view.dom.getAttribute('spellcheck')).toBe('false');
+  });
+});
