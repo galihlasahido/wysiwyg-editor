@@ -7,3 +7,5 @@ export { Link } from './link';
 export { Image } from './image';
 export { Table } from './table';
 export { Autoformat } from './autoformat';
+export { Alignment } from './alignment';
+export { Colors } from './colors';

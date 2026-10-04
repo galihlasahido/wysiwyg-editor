@@ -2,6 +2,7 @@ import { DOMParser, DOMSerializer, Schema, type MarkSpec, type NodeSpec } from '
 import { EditorState } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { Toolbar } from './toolbar';
+import { markdownToDoc, docToMarkdown } from './markdown';
 import type { Command, EditorPlugin, ToolbarItem } from './types';
 
 export interface EditorConfig {
@@ -14,6 +15,8 @@ export interface EditorConfig {
   content?: string;
   placeholder?: string;
   onChange?: (html: string) => void;
+  /** Uploads an image file and resolves to its URL. Defaults to embedding as a Base64 data URL. */
+  uploadImage?: (file: File) => Promise<string>;
 }
 
 const baseNodes: Record<string, NodeSpec> = {
@@ -26,11 +29,13 @@ export class Editor {
   readonly view: EditorView;
   readonly toolbar: Toolbar;
   readonly root: HTMLElement;
+  readonly uploadImage: (file: File) => Promise<string>;
   private commands = new Map<string, Command>();
   
 
   constructor(config: EditorConfig) {
 
+    this.uploadImage = config.uploadImage ?? readAsDataURL;
     const nodes: Record<string, NodeSpec> = { ...baseNodes };
     const marks: Record<string, MarkSpec> = {};
     for (const p of config.plugins) {
@@ -93,6 +98,16 @@ export class Editor {
     this.toolbar.update(state);
   }
 
+  getMarkdown(): string {
+    return docToMarkdown(this.view.state.doc);
+  }
+
+  setMarkdown(md: string): void {
+    const state = EditorState.create({ doc: markdownToDoc(this.schema, md), plugins: this.view.state.plugins });
+    this.view.updateState(state);
+    this.toolbar.update(state);
+  }
+
   destroy(): void {
     this.view.destroy();
     this.root.remove();
@@ -114,4 +129,13 @@ export class Editor {
       return item ? [item] : [];
     });
   }
+}
+
+function readAsDataURL(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result as string);
+    r.onerror = () => reject(r.error);
+    r.readAsDataURL(file);
+  });
 }

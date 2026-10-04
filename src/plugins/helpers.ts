@@ -9,3 +9,14 @@ export function markActive(state: EditorState, type: MarkType): boolean {
 }
 
 export { toggleMark };
+
+const ALIGNS = ['left', 'center', 'right', 'justify'];
+
+export function alignAttrs(dom: HTMLElement | string): { align: string | null } {
+  const a = typeof dom === 'string' ? '' : dom.style.textAlign;
+  return { align: ALIGNS.includes(a) ? a : null };
+}
+
+export function alignDOM(align: string | null): Record<string, string> {
+  return align ? { style: `text-align: ${align}` } : {};
+}

@@ -10,7 +10,7 @@ export default defineConfig({
       formats: ['es'],
       cssFileName: 'style',
     },
-    rollupOptions: { external: [/^prosemirror-/] },
+    rollupOptions: { external: [/^prosemirror-/, /^markdown-it/] },
   },
   test: { environment: 'jsdom', include: ['tests/**/*.test.ts'] },
 });

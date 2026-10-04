@@ -33,8 +33,10 @@ new Editor({
 
 ## Features (v0.1)
 
-Bold / italic / underline / strike / inline code · headings · bulleted & numbered lists with indent ·
-block quote · code block · horizontal line · links · images (URL) · tables · undo/redo ·
+Bold / italic / underline / strike / inline code · headings · text alignment · text color & highlight ·
+bulleted & numbered lists with indent · block quote · code block · horizontal line · links ·
+images (URL, file picker, paste, drag & drop; pluggable `uploadImage` adapter, Base64 by default) · tables ·
+undo/redo · Markdown import/export (`getMarkdown()` / `setMarkdown()`) ·
 Markdown-style autoformat (`# `, `- `, `1. `, `> `, ` ``` `, `**bold**`).
 Link and image URLs are restricted to safe schemes.
 
@@ -49,17 +51,16 @@ const MyPlugin: EditorPlugin = {
 };
 ```
 
-## Roadmap
+## Roadmap — goal: a Google Docs-style editor on the web
 
-- [ ] Image upload adapters, resize, captions
-- [ ] Text alignment, font family/size/color, highlight
-- [ ] Markdown import/export
-- [ ] Find & replace, special characters, format painter
-- [ ] Mentions, merge fields
-- [ ] Word / PDF export
-- [ ] Comments, track changes, revision history
-- [ ] Real-time collaboration (Yjs)
-- [ ] AI assistant hooks
+- [x] Core editing, lists, tables, images, links, alignment, colors, Markdown
+- [ ] **Docs-style editing:** font family/size, line spacing, checklists, indent, table cell merge/styling, image resize/crop/captions
+- [ ] **Page layout:** paginated view, page size/margins, headers/footers, page numbers, page breaks, ruler, outline/TOC sidebar
+- [ ] **Productivity:** find & replace, word count, format painter, special characters, footnotes, spell check, templates
+- [ ] **Collaboration:** real-time co-editing with cursors (Yjs), comments, suggesting mode / track changes, version history, mentions
+- [ ] **Import/export:** .docx import/export, PDF, HTML, Markdown, print
+- [ ] **Sharing & storage:** document model/storage backend, permissions, share links, autosave
+- [ ] **AI assistant** hooks (summarize, rewrite, grammar)
 - [ ] React / Vue wrappers, i18n, RTL, WCAG audit
 
 ## Development

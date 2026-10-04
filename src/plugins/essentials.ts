@@ -4,6 +4,7 @@ import { gapCursor } from 'prosemirror-gapcursor';
 import { history, redo, undo } from 'prosemirror-history';
 import { keymap } from 'prosemirror-keymap';
 import type { EditorPlugin } from '../types';
+import { alignAttrs, alignDOM } from './helpers';
 
 /** Paragraphs, undo/redo, base keymap, cursors. */
 export const Essentials: EditorPlugin = {
@@ -12,8 +13,9 @@ export const Essentials: EditorPlugin = {
     paragraph: {
       content: 'inline*',
       group: 'block',
-      parseDOM: [{ tag: 'p' }],
-      toDOM: () => ['p', 0],
+      attrs: { align: { default: null } },
+      parseDOM: [{ tag: 'p', getAttrs: alignAttrs }],
+      toDOM: (n) => ['p', alignDOM(n.attrs.align), 0],
     },
     hard_break: {
       inline: true,

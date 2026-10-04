@@ -53,4 +53,35 @@ describe('Editor', () => {
   it('throws on unknown command', () => {
     expect(() => make('').execute('nope')).toThrow();
   });
+
+  it('aligns text', () => {
+    const e = make('<p>abc</p>');
+    e.execute('align', 'center');
+    expect(e.getHTML()).toMatch(/^<p style="text-align: center;?">abc<\/p>$/);
+  });
+
+  it('applies text color', () => {
+    const e = make('<p>abc</p>');
+    selectAll(e);
+    e.execute('textColor', '#e03131');
+    expect(e.getHTML()).toMatch(/color: (#e03131|rgb\(224, 49, 49\))/);
+    // Survives a reload even when the browser normalises it to rgb().
+    e.setHTML(e.getHTML());
+    expect(e.getHTML()).toMatch(/color: (#e03131|rgb\(224, 49, 49\))/);
+  });
+
+  it('exports and imports Markdown', () => {
+    const e = make('<h1>Title</h1><p>a <strong>b</strong> <em>c</em></p><ul><li><p>x</p></li></ul>');
+    const md = e.getMarkdown();
+    expect(md).toBe('# Title\n\na **b** _c_\n\n- x');
+    e.setMarkdown(md);
+    expect(e.getHTML()).toBe('<h1>Title</h1><p>a <strong>b</strong> <em>c</em></p><ul><li><p>x</p></li></ul>');
+  });
+
+  it('ignores raw HTML and unsafe links in Markdown', () => {
+    const e = make('');
+    e.setMarkdown('<script>alert(1)</script>\n\n[x](javascript:alert(1))');
+    expect(e.getHTML()).not.toContain('<script');
+    expect(e.getHTML()).not.toContain('<a');
+  });
 });
