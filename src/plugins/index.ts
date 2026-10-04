@@ -24,3 +24,4 @@ export { FormatPainter } from './format-painter';
 export { Footnotes } from './footnotes';
 export { SpellCheck } from './spellcheck';
 export type { SpellCheckOptions } from './spellcheck';
+export { TableOfContents } from './toc';

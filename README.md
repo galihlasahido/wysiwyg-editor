@@ -52,7 +52,8 @@ createEditor({
 Page cards with A4/Letter/Legal sizes, margins, per-page header and footer with page numbers, manual page
 breaks (Ctrl/Cmd+Enter), a ruler with draggable left/right margins, a heading outline sidebar and print CSS.
 Pagination is visual: the document stays one ProseMirror doc and blocks are measured and spaced across pages.
-Known limitation: a single block taller than a page is not split; it overflows onto its own page.
+Paragraphs split between lines (at least two lines on each side). Tables, lists and other blocks are not split yet:
+a block taller than a page overflows onto its own page.
 Link and image URLs are restricted to safe schemes.
 
 ## Writing a plugin
@@ -70,10 +71,13 @@ const MyPlugin: EditorPlugin = {
 
 - [x] Core editing, lists, tables, images, links, alignment, colors, Markdown
 - [x] **Docs-style editing (partial):** font family/size, line spacing, checklists
-- [ ] Still to do: table cell merge/styling, image resize/crop/captions
+- [x] Table cell merge/split/color, image resize and captions
+- [ ] Still to do: image crop
 - [x] **Page layout:** paginated view, page size/margins, header/footer, page numbers, page breaks, ruler, outline sidebar
-- [ ] Still to do: splitting long blocks/tables across pages, different first-page header, table of contents block, orientation
-- [ ] **Productivity:** find & replace, word count, format painter, special characters, footnotes, spell check, templates
+- [x] Paragraphs split across pages (widow/orphan control), landscape, different first page header/footer, table of contents block
+- [ ] Still to do: splitting tables and lists across pages
+- [x] **Productivity:** find & replace, word count, format painter, special characters, footnotes (endnotes), spell check toggle
+- [ ] Templates
 - [ ] **Collaboration:** real-time co-editing with cursors (Yjs), comments, suggesting mode / track changes, version history, mentions
 - [ ] **Import/export:** .docx import/export, PDF, HTML, Markdown, print
 - [ ] **Sharing & storage:** document model/storage backend, permissions, share links, autosave

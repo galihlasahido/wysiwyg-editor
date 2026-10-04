@@ -32,6 +32,10 @@ const serializer = new MarkdownSerializer(
       const start = node.attrs.order || 1;
       state.renderList(node, '   ', (i) => `${start + i}. `);
     },
+    toc(state, node) {
+      state.write('[TOC]');
+      state.closeBlock(node);
+    },
     footnote(state, node) {
       state.write(`^[${state.esc(node.attrs.text)}]`);
     },

@@ -35,7 +35,7 @@
 .wy-paged .wy-content .ProseMirror { min-height: 0; padding: 0 var(--wy-mr) 0 var(--wy-ml); box-sizing: border-box; }
 .wy-paged .wy-content .ProseMirror > * { margin-top: 0; margin-bottom: 12px; }
 .wy-paged .wy-content .ProseMirror > .wy-page-header,
-.wy-paged .wy-content .ProseMirror > .wy-page-break,
+.wy-paged .wy-content .wy-page-break, /* any depth: breaks can sit inside a split paragraph */
 .wy-paged .wy-content .ProseMirror > .wy-page-end { margin: 0 calc(-1 * var(--wy-mr)) 0 calc(-1 * var(--wy-ml)); }
 .wy-page-header, .wy-page-footer { display: flex; align-items: center; justify-content: center; color: #9ca3af; font-size: 12px; user-select: none; box-sizing: border-box; }
 .wy-page-header { align-items: flex-end; padding-bottom: 12px; }
@@ -86,3 +86,11 @@
 .wy-content sup.wy-fn::after { content: counter(wy-fn); }
 .wy-footnotes { margin-top: 24px; padding-top: 8px; border-top: 1px solid #d1d5db; font-size: 12px; color: #374151; }
 .wy-footnotes ol { margin: 0; padding-left: 20px; }
+
+/* ---- Table of contents ---- */
+.wy-toc { padding: 12px 16px; border: 1px solid #e5e7eb; border-radius: 6px; background: #fafafa; user-select: none; }
+.wy-toc.ProseMirror-selectednode { outline: 2px solid #2563eb; }
+.wy-toc-title { font-weight: 600; margin-bottom: 6px; }
+.wy-toc-item { display: block; padding: 2px 0; color: #2563eb; cursor: pointer; }
+.wy-toc-item:hover { text-decoration: underline; }
+.wy-toc-empty { color: #9ca3af; font-size: 13px; }
