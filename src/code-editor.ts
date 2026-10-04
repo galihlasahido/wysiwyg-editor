@@ -2,6 +2,8 @@ import { EditorState } from 'prosemirror-state';
 import { Editor } from './editor';
 import type { Highlighter } from './highlight';
 import { Blocks } from './plugins/blocks';
+import { Minimap } from './code-minimap';
+import { CodeAdvanced } from './plugins/code-advanced';
 import { CodeBlocks } from './plugins/code-blocks';
 import { CodeEditing, type CursorInfo } from './plugins/code-editing';
 import { Essentials } from './plugins/essentials';
@@ -40,6 +42,12 @@ export interface CodeEditorOptions {
   height?: string;
   readOnly?: boolean;
   lineNumbers?: boolean;
+  /** Fold blocks of deeper-indented lines from the gutter. Default true. */
+  folding?: boolean;
+  /** Several cursors: Alt+click, Ctrl/Cmd+Alt+Up/Down. Default true. */
+  multiCursor?: boolean;
+  /** Show a minimap of the whole file next to the text. Default false. */
+  minimap?: boolean;
   highlight?: Highlighter;
   onChange?: (value: string) => void;
   onCursor?: (info: CursorInfo) => void;
@@ -66,7 +74,8 @@ export class CodeEditor {
 
   constructor(options: CodeEditorOptions) {
     this.options = options;
-    const blockOptions = { lineNumbers: options.lineNumbers !== false, header: false, tabSize: options.tabSize ?? 2, highlight: options.highlight };
+    const advanced = CodeAdvanced({ folding: options.folding, multiCursor: options.multiCursor });
+    const blockOptions = { lineNumbers: options.lineNumbers !== false, header: false, tabSize: options.tabSize ?? 2, highlight: options.highlight, folding: options.folding === false ? undefined : advanced.folding };
     this.blockOptions = blockOptions;
     this.editor = new Editor({
       element: options.element,
@@ -78,12 +87,13 @@ export class CodeEditor {
         Essentials,
         Blocks,
         CodeOnly,
+        advanced,
         CodeBlocks(blockOptions),
         CodeEditing({ highlight: options.highlight, onCursor: (c) => ((this.cursor = c), options.onCursor?.(c)) }),
         FindReplace,
         ...(options.plugins ?? []),
       ],
-      onChange: () => options.onChange?.(this.getValue()),
+      onChange: () => { options.onChange?.(this.getValue()); this.minimap?.refresh(); },
     });
     const root = this.editor.root;
     root.classList.add('wy-code-editor');
@@ -93,6 +103,35 @@ export class CodeEditor {
     this.setTabSize(options.tabSize ?? 2);
     this.replaceDocument(options.value ?? '', options.language ?? null, EditorState.create({ doc: this.editor.view.state.doc, plugins: this.editor.view.state.plugins }));
     this.editor.extensions.codeEditor = this;
+    if (options.minimap) this.setMinimap(true);
+  }
+
+  private minimap: Minimap | null = null;
+  /** Show or hide the minimap. */
+  setMinimap(on: boolean): void {
+    if (on && !this.minimap) {
+      this.minimap = new Minimap(this.editor.workspace, () => this.getValue(), () => this.language, this.options.highlight);
+      this.editor.root.append(this.minimap.dom);
+      this.editor.root.classList.add('wy-has-minimap');
+      this.minimap.refresh();
+    } else if (!on && this.minimap) {
+      this.minimap.destroy();
+      this.minimap = null;
+      this.editor.root.classList.remove('wy-has-minimap');
+    }
+  }
+  get hasMinimap(): boolean {
+    return !!this.minimap;
+  }
+  foldAll(): boolean {
+    return this.editor.execute('foldAll');
+  }
+  unfoldAll(): boolean {
+    return this.editor.execute('unfoldAll');
+  }
+  /** Number of cursors (1 unless extra carets were added). */
+  get cursorCount(): number {
+    return (this.editor.extensions.codeAdvanced as { cursorCount(): number } | undefined)?.cursorCount() ?? 1;
   }
 
   private blockOptions: { tabSize: number };
@@ -126,6 +165,7 @@ export class CodeEditor {
   setLanguage(language: string | null): void {
     const { state, dispatch } = this.editor.view;
     dispatch(state.tr.setNodeMarkup(0, undefined, { ...state.doc.firstChild!.attrs, language: language && /^[\w+#-]{1,20}$/.test(language) ? language.toLowerCase() : null }));
+    this.minimap?.refresh();
   }
 
   // ---- files: each has its own text, cursor and undo history
@@ -145,6 +185,7 @@ export class CodeEditor {
     if (saved) this.editor.view.updateState(saved);
     else this.replaceDocument(file.value, file.language ?? null, this.editor.view.state);
     this.options.onChange?.(this.getValue());
+    this.minimap?.refresh();
   }
 
   /** Forget a file's state. Closing the open file is up to the caller (open another one). */
@@ -183,6 +224,7 @@ export class CodeEditor {
   }
   setTheme(theme: 'light' | 'dark'): void {
     this.editor.setTheme(theme);
+    this.minimap?.refresh();
   }
 
   goToLine(line: number): boolean {
@@ -195,6 +237,7 @@ export class CodeEditor {
     this.editor.view.focus();
   }
   destroy(): void {
+    this.minimap?.destroy();
     this.editor.destroy();
   }
 }

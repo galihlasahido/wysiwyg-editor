@@ -1,7 +1,7 @@
 import { chainCommands } from 'prosemirror-commands';
 import { keymap } from 'prosemirror-keymap';
 import type { Node as PMNode } from 'prosemirror-model';
-import { Plugin, TextSelection } from 'prosemirror-state';
+import { Plugin, TextSelection, type EditorState } from 'prosemirror-state';
 import { Decoration, DecorationSet, type EditorView, type NodeView } from 'prosemirror-view';
 import { simpleHighlight, type Highlighter } from '../highlight';
 import type { EditorPlugin } from '../types';
@@ -34,10 +34,20 @@ export interface CodeBlocksOptions {
   lineNumbers?: boolean;
   /** Show the header (language picker, Copy, actions). Default true; a full code editor turns it off. */
   header?: boolean;
+  /** Code folding hooks (provided by `CodeAdvanced`): which lines are hidden and which lines get a fold marker. */
+  folding?: FoldingProvider;
+}
+
+export interface FoldingProvider {
+  /** Zero-based lines of the block at `blockPos` that are hidden inside a fold. */
+  hidden(state: EditorState, blockPos: number): ReadonlySet<number>;
+  /** 'open' / 'closed' when the line can be folded, null when it cannot. */
+  marker(state: EditorState, blockPos: number, line: number): 'open' | 'closed' | null;
+  toggle(view: EditorView, blockPos: number, line: number): void;
 }
 
 /** The gutter number for a line: text comes from a CSS counter-free attribute, so it never ends up in copied text. */
-function lineNumber(n: number, active: boolean): HTMLElement {
+function lineNumber(n: number, active: boolean, fold?: { state: 'open' | 'closed'; toggle: () => void }): HTMLElement {
   const box = document.createElement('span');
   box.className = 'wy-ln';
   box.setAttribute('contenteditable', 'false');
@@ -45,6 +55,13 @@ function lineNumber(n: number, active: boolean): HTMLElement {
   const num = document.createElement('span');
   num.className = 'wy-ln-num' + (active ? ' is-active' : '');
   num.dataset.n = String(n);
+  if (fold) {
+    const f = document.createElement('span');
+    f.className = `wy-fold is-${fold.state}`;
+    f.title = fold.state === 'open' ? 'Fold' : 'Unfold';
+    f.addEventListener('mousedown', (e) => { e.preventDefault(); fold.toggle(); });
+    num.append(f);
+  }
   box.append(num);
   return box;
 }
@@ -148,11 +165,15 @@ export function CodeBlocks(options: CodeBlocksOptions = {}): EditorPlugin {
                   // One widget at the start of every line. It is a zero-width sticky box holding the number, so the
                   // gutter stays aligned with wrapped lines, stays on screen when scrolling sideways, and is not text.
                   let offset = 0;
+                  const folding = options.folding;
+                  const hidden = folding?.hidden(state, pos);
                   code.split('\n').forEach((line, i) => {
                     const at = pos + 1 + offset;
-                    const active = head >= at && head <= at + line.length;
-                    decos.push(Decoration.widget(at, () => lineNumber(i + 1, active), { side: -1, key: `ln${i}${active ? 'a' : ''}`, ignoreSelection: true }));
                     offset += line.length + 1;
+                    if (hidden?.has(i)) return; // inside a fold: no number
+                    const active = head >= at && head <= at + line.length;
+                    const mark = folding?.marker(state, pos, i) ?? null;
+                    decos.push(Decoration.widget(at, (view) => lineNumber(i + 1, active, mark ? { state: mark, toggle: () => folding!.toggle(view, pos, i) } : undefined), { side: -1, key: `ln${i}${active ? 'a' : ''}${mark ?? ''}`, ignoreSelection: true }));
                   });
                 }
                 const key = `${node.attrs.language}\u0000${code}`;

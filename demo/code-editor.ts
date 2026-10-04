@@ -160,6 +160,7 @@ const consoleBody = el('div', { class: 'panel-body' }, consoleOut);
 const previewBody = el('div', { class: 'panel-body hidden' }, previewFrame);
 const posStatus = el('span', { textContent: 'Ln 1, Col 1' });
 const selStatus = el('span');
+const caretStatus = el('span', { hidden: true });
 const langSelect = el('select', { 'aria-label': 'Language' });
 const tabSizeBtn = el('button', { type: 'button', title: 'Change tab size' });
 const themeBtn = el('button', { class: 'tb', type: 'button', title: 'Toggle theme' });
@@ -173,19 +174,19 @@ for (const l of LANGS) langSelect.add(new Option(l === '' ? 'Plain text' : l, l)
 const ide = el(
   'div',
   { class: 'ide' },
-  el('div', { class: 'toolbar' }, runBtn, wrapBtn, themeBtn, el('button', { class: 'tb', type: 'button', textContent: 'A−', title: 'Smaller font', onclick: () => (ce.setFontSize(ce.fontSize - 1), refreshStatus()) }), el('button', { class: 'tb', type: 'button', textContent: 'A+', title: 'Larger font', onclick: () => (ce.setFontSize(ce.fontSize + 1), refreshStatus()) }), el('button', { class: 'tb', type: 'button', textContent: 'Find', title: 'Find (Ctrl+F)', onclick: () => ce.editor.execute('toggleFind') }), el('button', { class: 'tb', type: 'button', textContent: 'Go to line', title: 'Ctrl+G', onclick: () => ce.editor.execute('goToLine') }), el('span', { class: 'sp' }), el('button', { class: 'tb', type: 'button', textContent: 'Commands ⌘⇧P', onclick: () => openPalette() })),
+  el('div', { class: 'toolbar' }, runBtn, wrapBtn, themeBtn, el('button', { class: 'tb', type: 'button', textContent: 'A−', title: 'Smaller font', onclick: () => (ce.setFontSize(ce.fontSize - 1), refreshStatus()) }), el('button', { class: 'tb', type: 'button', textContent: 'A+', title: 'Larger font', onclick: () => (ce.setFontSize(ce.fontSize + 1), refreshStatus()) }), el('button', { class: 'tb', type: 'button', textContent: 'Find', title: 'Find (Ctrl+F)', onclick: () => ce.editor.execute('toggleFind') }), el('button', { class: 'tb', type: 'button', textContent: 'Go to line', title: 'Ctrl+G', onclick: () => ce.editor.execute('goToLine') }), el('button', { class: 'tb', type: 'button', textContent: 'Fold all', title: 'Fold every top-level block', onclick: () => ce.foldAll() }), el('button', { class: 'tb', type: 'button', textContent: 'Unfold all', onclick: () => ce.unfoldAll() }), el('button', { class: 'tb', type: 'button', textContent: 'Minimap', title: 'Show or hide the minimap', onclick: () => ce.setMinimap(!ce.hasMinimap) }), el('span', { class: 'sp' }), el('button', { class: 'tb', type: 'button', textContent: 'Commands ⌘⇧P', onclick: () => openPalette() })),
   tabs,
   el('div', { class: 'main' }, side, codeHost),
   el('div', { class: 'panel-bar' }, el('button', { class: 'ptab active', type: 'button', id: 'ptab-console', textContent: 'Output', onclick: () => showPanel('console') }), el('button', { class: 'ptab', type: 'button', id: 'ptab-preview', textContent: 'Preview', onclick: () => showPanel('preview') }), el('span', { style: 'flex:1' }), el('button', { class: 'ptab', type: 'button', textContent: 'Clear', onclick: () => (consoleOut.textContent = '') })),
   el('div', {}, consoleBody, previewBody),
 );
 // the status bar sits below the panels
-const status = el('div', { class: 'status' }, posStatus, selStatus, el('span', { class: 'sp' }), langSelect, tabSizeBtn, el('span', { textContent: 'Spaces' }), el('span', { textContent: 'UTF-8' }), el('span', { textContent: 'LF' }));
+const status = el('div', { class: 'status' }, posStatus, selStatus, caretStatus, el('span', { class: 'sp' }), langSelect, tabSizeBtn, el('span', { textContent: 'Spaces' }), el('span', { textContent: 'UTF-8' }), el('span', { textContent: 'LF' }));
 ide.append(status);
 ide.style.gridTemplateRows = 'auto auto minmax(0, 1fr) auto auto auto';
 
 $('#app').append(
-  el('div', { class: 'demo-note' }, el('strong', {}, 'Keys: '), el('kbd', {}, 'Tab'), ' / ', el('kbd', {}, 'Shift+Tab'), ' indent · ', el('kbd', {}, 'Ctrl/Cmd+/'), ' comment · ', el('kbd', {}, 'Alt+↑/↓'), ' move line · ', el('kbd', {}, 'Shift+Alt+↓'), ' duplicate · ', el('kbd', {}, 'Ctrl/Cmd+Shift+K'), ' delete line · ', el('kbd', {}, 'Ctrl/Cmd+L'), ' select line · ', el('kbd', {}, 'Ctrl/Cmd+G'), ' go to line · ', el('kbd', {}, 'Ctrl/Cmd+F'), ' find · ', el('kbd', {}, 'Ctrl/Cmd+Enter'), ' run · ', el('kbd', {}, 'Ctrl/Cmd+S'), ' save to this browser · ', el('kbd', {}, 'Ctrl/Cmd+Shift+P'), ' commands. Single cursor, no code folding.'),
+  el('div', { class: 'demo-note' }, el('strong', {}, 'Keys: '), el('kbd', {}, 'Tab'), ' / ', el('kbd', {}, 'Shift+Tab'), ' indent · ', el('kbd', {}, 'Ctrl/Cmd+/'), ' comment · ', el('kbd', {}, 'Alt+↑/↓'), ' move line · ', el('kbd', {}, 'Shift+Alt+↓'), ' duplicate · ', el('kbd', {}, 'Ctrl/Cmd+Shift+K'), ' delete line · ', el('kbd', {}, 'Ctrl/Cmd+L'), ' select line · ', el('kbd', {}, 'Ctrl/Cmd+G'), ' go to line · ', el('kbd', {}, 'Ctrl/Cmd+F'), ' find · ', el('kbd', {}, 'Ctrl/Cmd+Enter'), ' run · ', el('kbd', {}, 'Ctrl/Cmd+S'), ' save to this browser · ', el('kbd', {}, 'Ctrl/Cmd+Shift+P'), ' commands · ', el('kbd', {}, 'Alt+click'), ' or ', el('kbd', {}, 'Ctrl/Cmd+Alt+↑/↓'), ' add cursors (Esc clears) · gutter arrows or ', el('kbd', {}, 'Ctrl/Cmd+Alt+['), ' fold.'),
   ide,
   palette,
 );
@@ -206,9 +207,12 @@ const ce = createCodeEditor({
   language: languageForFilename(first.name),
   theme: 'dark',
   tabSize: 2,
+  minimap: true,
   onChange: () => scheduleSave(),
   onCursor,
 });
+const showCarets = () => { caretStatus.hidden = ce.cursorCount < 2; caretStatus.textContent = `${ce.cursorCount} cursors`; };
+for (const t of ['keyup', 'mouseup', 'click']) codeHost.addEventListener(t, () => requestAnimationFrame(showCarets));
 (window as unknown as { ce: typeof ce }).ce = ce; // handy for experimenting in the console
 let saveTimer: ReturnType<typeof setTimeout>;
 const scheduleSave = () => {
@@ -363,6 +367,12 @@ const commands = (): Cmd[] => [
   { label: 'Duplicate line', keys: 'Shift+Alt+↓', run: () => ce.editor.execute('duplicateLine') },
   { label: 'Delete line', keys: 'Ctrl+Shift+K', run: () => ce.editor.execute('deleteLine') },
   { label: 'Select line', keys: 'Ctrl+L', run: () => ce.editor.execute('selectLine') },
+  { label: 'Fold at cursor', keys: 'Ctrl+Alt+[', run: () => ce.editor.execute('toggleFold') },
+  { label: 'Fold all', run: () => ce.foldAll() },
+  { label: 'Unfold all', run: () => ce.unfoldAll() },
+  { label: 'Add cursor below', keys: 'Ctrl+Alt+↓', run: () => (ce.editor.execute('addCaretBelow'), showCarets()) },
+  { label: 'Add cursor above', keys: 'Ctrl+Alt+↑', run: () => (ce.editor.execute('addCaretAbove'), showCarets()) },
+  { label: 'Toggle minimap', run: () => ce.setMinimap(!ce.hasMinimap) },
   { label: 'New file…', run: newFile },
   { label: 'Save to this browser', keys: 'Ctrl+S', run: persist },
   { label: 'Reset all files to the samples', run: () => (localStorage.removeItem(STORAGE), location.reload()) },

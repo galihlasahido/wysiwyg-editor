@@ -14,7 +14,7 @@ GROUPS = [
    ('mobile', 'Mobile friendly', 'A wrapping compact toolbar with touch-sized controls in a 375px frame.', ['Responsive', 'Touch']),
  ]),
  ('Coding', 'Developer-oriented UIs, from a full code editor to docs and notebooks.', [
-   ('code-editor', 'Full code editor', 'Line numbers, highlighting, bracket matching and pairing, comments, line operations, several files, run and preview, status bar and command palette.', ['IDE', 'Line numbers', 'Files']),
+   ('code-editor', 'Full code editor', 'Line numbers, highlighting, folding, multiple cursors, minimap, bracket matching, comments, several files, run and preview, command palette.', ['IDE', 'Folding', 'Multi-cursor']),
    ('markdown-live', 'Markdown with live preview', 'The code editor with line numbers beside a rendered, sanitised preview.', ['Markdown', 'Live']),
    ('coding-docs', 'Developer docs', 'Highlighted code blocks with a language picker, Copy, smart indentation and a sandboxed Run button.', ['Code', 'Run']),
    ('coding-notebook', 'Notebook', 'Prose and runnable cells with outputs under each cell and a shared kernel.', ['Code', 'Notebook']),
@@ -26,6 +26,9 @@ GROUPS = [
    ('resume-builder', 'Resume builder', 'Locked headings keep the layout; template, accent colour and print to PDF.', ['Template', 'Print']),
    ('legal-review', 'Legal document review', 'Locked standard clauses, suggestions, comments and versions on paged layout.', ['Review', 'Locked']),
    ('meeting-notes', 'Meeting notes', 'Templates, @mentions, checklists and an action-item list collected on the side.', ['Templates', 'Mentions']),
+   ('spreadsheet', 'Spreadsheet-lite', 'Tables with formulas: SUM, AVERAGE, IF, cell and range references, safe parser, errors like #DIV/0!.', ['Table', 'Formulas']),
+   ('diagram', 'Diagrams and whiteboard', 'Editable flowcharts in the document: shapes, arrows, drag, rename, colours; stored as SVG-ready JSON.', ['SVG', 'Diagram']),
+   ('slides', 'Slides / presentation', 'A document that becomes a deck: slides split by lines, speaker notes, themes, full-screen present, standalone export.', ['Slides', 'Present']),
    ('blog-cms', 'Blog / CMS editor', 'Title, slug, cover, body with images, responsive preview, HTML and Markdown output.', ['CMS', 'Preview']),
    ('wiki', 'Knowledge base / wiki', 'Linked pages stored in the browser, search, backlinks, table of contents, versions.', ['Wiki', 'Links']),
    ('bilingual', 'Bilingual (LTR + RTL)', 'English and Arabic side by side, each with its own direction and interface language.', ['RTL', 'i18n']),

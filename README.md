@@ -11,13 +11,13 @@ Everything is opt-in plugins; the core is small. It is **not published to npm ye
 
 ```sh
 pnpm install
-pnpm dev        # the demo gallery at http://localhost:5173 (30 examples)
+pnpm dev        # the demo gallery at http://localhost:5173 (33 examples)
 pnpm test       # 196 tests (unit, accessibility with axe-core, server integration)
 pnpm build      # library in dist/
 pnpm server     # reference backend on :8787
 ```
 
-**Live demos:** https://galihlasahido.github.io/wysiwyg-editor/ — a landing page plus 30 small real pages (classic, inline and
+**Live demos:** https://galihlasahido.github.io/wysiwyg-editor/ — a landing page plus 33 small real pages (classic, inline and
 document editors, a headless editor, developer docs with runnable code blocks, a notebook, a playground, a README editor,
 real-time and asynchronous collaboration, Word import/export, email, merge fields, source editing, Markdown, AI, images, mobile).
 Each has a "Show the code" section.
@@ -90,9 +90,12 @@ header actions (the demos add a sandboxed "Run"), Tab/Shift+Tab indentation and 
 **Code editor**: `createCodeEditor({ element, value, language })` is a full code editor on the same engine: line numbers
 (aligned with wrapped lines, sticky when scrolling sideways), highlighting, auto-closing and wrapping of brackets and
 quotes, bracket-match highlight, Tab indent and auto-indent, `Mod-/` comment toggling per language, duplicate / move /
-delete line, go to line, find & replace, active-line highlight, several files (`openFile`) with separate undo, tab size,
+delete line, go to line, find & replace, active-line highlight, code folding by indentation (gutter arrows, `Mod-Alt-[`), basic multi-cursor (`Alt+click`, `Mod-Alt-↑/↓`; typing, Enter, Backspace, Delete, arrows and paste apply to every caret), an optional minimap, several files (`openFile`) with separate undo, tab size,
 word wrap, font size, themes and cursor reporting. See `demo/code-editor` (explorer, tabs, run, HTML preview, status bar,
 command palette).
+
+**Beyond text**: `TableFormulas` (spreadsheet formulas in ordinary tables: `=SUM(A2:A4)`, `=IF(...)`, cell and range references, a safe parser instead of `eval`, `computeFormulasInHTML` for export), `Diagram` (an editable flowchart block with shapes, arrows and colours,
+stored as validated JSON and rendered as SVG) and `splitSlides` (turn a document into slides with speaker notes; the demo presents full screen and exports a standalone deck).
 
 **Restricted editing**: `RestrictedEditing()` adds `locked_section` blocks (a title with the table of contents, legal
 text) that cannot be changed, and `editable_region` blocks that can, while everything else stays ordinary text. It is
@@ -204,7 +207,7 @@ Plugins may set `priority` (keymap order) and `transformTransaction` (rewrite us
 - **.docx import** goes through mammoth: alignment, colors, page setup and comments are not imported. Export embeds
   `data:` images and fetches remote ones when CORS allows; otherwise it writes the alt text.
 - Image cropping, resize, captions and alt text are supported; the .docx export crops with canvas in browsers and exports the full image where canvas is unavailable.
-- The code editor has a single cursor (no multi-cursor), no code folding and no minimap, and the built-in highlighter is a scanner, not a parser (no nested template literals or regex literals).
+- The code editor's extra cursors are carets only (no multiple selections, no select-next-occurrence), folding is by indentation (not by syntax), and the built-in highlighter is a scanner, not a parser (no nested template literals or regex literals).
 - Ribbon icons are drawn for this project (outline style, in the spirit of office suites); they are not Microsoft's assets.
   Dictation, the Microsoft Editor and add-ins from Word's ribbon are not included. Zoom uses CSS `zoom` (Chrome, Safari, Firefox 126+).
 - Ribbon labels are translated for Indonesian only (toolbar labels also for Spanish and Arabic); menu entries stay English.

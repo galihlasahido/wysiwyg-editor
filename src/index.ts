@@ -43,3 +43,5 @@ export { simpleHighlight, resolveLanguage } from './highlight';
 export type { Highlighter, Token, TokenType } from './highlight';
 export { CodeEditor, createCodeEditor, languageForFilename } from './code-editor';
 export type { CodeEditorOptions, CodeFileInput } from './code-editor';
+export { splitSlides } from './slides';
+export type { Slide, SlideOptions } from './slides';

@@ -1,0 +1,25 @@
+.slide { width: 960px; height: 540px; box-sizing: border-box; padding: 56px 72px; overflow: hidden; font: 28px/1.4 system-ui, sans-serif; display: flex; flex-direction: column; justify-content: center; background: var(--s-bg); color: var(--s-fg); }
+.slide.theme-light { --s-bg: #ffffff; --s-fg: #1f2937; --s-accent: #2563eb; }
+.slide.theme-dark { --s-bg: #0f172a; --s-fg: #e5e7eb; --s-accent: #60a5fa; }
+.slide.theme-brand { --s-bg: linear-gradient(135deg, #1d4ed8, #7c3aed); --s-fg: #ffffff; --s-accent: #fde68a; }
+.slide h1 { margin: 0 0 .4em; font-size: 2.1em; line-height: 1.1; color: var(--s-accent); }
+.slide h2 { margin: 0 0 .5em; font-size: 1.5em; color: var(--s-accent); }
+.slide p { margin: .4em 0; }
+.slide ul, .slide ol { margin: .3em 0; padding-left: 1.2em; }
+.slide li { margin: .25em 0; }
+.slide img { max-width: 100%; max-height: 300px; object-fit: contain; }
+.slide blockquote { margin: .5em 0; padding-left: 1em; border-left: 4px solid var(--s-accent); font-style: italic; }
+.slide table { border-collapse: collapse; font-size: .8em; } .slide td, .slide th { border: 1px solid color-mix(in srgb, var(--s-fg) 40%, transparent); padding: 4px 10px; }
+.slide code { background: color-mix(in srgb, var(--s-fg) 15%, transparent); padding: 0 .25em; border-radius: 4px; }
+.slide a { color: var(--s-accent); }
+.thumbs { display: grid; grid-auto-rows: max-content; align-content: start; gap: 10px; max-height: 70vh; overflow: auto; padding: 2px; }
+.thumb { position: relative; width: 100%; aspect-ratio: 16 / 9; border: 2px solid var(--line); border-radius: 6px; overflow: hidden; cursor: pointer; padding: 0; background: none; }
+.thumb:hover, .thumb.on { border-color: var(--accent); }
+.thumb .slide { position: absolute; top: 0; left: 0; transform-origin: 0 0; pointer-events: none; }
+.thumb .n { position: absolute; left: 6px; bottom: 4px; z-index: 1; font: 700 11px system-ui; padding: 1px 6px; border-radius: 8px; background: rgba(0,0,0,.6); color: #fff; }
+.present { position: fixed; inset: 0; z-index: 1000; background: #000; display: flex; align-items: center; justify-content: center; }
+.present[hidden] { display: none; }
+.present .stage { position: absolute; top: 50%; left: 50%; transform-origin: 0 0; }
+.present .hud { position: absolute; left: 0; right: 0; bottom: 0; display: flex; justify-content: space-between; gap: 12px; padding: 8px 14px; color: #cbd5e1; font: 13px system-ui; background: linear-gradient(transparent, rgba(0,0,0,.7)); }
+.present .notes { position: absolute; left: 0; right: 0; bottom: 34px; max-height: 30vh; overflow: auto; padding: 12px 18px; background: rgba(15,23,42,.92); color: #f1f5f9; font: 18px/1.5 system-ui; white-space: pre-wrap; }
+.present .notes[hidden] { display: none; }

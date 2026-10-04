@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { TextSelection } from 'prosemirror-state';
-import { CodeEditor, createCodeEditor, findMatchingBracket, languageForFilename, simpleHighlight } from '../src';
+import { CodeEditor, createCodeEditor, findMatchingBracket, foldEnd, languageForFilename, simpleHighlight } from '../src';
 
 const made: CodeEditor[] = [];
 afterEach(() => made.splice(0).forEach((c) => c.destroy()));
@@ -462,5 +462,77 @@ describe('settings and reporting', () => {
     expect(ce.editor.root.querySelector('.wy-tok-keyword')!.textContent).toBe('const');
     const custom = make('hello', { highlight: (code) => [{ from: 0, to: code.length, type: 'function' as const }] });
     expect(custom.editor.root.querySelector('.wy-tok-function')!.textContent).toBe('hello');
+  });
+});
+
+describe('folding, extra cursors and minimap', () => {
+  const make = (value: string, opts: Partial<Parameters<typeof createCodeEditor>[0]> = {}) => createCodeEditor({ element: document.body.appendChild(document.createElement('div')), value, language: 'javascript', ...opts });
+  const place = (ce: ReturnType<typeof make>, pos: number) => ce.editor.view.dispatch(ce.editor.view.state.tr.setSelection(TextSelection.create(ce.editor.view.state.doc, pos)));
+  const type = (ce: ReturnType<typeof make>, text: string) => { const v = ce.editor.view; const { from, to } = v.state.selection; return v.someProp('handleTextInput', (f) => f(v, from, to, text, () => v.state.tr)); };
+  const SRC = 'function a() {\n  if (x) {\n    one();\n    two();\n  }\n  return 1;\n}\nconst b = 2;';
+
+  it('computes fold ranges by indentation', () => {
+    const lines = SRC.split('\n');
+    expect(foldEnd(lines, 0)).toBe(5);
+    expect(foldEnd(lines, 1)).toBe(3);
+    expect(foldEnd(lines, 3)).toBeNull();
+    expect(foldEnd(lines, 6)).toBeNull();
+  });
+
+  it('folds and unfolds, hiding text and line numbers, without changing the document', () => {
+    const ce = make(SRC);
+    expect(ce.foldAll()).toBe(true);
+    expect(ce.getValue()).toBe(SRC);
+    expect(ce.editor.view.dom.querySelector('.wy-folded')).not.toBeNull();
+    expect(ce.editor.view.dom.querySelector('.wy-fold-chip')?.textContent).toContain('5 lines');
+    expect([...ce.editor.view.dom.querySelectorAll('.wy-ln-num')].map((n) => (n as HTMLElement).dataset.n)).toEqual(['1', '7', '8']);
+    ce.unfoldAll();
+    expect(ce.editor.view.dom.querySelector('.wy-folded')).toBeNull();
+    expect(ce.editor.view.dom.querySelectorAll('.wy-ln-num').length).toBe(8);
+    ce.destroy();
+  });
+
+  it('opens a fold when the cursor lands inside it', () => {
+    const ce = make(SRC);
+    ce.foldAll();
+    place(ce, 1 + SRC.indexOf('one'));
+    expect(ce.editor.view.dom.querySelector('.wy-folded')).toBeNull();
+    ce.destroy();
+  });
+
+  it('types at several cursors as one undo step', () => {
+    const ce = make('a\nb\nc');
+    place(ce, 1);
+    expect(ce.editor.execute('addCaretBelow')).toBe(true);
+    expect(ce.editor.execute('addCaretBelow')).toBe(true);
+    expect(ce.cursorCount).toBe(3);
+    type(ce, 'X');
+    expect(ce.getValue()).toBe('Xa\nXb\nXc');
+    expect(ce.cursorCount).toBe(3);
+    ce.editor.execute('undo');
+    expect(ce.getValue()).toBe('a\nb\nc');
+    ce.destroy();
+  });
+
+  it('Backspace and Enter work at every cursor; Escape returns to one cursor', () => {
+    const ce = make('ab\ncd');
+    place(ce, 3);
+    ce.editor.execute('addCaretBelow');
+    const v = ce.editor.view;
+    const key = (k: string) => v.someProp('handleKeyDown', (f) => f(v, new KeyboardEvent('keydown', { key: k, cancelable: true })));
+    key('Backspace');
+    expect(ce.getValue()).toBe('a\nc');
+    key('Escape');
+    expect(ce.cursorCount).toBe(1);
+    ce.destroy();
+  });
+
+  it('can switch the minimap on and off', () => {
+    const ce = make('const a = 1;', { minimap: true });
+    expect(ce.hasMinimap).toBe(true);
+    expect(ce.editor.root.querySelector('.wy-minimap')).not.toBeNull();
+    ce.setMinimap(false);
+    expect(ce.editor.root.querySelector('.wy-minimap')).toBeNull();
+    ce.destroy();
   });
 });
