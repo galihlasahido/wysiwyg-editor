@@ -7,7 +7,7 @@ const HEX = /^#[0-9a-f]{3,8}$/i;
 const RGB = /^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})/i;
 
 /** Browsers normalise inline colors to rgb(); accept both and store hex. */
-function normalizeColor(v: string): string | null {
+export function normalizeColor(v: string): string | null {
   if (HEX.test(v)) return v;
   const m = RGB.exec(v);
   if (!m) return null;

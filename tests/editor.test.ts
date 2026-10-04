@@ -171,3 +171,47 @@ describe('Word count', () => {
     expect(e.root.querySelector('.wy-statusbar')!.textContent).toContain('2 words');
   });
 });
+
+import { NodeSelection } from 'prosemirror-state';
+
+describe('Images and tables', () => {
+  beforeEach(() => (document.body.innerHTML = ''));
+
+  const selectImage = (e: ReturnType<typeof make>) => {
+    let pos = -1;
+    e.view.state.doc.descendants((n, p) => void (n.type.name === 'image' && (pos = p)));
+    e.view.dispatch(e.view.state.tr.setSelection(NodeSelection.create(e.view.state.doc, pos)));
+  };
+
+  it('resizes an image, clamps the width and keeps it across a reload', () => {
+    const e = make('<p><img src="https://x.test/a.png"></p>');
+    selectImage(e);
+    expect(e.execute('imageWidth', 300)).toBe(true);
+    expect(e.getHTML()).toContain('width="300"');
+    e.execute('imageWidth', 99999);
+    expect(e.getHTML()).toContain('width="2000"');
+    e.setHTML(e.getHTML());
+    expect(e.getHTML()).toContain('width="2000"');
+  });
+
+  it('sets and clears a caption, and refuses when no image is selected', () => {
+    const e = make('<p>text <img src="https://x.test/a.png"></p>');
+    expect(e.execute('imageCaption', 'x')).toBe(false);
+    selectImage(e);
+    e.execute('imageCaption', 'Figure 1');
+    expect(e.getHTML()).toContain('data-caption="Figure 1"');
+    e.execute('imageCaption', '');
+    expect(e.getHTML()).not.toContain('data-caption');
+  });
+
+  it('colors a table cell, rejecting invalid colors', () => {
+    const e = make('<p>x</p>');
+    e.execute('insertTable', 2, 2);
+    e.view.dispatch(e.view.state.tr.setSelection(TextSelection.near(e.view.state.doc.resolve(3))));
+    expect(e.execute('cellColor', 'url(javascript:x)')).toBe(false);
+    expect(e.execute('cellColor', '#ffc9c9')).toBe(true);
+    expect(e.getHTML()).toMatch(/background-color: (#ffc9c9|rgb\(255, 201, 201\))/);
+    e.setHTML(e.getHTML());
+    expect(e.getHTML()).toMatch(/background-color: (#ffc9c9|rgb\(255, 201, 201\))/);
+  });
+});

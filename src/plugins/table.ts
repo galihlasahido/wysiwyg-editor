@@ -1,9 +1,18 @@
-import { addColumnAfter, addRowAfter, deleteColumn, deleteRow, deleteTable, columnResizing, tableEditing, tableNodes } from 'prosemirror-tables';
+import { mergeCells, splitCell, toggleHeaderRow, setCellAttr, addColumnAfter, addRowAfter, deleteColumn, deleteRow, deleteTable, columnResizing, tableEditing, tableNodes } from 'prosemirror-tables';
 import type { EditorPlugin } from '../types';
+import { normalizeColor } from './colors';
 
 export const Table: EditorPlugin = {
   name: 'table',
-  nodes: tableNodes({ tableGroup: 'block', cellContent: 'block+', cellAttributes: {} }),
+  nodes: tableNodes({ tableGroup: 'block', cellContent: 'block+', cellAttributes: {
+      background: {
+        default: null,
+        getFromDOM: (dom) => normalizeColor(dom.style.backgroundColor) ?? null,
+        setDOMAttr: (value, attrs) => {
+          if (value) attrs.style = `${attrs.style ?? ''}background-color: ${value};`;
+        },
+      },
+    } }),
   setup(editor) {
     const { table, table_row, table_cell } = editor.schema.nodes;
     editor.registerCommand('insertTable', (e, rows = 3, cols = 3) => {
@@ -19,6 +28,14 @@ export const Table: EditorPlugin = {
     editor.registerCommand('deleteRow', wrap(deleteRow));
     editor.registerCommand('deleteColumn', wrap(deleteColumn));
     editor.registerCommand('deleteTable', wrap(deleteTable));
+    editor.registerCommand('mergeCells', wrap(mergeCells));
+    editor.registerCommand('splitCell', wrap(splitCell));
+    editor.registerCommand('toggleHeaderRow', wrap(toggleHeaderRow));
+    editor.registerCommand('cellColor', (e, value: string) => {
+      const color = value ? normalizeColor(value) : null;
+      if (value && !color) return false;
+      return setCellAttr('background', color)(e.view.state, e.view.dispatch);
+    });
     return [columnResizing(), tableEditing()];
   },
   toolbar: [
@@ -27,6 +44,17 @@ export const Table: EditorPlugin = {
     { name: 'addColumn', label: 'Add column right', icon: '+col', command: 'addColumn' },
     { name: 'deleteRow', label: 'Delete row', icon: '−row', command: 'deleteRow' },
     { name: 'deleteColumn', label: 'Delete column', icon: '−col', command: 'deleteColumn' },
+    { name: 'mergeCells', label: 'Merge selected cells', icon: '⊞', command: 'mergeCells' },
+    { name: 'splitCell', label: 'Split cell', icon: '⊟', command: 'splitCell' },
+    { name: 'toggleHeaderRow', label: 'Toggle header row', icon: 'H', command: 'toggleHeaderRow' },
+    {
+      type: 'select',
+      name: 'cellColor',
+      label: 'Cell color',
+      command: 'cellColor',
+      options: [{ label: 'Cell', value: '' }, ...['#fff3bf', '#ffc9c9', '#b2f2bb', '#a5d8ff', '#e5e7eb'].map((c) => ({ label: `▇ ${c}`, value: c }))],
+      getValue: () => '',
+    },
     { name: 'deleteTable', label: 'Delete table', icon: '🗑', command: 'deleteTable' },
   ],
 };
