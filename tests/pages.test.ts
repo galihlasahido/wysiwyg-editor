@@ -145,3 +145,28 @@ describe('table of contents', () => {
     expect(e.root.querySelector('.wy-toc-empty')).not.toBeNull();
   });
 });
+
+import { exportHTML } from '../src';
+
+describe('HTML export', () => {
+  const make = (opts: object) => {
+    document.body.innerHTML = '';
+    const el = document.createElement('div');
+    document.body.append(el);
+    return createEditor({ element: el, content: '<h1>Hi</h1><p>a &lt;b&gt;</p>', ...opts });
+  };
+
+  it('produces a standalone document and escapes the title', () => {
+    const html = exportHTML(make({}), { title: '</title><script>x</script>' });
+    expect(html.startsWith('<!doctype html>')).toBe(true);
+    expect(html).toContain('<title>&lt;/title&gt;&lt;script&gt;x&lt;/script&gt;</title>');
+    expect(html).not.toContain('<script>x</script>');
+    expect(html).toContain('<h1>Hi</h1><p>a &lt;b&gt;</p>');
+  });
+
+  it('applies page size and margins when the paged view is on', () => {
+    const html = exportHTML(make({ pages: { size: 'letter', margins: { left: 50 } } }));
+    expect(html).toContain('.page{width:816px;padding:96px 96px 96px 50px}');
+    expect(html).toContain('@page{size:816px 1056px');
+  });
+});

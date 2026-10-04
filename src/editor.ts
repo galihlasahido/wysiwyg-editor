@@ -41,6 +41,8 @@ export class Editor {
   /** Scroll area holding the ruler and the editable content. */
   readonly workspace: HTMLElement;
   readonly config: EditorConfig;
+  /** Plugins publish read-only helpers here (e.g. `pageSettings`) for exporters to use. */
+  readonly extensions: Record<string, unknown> = {};
   private readOnly: boolean;
   private ready = false;
   private transformers: NonNullable<EditorPlugin['transformTransaction']>[] = [];

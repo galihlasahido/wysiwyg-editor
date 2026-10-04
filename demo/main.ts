@@ -1,5 +1,6 @@
 import * as Y from 'yjs';
-import { Collaboration, Comments, TrackChanges, Versions, createBroadcastProvider, createEditor, defaultPlugins } from '../src';
+import { Comments, TrackChanges, Versions, createEditor, defaultPlugins } from '../src';
+import { Collaboration, createBroadcastProvider } from '../src/collab';
 
 const params = new URLSearchParams(location.search);
 const para = '<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>';

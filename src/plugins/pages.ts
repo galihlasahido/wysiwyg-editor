@@ -13,6 +13,19 @@ export type PageSizeName = keyof typeof PAGE_SIZES;
 
 export interface Margins { top: number; right: number; bottom: number; left: number }
 
+export interface PageSettings {
+  size: PageSizeName;
+  orientation: 'portrait' | 'landscape';
+  width: number;
+  height: number;
+  margins: Margins;
+  header: string;
+  footer: string;
+  differentFirstPage: boolean;
+  firstHeader: string;
+  firstFooter: string;
+}
+
 export interface PageOptions {
   size?: PageSizeName;
   margins?: Partial<Margins>;
@@ -233,6 +246,29 @@ export function Pages(options: PageOptions = {}): EditorPlugin {
         applyVars();
         return true;
       });
+      editor.extensions.pageSettings = () => ({
+        size: settings.size,
+        orientation: settings.orientation,
+        width: dims().width,
+        height: dims().height,
+        margins: { ...settings.margins },
+        header: options.header ?? '',
+        footer: options.footer ?? 'Page {page} of {pages}',
+        differentFirstPage: !!options.differentFirstPage,
+        firstHeader: options.firstHeader ?? '',
+        firstFooter: options.firstFooter ?? '',
+      });
+      // Browser print / "Save as PDF": the page margins become real @page margins.
+      editor.registerCommand('print', () => {
+        const { width, height } = dims();
+        const m = settings.margins;
+        const style = document.createElement('style');
+        style.textContent = `@page{size:${width}px ${height}px;margin:${m.top}px ${m.right}px ${m.bottom}px ${m.left}px}@media print{.wy-paged .wy-content .ProseMirror{padding:0}}`;
+        document.head.append(style);
+        window.addEventListener('afterprint', () => style.remove(), { once: true });
+        window.print();
+        return true;
+      });
       editor.registerCommand('pageBreak', (e) => {
         const { state, dispatch } = e.view;
         dispatch(state.tr.replaceSelectionWith(e.schema.nodes.page_break.create()).scrollIntoView());
@@ -431,6 +467,7 @@ export function Pages(options: PageOptions = {}): EditorPlugin {
         options: [{ label: 'Portrait', value: 'portrait' }, { label: 'Landscape', value: 'landscape' }],
         getValue: () => settings.orientation,
       },
+      { name: 'print', label: 'Print / Save as PDF', icon: '🖨', command: 'print' },
       { name: 'pageBreak', label: 'Page break (Ctrl+Enter)', icon: '⤓', command: 'pageBreak' },
     ],
   };

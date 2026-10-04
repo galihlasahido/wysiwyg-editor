@@ -232,7 +232,7 @@ describe('Versions', () => {
 
 import * as Y from 'yjs';
 import { Awareness } from 'y-protocols/awareness';
-import { Collaboration, linkDocs } from '../src';
+import { Collaboration, linkDocs } from '../src/collab';
 
 describe('Collaboration (Yjs)', () => {
   const peer = (ydoc: Y.Doc, seed?: string, awareness?: Awareness, name = 'u') => {
