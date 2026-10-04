@@ -48,10 +48,17 @@ export class FileStore {
     return join(this.dir, `${id}.${ext}`);
   }
   async get(id: string): Promise<DocRecord | null> {
+    let text: string;
     try {
-      return JSON.parse(await readFile(this.path(id), 'utf8'));
+      text = await readFile(this.path(id), 'utf8');
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code === 'ENOENT') return null;
+      throw e; // a read error is not "no such document": callers must not treat it as one
+    }
+    try {
+      return JSON.parse(text);
     } catch {
-      return null;
+      throw new Error(`document ${id} is corrupt`);
     }
   }
   /** Run `fn` with exclusive access to a document; returns its result. */
@@ -66,14 +73,17 @@ export class FileStore {
       } else await rm(this.path(id), { force: true });
       return result;
     });
-    this.locks.set(id, run.catch(() => {}));
+    const tail = run.catch(() => {});
+    this.locks.set(id, tail);
+    void tail.then(() => { if (this.locks.get(id) === tail) this.locks.delete(id); }); // do not keep an entry per document forever
     return run;
   }
   async readBinary(id: string): Promise<Uint8Array | null> {
     try {
       return new Uint8Array(await readFile(this.path(id, 'ydoc')));
-    } catch {
-      return null;
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code === 'ENOENT') return null;
+      throw e;
     }
   }
   async writeBinary(id: string, data: Uint8Array) {
@@ -92,6 +102,26 @@ function roleFor(doc: DocRecord, secret: string | null): Role | null {
 }
 
 const MAX_BODY = 5 * 1024 * 1024;
+const MAX_AWARENESS = 4096; // presence updates are tiny; anything larger is abuse
+const MAX_CONNS_PER_DOC = 100;
+const MAX_COMMENTS = 2000;
+
+/** Accept only well-formed threads, so one bad client cannot make every other client's comment panel throw. */
+function cleanComments(v: unknown): unknown[] | null {
+  if (!Array.isArray(v) || v.length > MAX_COMMENTS) return null;
+  const str = (x: unknown, max: number) => typeof x === 'string' && x.length <= max;
+  const out: unknown[] = [];
+  for (const t of v) {
+    if (!t || typeof t !== 'object' || !str((t as any).id, 100) || !str((t as any).author, 200) || !str((t as any).text, 20000) || typeof (t as any).createdAt !== 'number' || typeof (t as any).resolved !== 'boolean' || !Array.isArray((t as any).replies) || (t as any).replies.length > 1000) return null;
+    const replies: unknown[] = [];
+    for (const r of (t as any).replies) {
+      if (!r || typeof r !== 'object' || !str(r.id, 100) || !str(r.author, 200) || !str(r.text, 20000) || typeof r.createdAt !== 'number') return null;
+      replies.push({ id: r.id, author: r.author, text: r.text, createdAt: r.createdAt });
+    }
+    out.push({ id: (t as any).id, author: (t as any).author, text: (t as any).text, createdAt: (t as any).createdAt, resolved: (t as any).resolved, replies });
+  }
+  return out;
+}
 
 class HttpError extends Error {
   constructor(public status: number, message: string) {
@@ -176,7 +206,7 @@ export function createServer(options: ServerOptions): RunningServer {
         id,
         title: typeof body.title === 'string' ? body.title.slice(0, 200) : 'Untitled',
         html: typeof body.html === 'string' ? body.html : '',
-        comments: Array.isArray(body.comments) ? body.comments : [],
+        comments: body.comments === undefined ? [] : (cleanComments(body.comments) ?? (() => { throw new HttpError(400, 'Invalid comments'); })()),
         version: 1,
         createdAt: now,
         updatedAt: now,
@@ -204,25 +234,30 @@ export function createServer(options: ServerOptions): RunningServer {
         need('edit');
         const body = await readJson(req);
         if (typeof body.version !== 'number') throw new HttpError(400, 'version is required');
-        type PutResult = { status: 404 } | { status: 409; current: ReturnType<typeof publicDoc> } | { status: 200; version: number; updatedAt: number };
+        type PutResult = { status: 404 } | { status: 403 } | { status: 409; current: ReturnType<typeof publicDoc> } | { status: 200; version: number; updatedAt: number };
         const out = await store.update<PutResult>(id, (d) => {
           if (!d) return { doc: null, result: { status: 404 } };
+          const live = roleFor(d, secret); // re-check inside the lock: access may have been revoked since the request began
+          if (!live || RANK[live] < RANK.edit) return { doc: d, result: { status: 403 } };
           if (d.version !== body.version) return { doc: d, result: { status: 409, current: publicDoc(d, role) } };
           const next: DocRecord = {
             ...d,
             title: typeof body.title === 'string' ? body.title.slice(0, 200) : d.title,
             html: typeof body.html === 'string' ? body.html : d.html,
-            comments: Array.isArray(body.comments) ? body.comments : d.comments,
+            comments: body.comments === undefined ? d.comments : (cleanComments(body.comments) ?? d.comments),
             version: d.version + 1,
             updatedAt: Date.now(),
           };
           return { doc: next, result: { status: 200, version: next.version, updatedAt: next.updatedAt } };
         });
         if (out.status === 404) throw new HttpError(404, 'Not found');
+        if (out.status === 403) throw new HttpError(403, 'Insufficient permissions');
         return send(res, out.status, out.status === 409 ? { error: 'Version conflict', current: out.current } : out);
       }
       if (req.method === 'DELETE') {
         need('owner');
+        const live = rooms.get(id);
+        if (live) { rooms.delete(id); live.dispose(); for (const ws of live.conns.keys()) ws.close(4404, 'Document deleted'); } // before the files go, or a pending write would recreate them
         await store.update(id, () => ({ doc: null, result: null }));
         await rm(join(options.dataDir, `${id}.ydoc`), { force: true });
         return send(res, 204);
@@ -232,8 +267,9 @@ export function createServer(options: ServerOptions): RunningServer {
     if (parts[3] === 'comments' && parts.length === 4 && req.method === 'PUT') {
       need('comment'); // commenters may change comments but not the document
       const body = await readJson(req);
-      if (!Array.isArray(body.comments)) throw new HttpError(400, 'comments must be an array');
-      const next = await store.update(id, (d) => (d ? { doc: { ...d, comments: body.comments as unknown[], updatedAt: Date.now() }, result: true } : { doc: null, result: false }));
+      const comments = cleanComments(body.comments);
+      if (!comments) throw new HttpError(400, 'comments must be an array of valid threads');
+      const next = await store.update(id, (d) => (d ? { doc: { ...d, comments, updatedAt: Date.now() }, result: true } : { doc: null, result: false }));
       return send(res, next ? 200 : 404, next ? { ok: true } : { error: 'Not found' });
     }
 
@@ -250,7 +286,7 @@ export function createServer(options: ServerOptions): RunningServer {
       }
       if (parts.length === 5 && req.method === 'DELETE') {
         await store.update(id, (d) => (d ? { doc: { ...d, shares: d.shares.filter((s) => s.id !== parts[4]) }, result: null } : { doc: null, result: null }));
-        for (const room of rooms.values()) room.revalidate();
+        await rooms.get(id)?.revalidate();
         return send(res, 204);
       }
     }
@@ -291,7 +327,7 @@ export function createServer(options: ServerOptions): RunningServer {
         syncProtocol.writeUpdate(enc, update);
         this.broadcast(encoding.toUint8Array(enc), origin as WebSocket | null);
         clearTimeout(this.timer);
-        if (!closing) this.timer = setTimeout(() => void this.persist(), 300);
+        if (!closing && !this.disposed) this.timer = setTimeout(() => void this.persist(), 300);
       });
       this.awareness.on('update', ({ added, updated, removed }: { added: number[]; updated: number[]; removed: number[] }, origin: unknown) => {
         const changed = [...added, ...updated, ...removed];
@@ -307,6 +343,14 @@ export function createServer(options: ServerOptions): RunningServer {
         this.broadcast(encoding.toUint8Array(enc), null);
       });
     }
+    /** Release timers and listeners. A room must be disposed whenever it is dropped. */
+    dispose() {
+      clearTimeout(this.timer);
+      this.disposed = true;
+      this.awareness.destroy(); // stops its setInterval
+      this.doc.destroy();
+    }
+    disposed = false;
     broadcast(data: Uint8Array, except: WebSocket | null) {
       for (const ws of this.conns.keys()) if (ws !== except && ws.readyState === 1) ws.send(data);
     }
@@ -335,23 +379,38 @@ export function createServer(options: ServerOptions): RunningServer {
       const saved = await store.readBinary(id);
       if (saved) Y.applyUpdate(room.doc, saved);
       // A concurrent connection may have created the room while we were loading.
-      if (rooms.has(id)) return rooms.get(id)!;
+      if (rooms.has(id)) { room.dispose(); return rooms.get(id)!; }
       rooms.set(id, room);
     }
     return room;
   }
 
   server.on('upgrade', (req, socket, head) => {
-    const url = new URL(req.url ?? '/', 'http://localhost');
+    const reject = (code: number) => (socket.write(`HTTP/1.1 ${code} Error\r\nConnection: close\r\n\r\n`), socket.destroy());
+    socket.on('error', () => socket.destroy());
+    let url: URL;
+    try {
+      url = new URL(req.url ?? '/', 'http://localhost'); // throws on inputs like "//" or "//["
+    } catch {
+      return reject(400);
+    }
     const m = /^\/collab\/([a-f0-9]{24})$/.exec(url.pathname);
     const secret = url.searchParams.get('token');
-    const reject = (code: number) => (socket.write(`HTTP/1.1 ${code} Error\r\nConnection: close\r\n\r\n`), socket.destroy());
     if (!m || !secret) return reject(401);
+    // The token travels in the URL, so a page on another origin must not be able to use a leaked one from a browser.
+    if (options.allowedOrigin && req.headers.origin && req.headers.origin !== options.allowedOrigin) return reject(403);
     store.get(m[1]).then(async (rec) => {
       const role = rec ? roleFor(rec, secret) : null;
       if (!role) return reject(403);
+      if ((rooms.get(m[1])?.conns.size ?? 0) >= MAX_CONNS_PER_DOC) return reject(503);
       wss.handleUpgrade(req, socket, head, (ws) => {
         ws.binaryType = 'nodebuffer';
+        // A malformed frame makes ws emit 'error'; with no listener that is an uncaught exception and kills the process.
+        ws.on('error', () => ws.terminate());
+        let alive = true;
+        ws.on('pong', () => (alive = true));
+        const beat = setInterval(() => { if (!alive) return ws.terminate(); alive = false; ws.ping(); }, 30000);
+        ws.on('close', () => clearInterval(beat));
         // The room may need to be loaded from disk, but the client sends its first message right after
         // connecting: listen immediately and queue messages until the room is ready, or they are lost.
         let room: Room | null = null;
@@ -370,6 +429,7 @@ export function createServer(options: ServerOptions): RunningServer {
               // viewers/commenters: updates are silently ignored, only reads are served
               if (encoding.length(enc) > 1) ws.send(encoding.toUint8Array(enc));
             } else if (type === MSG_AWARENESS) {
+              if (data.length > MAX_AWARENESS) return ws.close(1009, 'Awareness update too large');
               awarenessProtocol.applyAwarenessUpdate(r.awareness, decoding.readVarUint8Array(decoder), ws);
             }
           } catch {
@@ -385,7 +445,7 @@ export function createServer(options: ServerOptions): RunningServer {
           if (c) awarenessProtocol.removeAwarenessStates(r.awareness, [...c.clientIds], null);
           if (r.conns.size === 0 && !closing) {
             void r.persist().then(() => {
-              if (r.conns.size === 0) rooms.delete(r.id);
+              if (r.conns.size === 0 && rooms.get(r.id) === r) { rooms.delete(r.id); r.dispose(); }
             });
           }
         });
@@ -425,6 +485,7 @@ export function createServer(options: ServerOptions): RunningServer {
         clearTimeout(room.timer);
         await room.persist(); // final state first, then drop the connections
         for (const ws of room.conns.keys()) ws.terminate();
+        room.dispose();
       }
       wss.close();
       server.closeAllConnections?.();

@@ -1,12 +1,12 @@
 import type { Editor } from '../editor';
+import { inertElement } from '../inert';
 import type { EditorPlugin } from '../types';
 
 const BLOCKS = new Set(['p', 'h1', 'h2', 'h3', 'h4', 'ul', 'ol', 'li', 'blockquote', 'pre', 'table', 'thead', 'tbody', 'tr', 'td', 'th', 'div', 'hr']);
 
 /** Pretty-print editor HTML: one block per line, indented by nesting. Inline markup stays on its line. */
 export function formatHtml(html: string): string {
-  const box = document.createElement('div');
-  box.innerHTML = html;
+  const box = inertElement(html);
   const lines: string[] = [];
   const walk = (el: Element, depth: number) => {
     for (const child of Array.from(el.childNodes)) {

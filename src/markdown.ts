@@ -1,6 +1,7 @@
 import MarkdownIt from 'markdown-it';
 import { MarkdownParser, MarkdownSerializer, type MarkdownSerializerState } from 'prosemirror-markdown';
 import type { Node as PMNode, Schema } from 'prosemirror-model';
+import { markdownUrl } from './url';
 
 const noMark = { open: '', close: '', mixable: true, expelEnclosingWhitespace: true };
 
@@ -62,7 +63,7 @@ const knownNodes: Record<string, (state: MarkdownSerializerState, node: PMNode, 
       state.closeBlock(node);
     },
     image(state, node) {
-      state.write(`![${state.esc(node.attrs.alt || '')}](${node.attrs.src})`);
+      state.write(`![${state.esc(node.attrs.alt || '')}](${markdownUrl(node.attrs.src)})`);
     },
     hard_break(state, node, parent, index) {
       for (let i = index + 1; i < parent.childCount; i++)
@@ -111,7 +112,7 @@ const serializer = new MarkdownSerializer(
     strike: { open: '~~', close: '~~', mixable: true, expelEnclosingWhitespace: true },
     link: {
       open: '[',
-      close: (_s, mark) => `](${mark.attrs.href}${mark.attrs.title ? ` "${mark.attrs.title.replace(/"/g, '\\"')}"` : ''})`,
+      close: (_s, mark) => `](${markdownUrl(mark.attrs.href)}${mark.attrs.title ? ` "${mark.attrs.title.replace(/"/g, '\\"')}"` : ''})`,
     },
     underline: noMark,
     subscript: noMark,

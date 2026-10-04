@@ -3,9 +3,26 @@ import { TextSelection } from 'prosemirror-state';
 import type { EditorPlugin } from '../types';
 import { normalizeColor } from './colors';
 
+const clampSpan = (n: unknown) => Math.max(1, Math.min(100, Math.round(Number(n)) || 1));
+/** prosemirror-tables reads colspan/rowspan with no upper bound, so `colspan="1000000000"` would hang the tab while the table map is built. */
+function clampedTableNodes(spec: ReturnType<typeof tableNodes>) {
+  for (const key of ['table_cell', 'table_header'] as const) {
+    for (const rule of (spec[key].parseDOM ?? []) as unknown as { getAttrs?: (dom: HTMLElement) => Record<string, unknown> | false }[]) {
+      const original = rule.getAttrs;
+      if (!original) continue;
+      rule.getAttrs = (dom) => {
+        const attrs = original(dom);
+        if (attrs) { attrs.colspan = clampSpan(attrs.colspan); attrs.rowspan = clampSpan(attrs.rowspan); }
+        return attrs;
+      };
+    }
+  }
+  return spec;
+}
+
 export const Table: EditorPlugin = {
   name: 'table',
-  nodes: tableNodes({ tableGroup: 'block', cellContent: 'block+', cellAttributes: {
+  nodes: clampedTableNodes(tableNodes({ tableGroup: 'block', cellContent: 'block+', cellAttributes: {
       background: {
         default: null,
         getFromDOM: (dom) => normalizeColor(dom.style.backgroundColor) ?? null,
@@ -13,7 +30,7 @@ export const Table: EditorPlugin = {
           if (value) attrs.style = `${attrs.style ?? ''}background-color: ${value};`;
         },
       },
-    } }),
+    } })),
   setup(editor) {
     const { table, table_row, table_cell } = editor.schema.nodes;
     editor.registerCommand('insertTable', (e, rows = 3, cols = 3) => {

@@ -3,8 +3,9 @@ import type { Node as PMNode } from 'prosemirror-model';
 import type { EditorView, NodeView } from 'prosemirror-view';
 import { cropFromString, cropLayout, cropToString, dragCrop, normalizeCrop, visibleSize, type Crop, type Handle } from '../crop';
 import type { EditorPlugin } from '../types';
+import { isSafeSrc } from '../url';
 
-const SAFE_SRC = /^(https?:|data:image\/|\/)/i;
+const SAFE_SRC = { test: isSafeSrc };
 
 export const Image: EditorPlugin = {
   name: 'image',
@@ -45,7 +46,8 @@ export const Image: EditorPlugin = {
         },
       ],
       toDOM: (n) => {
-        const { src, alt, width, caption, crop, nw, nh } = n.attrs;
+        const { alt, width, caption, crop, nw, nh } = n.attrs;
+        const src = isSafeSrc(n.attrs.src) ? n.attrs.src : ''; // re-checked on output: collaboration can deliver nodes that skipped parseDOM
         if (crop && nw && nh) {
           const L = cropLayout(crop, { w: nw, h: nh }, width ?? visibleSize(crop, { w: nw, h: nh }).w);
           const px = (v: number) => `${Math.round(v * 100) / 100}px`;

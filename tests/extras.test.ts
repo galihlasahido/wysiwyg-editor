@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { TextSelection } from 'prosemirror-state';
 import { Awareness } from 'y-protocols/awareness';
 import * as Y from 'yjs';
-import { BalloonToolbar, Editor, MergeFields, SlashCommands, SourceEditing, defaultPlugins, formatHtml, getMergeFields, renderMergeFields, toEmailHTML, toEmailText } from '../src';
+import { BalloonToolbar, Editor, MergeFields, SlashCommands, SourceEditing, createEditor, defaultPlugins, formatHtml, getMergeFields, renderMergeFields, toEmailHTML, toEmailText } from '../src';
 import { linkAwareness } from '../src/collab';
 
 const editors: Editor[] = [];
@@ -217,10 +217,10 @@ describe('toEmailHTML', () => {
     expect(html).toContain('<h1 style="margin:0 0 16px 0;font-size:28px;line-height:1.25;">Hi</h1>');
     expect(html).toContain('text-align: center');
     expect(html).toContain('<strong style="font-weight:bold;">b</strong>');
-    expect(html).toMatch(/<a href="https:\/\/x.test" style="color:#1d4ed8;text-decoration:underline;" target="_blank">c<\/a>/);
+    expect(html).toMatch(/<a href="https:\/\/x.test" rel="noopener noreferrer" style="color:#1d4ed8;text-decoration:underline;" target="_blank">c<\/a>/);
     expect(html).toContain('<th style="border:1px solid #cccccc');
     expect(html).toContain('alt="i"');
-    expect(html).not.toMatch(/class=|data-|rel=/);
+    expect(html).not.toMatch(/class=|data-/);
   });
 
   it('removes unsafe links, event handlers and style tricks', () => {
@@ -269,5 +269,57 @@ describe('Markdown export with unknown nodes', () => {
     const md = e.getMarkdown();
     expect(md).toContain('inside'); // block content is kept
     expect(md).toContain('end');
+  });
+});
+
+describe('untrusted HTML is inert and sanitised', () => {
+  it('toEmailHTML drops active elements, handlers, script URLs, tracking images and CSS escapes', () => {
+    const out = toEmailHTML('<script>alert(1)</script><iframe src=x></iframe><p onclick="x()" style="color:red;background-color:u\\72l(http://e/x)">hi<img src="javascript:alert(1)"><img src="//t.example/p.gif"></p><svg onload=alert(1)></svg><a href="javascript:alert(1)">x</a>');
+    expect(out).not.toMatch(/<script|<iframe|<svg|onclick|onload|javascript:|t\.example|u\\72l/i);
+    expect(out).toContain('hi');
+  });
+  it('toEmailHTML keeps option values from breaking out of the style attribute', () => {
+    const out = toEmailHTML('<p>x</p>', { fontFamily: 'x" onmouseover="alert(1)', color: 'red;}</style>', width: 99999 });
+    expect(out).not.toMatch(/onmouseover|<\/style>/);
+    expect(out).toContain('max-width:1200px');
+  });
+  it('setHTML does not run event handlers of the markup it parses', () => {
+    (globalThis as any).__pwn = 0;
+    const host = document.body.appendChild(document.createElement('div'));
+    const ed = createEditor({ element: host, content: '<p>ok</p>' });
+    ed.setHTML('<img src="x" onerror="globalThis.__pwn++"><p>t</p>');
+    expect(ed.getHTML()).not.toContain('onerror');
+    expect((globalThis as any).__pwn).toBe(0);
+    ed.destroy();
+  });
+});
+
+describe('URL and table hardening', () => {
+  const make = (content: string) => createEditor({ element: document.body.appendChild(document.createElement('div')), content });
+  it('rejects protocol-relative and script URLs for links and images', () => {
+    const ed = make('<p><a href="//evil.example">a</a><a href="javascript:alert(1)">b</a><a href="/ok">c</a><img src="//t.example/p.gif"><img src="data:image/svg+xml;base64,AAAA"><img src="data:image/png;base64,AAAA"></p>');
+    const html = ed.getHTML();
+    expect(html).not.toMatch(/evil\.example|javascript:|t\.example|svg\+xml/);
+    expect(html).toContain('href="/ok"');
+    expect(html).toContain('data:image/png;base64');
+    ed.destroy();
+  });
+  it('re-checks URLs on output for nodes that skipped parsing (collaboration)', () => {
+    const ed = make('<p>x</p>');
+    const { state, dispatch } = ed.view;
+    const link = state.schema.marks.link.create({ href: 'javascript:alert(1)' });
+    dispatch(state.tr.replaceWith(1, 2, state.schema.text('y', [link])));
+    expect(ed.getHTML()).not.toContain('javascript:');
+    ed.destroy();
+  });
+  it('clamps absurd colspan and rowspan', () => {
+    const ed = make('<table><tr><td colspan="1000000000" rowspan="999999">x</td></tr></table>');
+    expect(ed.getHTML()).toMatch(/colspan="100"/);
+    ed.destroy();
+  });
+  it('escapes Markdown destinations', () => {
+    const ed = make('<p><a href="https://a.test/x)%20[click](https://b.test">z</a></p>');
+    expect(ed.getMarkdown()).not.toContain('[click](https://b.test');
+    ed.destroy();
   });
 });

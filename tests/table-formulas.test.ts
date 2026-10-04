@@ -37,3 +37,19 @@ describe('formulas', () => {
     ed.destroy();
   });
 });
+
+describe('formula limits', () => {
+  it('caps text so doubling chains cannot exhaust memory', () => {
+    const row = ['="abcdefghij"'];
+    for (let i = 0; i < 30; i++) row.push(`=${colLetter(i)}1&${colLetter(i)}1`);
+    const out = v([row])[0];
+    expect(out.some((x) => x === '#VALUE!')).toBe(true);
+    expect(out.every((x) => typeof x !== 'string' || x.length <= 10000)).toBe(true);
+  });
+  it('rejects absurd ranges immediately', () => {
+    const t = Date.now();
+    expect(v([['1', '=SUM(A1:ZZ99999)']])[0][1]).toBe('#REF!');
+    expect(Date.now() - t).toBeLessThan(200);
+  });
+});
+const colLetter = (i: number) => String.fromCharCode(65 + i);

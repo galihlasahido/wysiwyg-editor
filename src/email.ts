@@ -1,3 +1,4 @@
+import { stripActiveContent } from './inert';
 /**
  * Convert editor HTML into email-safe HTML: layout in tables, styles inlined (many mail clients ignore <style>
  * and classes), no classes or data attributes. Meant for output only, not for round-tripping.
@@ -30,21 +31,26 @@ const BLOCK_STYLES: Record<string, string> = {
   sup: 'font-size:75%;vertical-align:super;line-height:0;',
   sub: 'font-size:75%;vertical-align:sub;line-height:0;',
 };
-const KEEP_ATTRS: Record<string, string[]> = { a: ['href', 'title'], img: ['src', 'alt', 'width', 'height'], td: ['colspan', 'rowspan'], th: ['colspan', 'rowspan'], ol: ['start'] };
+const KEEP_ATTRS: Record<string, string[]> = { a: ['href', 'title', 'target', 'rel'], img: ['src', 'alt', 'width', 'height'], td: ['colspan', 'rowspan'], th: ['colspan', 'rowspan'], ol: ['start'] };
 const SAFE_HREF = /^(https?:|mailto:|tel:|#)/i;
+const SAFE_IMG = /^(https?:\/\/|data:image\/(?:png|jpe?g|gif|webp);base64,)/i;
+/** Option values land inside a style attribute: allow only characters a CSS value needs. */
+const cssValue = (v: string, fallback: string) => (/^[\w\s,.#()%'"-]{1,200}$/.test(v) && !/["<>]/.test(v) ? v.replace(/'/g, '') : fallback);
+const SAFE_STYLE_VALUE = /^[\w\s,.#()%+\-\/"']*$/;
 
 export function toEmailHTML(html: string, options: EmailOptions = {}): string {
-  const width = options.width ?? 600;
-  const font = options.fontFamily ?? 'Arial,Helvetica,sans-serif';
-  const color = options.color ?? '#1a1a1a';
-  const link = options.linkColor ?? '#1d4ed8';
+  const width = Math.max(200, Math.min(1200, Math.round(Number(options.width ?? 600)) || 600));
+  const font = cssValue(options.fontFamily ?? 'Arial,Helvetica,sans-serif', 'Arial,Helvetica,sans-serif');
+  const color = cssValue(options.color ?? '#1a1a1a', '#1a1a1a');
+  const link = cssValue(options.linkColor ?? '#1d4ed8', '#1d4ed8');
   const doc = new DOMParser().parseFromString(`<body>${html}</body>`, 'text/html');
+  stripActiveContent(doc.body); // the input may not come from the editor: no scripts, frames, handlers or script URLs
 
   for (const el of Array.from(doc.body.querySelectorAll<HTMLElement>('*'))) {
     const tag = el.tagName.toLowerCase();
     // Keep only the inline formatting that is already encoded in `style` (alignment, indent, spacing, color, size).
     const own = el.getAttribute('style') ?? '';
-    const keep = own.split(';').map((s) => s.trim()).filter((s) => /^(text-align|margin-left|margin-right|margin-top|margin-bottom|text-indent|line-height|color|background-color|font-size|font-family|width|height)\s*:/i.test(s) && !/url\(|expression|javascript:/i.test(s));
+    const keep = own.split(';').map((s) => s.trim()).filter((s) => /^(text-align|margin-left|margin-right|margin-top|margin-bottom|text-indent|line-height|color|background-color|font-size|font-family|width|height)\s*:/i.test(s) && !/url\(|expression|javascript:|\\|@import/i.test(s) && SAFE_STYLE_VALUE.test(s.slice(s.indexOf(':') + 1)));
     const attrs = KEEP_ATTRS[tag] ?? [];
     for (const a of Array.from(el.attributes)) if (!attrs.includes(a.name)) el.removeAttribute(a.name);
     const base = BLOCK_STYLES[tag] ?? (tag === 'a' ? `color:${link};text-decoration:underline;` : tag === 'ins' ? 'text-decoration:underline;' : tag === 'del' ? 'text-decoration:line-through;' : '');
@@ -53,8 +59,12 @@ export function toEmailHTML(html: string, options: EmailOptions = {}): string {
     if (tag === 'a') {
       const href = el.getAttribute('href') ?? '';
       if (!SAFE_HREF.test(href)) el.removeAttribute('href');
-      else el.setAttribute('target', '_blank');
+      else {
+        el.setAttribute('target', '_blank');
+        el.setAttribute('rel', 'noopener noreferrer');
+      }
     }
+    if (tag === 'img' && !SAFE_IMG.test(el.getAttribute('src') ?? '')) el.remove();
     if (tag === 'table') {
       el.setAttribute('cellpadding', '0');
       el.setAttribute('cellspacing', '0');

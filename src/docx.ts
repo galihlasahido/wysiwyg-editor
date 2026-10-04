@@ -24,8 +24,18 @@ const PX_TO_TWIP = 15;
 const px = (n: number) => Math.round(n * PX_TO_TWIP);
 const hex = (c: string) => c.replace('#', '').toUpperCase();
 
-/** Read width/height and format from PNG, JPEG or GIF bytes. */
+/** Largest image (bytes) the exporter will embed or fetch, and the largest `.docx` the importer will open. */
+const MAX_IMAGE_BYTES = 15 * 1024 * 1024;
+const MAX_DOCX_BYTES = 50 * 1024 * 1024;
+const MAX_DIMENSION = 20000;
+
+/** Read width/height and format from PNG, JPEG or GIF bytes. Null for unknown formats and for zero or absurd sizes. */
 export function imageInfo(b: Uint8Array): { type: 'png' | 'jpg' | 'gif'; width: number; height: number } | null {
+  const info = rawImageInfo(b);
+  return info && info.width > 0 && info.height > 0 && info.width <= MAX_DIMENSION && info.height <= MAX_DIMENSION ? info : null;
+}
+
+function rawImageInfo(b: Uint8Array): { type: 'png' | 'jpg' | 'gif'; width: number; height: number } | null {
   if (b.length > 24 && b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) {
     const v = new DataView(b.buffer, b.byteOffset, b.byteLength);
     return { type: 'png', width: v.getUint32(16), height: v.getUint32(20) };
@@ -47,18 +57,45 @@ export function imageInfo(b: Uint8Array): { type: 'png' | 'jpg' | 'gif'; width: 
   return null;
 }
 
+/** Read a response body, giving up (null) as soon as it exceeds `max` bytes, whatever Content-Length claimed. */
+async function readCapped(res: Response, max: number): Promise<Uint8Array | null> {
+  if (!res.body) {
+    const buf = new Uint8Array(await res.arrayBuffer());
+    return buf.length > max ? null : buf;
+  }
+  const reader = res.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.length;
+    if (total > max) { await reader.cancel(); return null; }
+    chunks.push(value);
+  }
+  const out = new Uint8Array(total);
+  let at = 0;
+  for (const c of chunks) { out.set(c, at); at += c.length; }
+  return out;
+}
+
 async function loadImage(src: string, fetchRemote: boolean): Promise<ImageData | null> {
   try {
     let bytes: Uint8Array;
     if (src.startsWith('data:')) {
       const comma = src.indexOf(',');
       if (comma < 0 || !/;base64$/i.test(src.slice(0, comma))) return null;
+      if (src.length - comma > MAX_IMAGE_BYTES * 1.4) return null; // base64 is ~4/3 of the bytes
       const bin = atob(src.slice(comma + 1));
       bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
     } else if (fetchRemote && /^https?:/i.test(src)) {
-      const res = await fetch(src);
+      const res = await fetch(src, { signal: AbortSignal.timeout(15000), credentials: 'omit', referrerPolicy: 'no-referrer' });
       if (!res.ok) return null;
-      bytes = new Uint8Array(await res.arrayBuffer());
+      const declared = Number(res.headers.get('content-length'));
+      if (declared > MAX_IMAGE_BYTES) return null;
+      const body = await readCapped(res, MAX_IMAGE_BYTES);
+      if (!body) return null;
+      bytes = body;
     } else return null;
     const info = imageInfo(bytes);
     return info ? { data: bytes, ...info } : null;
@@ -408,6 +445,8 @@ function blobToArrayBuffer(blob: Blob): Promise<ArrayBuffer> {
 /** Replace the editor content with a .docx file's content (undoable). Returns mammoth's conversion warnings. */
 export async function importDocx(editor: Editor, source: Blob | ArrayBuffer): Promise<string[]> {
   const mammoth = (await import('mammoth')).default ?? (await import('mammoth'));
+  const size = source instanceof ArrayBuffer ? source.byteLength : source.size;
+  if (size > MAX_DOCX_BYTES) throw new Error(`The .docx file is too large (${Math.round(size / 1048576)} MB; the limit is ${MAX_DOCX_BYTES / 1048576} MB).`);
   const arrayBuffer = source instanceof ArrayBuffer ? source : await blobToArrayBuffer(source);
   // mammoth's browser build reads `arrayBuffer`, its Node build reads `buffer`; pass what the runtime has.
   const input = { arrayBuffer, ...(typeof Buffer !== 'undefined' ? { buffer: Buffer.from(arrayBuffer) } : {}) };

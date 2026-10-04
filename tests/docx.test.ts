@@ -181,3 +181,18 @@ describe('docx export of cropped images', () => {
   });
 });
 
+
+describe('docx limits', () => {
+  it('ignores images with zero or absurd dimensions instead of producing NaN sizes', () => {
+    const png = (w: number, h: number) => { const b = new Uint8Array(33); b.set([0x89, 0x50, 0x4e, 0x47]); new DataView(b.buffer).setUint32(16, w); new DataView(b.buffer).setUint32(20, h); return b; };
+    expect(imageInfo(png(1, 1))).not.toBeNull();
+    expect(imageInfo(png(0, 10))).toBeNull();
+    expect(imageInfo(png(10, 0))).toBeNull();
+    expect(imageInfo(png(4_000_000_000, 10))).toBeNull();
+  });
+  it('refuses to import an oversized file', async () => {
+    const editor = { replaceHTML() { throw new Error('should not be reached'); } } as never;
+    const big = { size: 60 * 1024 * 1024 } as Blob;
+    await expect(importDocx(editor, big)).rejects.toThrow(/too large/);
+  });
+});

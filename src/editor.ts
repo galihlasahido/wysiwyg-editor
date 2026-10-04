@@ -5,6 +5,7 @@ import { isRtlLocale, translate } from './i18n';
 import { Toolbar } from './toolbar';
 import { Ribbon, type RibbonOptions } from './ribbon';
 import { getStats, type Stats } from './plugins/word-count';
+import { inertElement } from './inert';
 import { markdownToDoc, docToMarkdown } from './markdown';
 import type { Command, EditorPlugin, ToolbarItem } from './types';
 
@@ -235,8 +236,7 @@ export class Editor {
   }
 
   private parseHTML(html: string) {
-    const el = document.createElement('div');
-    el.innerHTML = html;
+    const el = inertElement(html); // not document.createElement: that would run onerror handlers before the schema drops them
     return DOMParser.fromSchema(this.schema).parse(el);
   }
 

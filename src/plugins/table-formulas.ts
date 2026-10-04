@@ -30,7 +30,13 @@ class FormulaError extends Error {}
 
 type Resolve = (col: number, row: number) => CellValue;
 
-function evaluateExpression(src: string, resolve: Resolve): CellValue {
+const MAX_TEXT = 10000; // a cell's text result; stops =A1&A1 chains from doubling into gigabytes
+const capText = (s: string): string => {
+  if (s.length > MAX_TEXT) throw new FormulaError('#VALUE!');
+  return s;
+};
+
+function evaluateExpression(src: string, resolve: Resolve, bounds: [number, number]): CellValue {
   const toks = tokenize(src);
   let i = 0;
   const peek = () => toks[i];
@@ -63,7 +69,7 @@ function evaluateExpression(src: string, resolve: Resolve): CellValue {
     ABS: (a) => Math.abs(num(a[0] as CellValue)),
     SQRT: (a) => { const n = num(a[0] as CellValue); if (n < 0) throw new FormulaError('#NUM!'); return Math.sqrt(n); },
     IF: (a) => (a[0] && a[0] !== 0 && a[0] !== '' ? (a[1] ?? '') : (a[2] ?? '')) as CellValue,
-    CONCAT: (a) => a.flat().join(''),
+    CONCAT: (a) => capText(a.flat().join('')),
   };
 
   // precedence: comparison < + - & < * / < ^ < unary
@@ -82,7 +88,7 @@ function evaluateExpression(src: string, resolve: Resolve): CellValue {
     while (peek()?.t === 'op' && ['+', '-', '&'].includes(peek().v)) {
       const op = take().v;
       const r = term();
-      l = op === '&' ? `${l}${r}` : op === '+' ? num(l) + num(r) : num(l) - num(r);
+      l = op === '&' ? capText(`${l}${r}`) : op === '+' ? num(l) + num(r) : num(l) - num(r);
     }
     return l;
   }
@@ -120,6 +126,7 @@ function evaluateExpression(src: string, resolve: Resolve): CellValue {
         const [c1, r1] = refToCell(take().v);
         take(':');
         const [c2, r2] = refToCell(take().t === 'ref' ? toks[i - 1].v : (() => { throw new FormulaError('#REF!'); })());
+        if (Math.max(c1, c2) >= bounds[0] || Math.max(r1, r2) >= bounds[1]) throw new FormulaError('#REF!'); // also keeps A1:ZZ99999 from looping millions of times
         const vals: CellValue[] = [];
         for (let r = Math.min(r1, r2); r <= Math.max(r1, r2); r++) for (let c = Math.min(c1, c2); c <= Math.max(c1, c2); c++) vals.push(resolve(c, r));
         out.push(vals);
@@ -172,7 +179,7 @@ export function evaluateGrid(grid: string[][]): CellValue[][] {
           const x = get(cc, rr);
           if (typeof x === 'string' && x.startsWith('#')) throw new FormulaError(x);
           return x;
-        });
+        }, [Math.max(0, ...grid.map((r) => r.length)), grid.length]);
       } catch (e) {
         v = e instanceof FormulaError ? e.message : '#ERR!';
       } finally {

@@ -108,10 +108,10 @@ describe('sharing and permissions', () => {
     expect((await put(comment.token)).status).toBe(403);
     expect((await put(edit.token)).status).toBe(200);
 
-    const putComments = (key: string) => call(`/api/docs/${id}/comments`, { method: 'PUT', key, json: { comments: [{ id: 'c' }] } });
+    const putComments = (key: string) => call(`/api/docs/${id}/comments`, { method: 'PUT', key, json: { comments: [{ id: 'c', author: 'A', text: 't', createdAt: 1, resolved: false, replies: [] }] } });
     expect((await putComments(view.token)).status).toBe(403);
     expect((await putComments(comment.token)).status).toBe(200);
-    expect((await (await call(`/api/docs/${id}`, { key: ownerKey })).json()).comments).toEqual([{ id: 'c' }]);
+    expect((await (await call(`/api/docs/${id}`, { key: ownerKey })).json()).comments).toEqual([{ id: 'c', author: 'A', text: 't', createdAt: 1, resolved: false, replies: [] }]);
   });
 
   it('only the owner can manage shares or delete, and list never leaks tokens', async () => {
@@ -264,3 +264,47 @@ describe('shutdown', () => {
   });
 });
 
+
+describe('hardening', () => {
+  it('survives a malformed upgrade request and a malformed WebSocket frame', async () => {
+    const net = await import('node:net');
+    // "GET //" used to throw inside the upgrade handler and kill the process
+    await new Promise<void>((resolve) => {
+      const s = net.connect(port, '127.0.0.1', () => s.write('GET // HTTP/1.1\r\nHost: x\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n\r\n'));
+      s.on('data', () => {});
+      s.on('close', () => resolve());
+      s.on('error', () => resolve());
+      setTimeout(() => (s.destroy(), resolve()), 500);
+    });
+    const doc = await create();
+    // a text frame with invalid UTF-8 makes ws emit 'error' on the server socket
+    await new Promise<void>((resolve) => {
+      const ws = new WebSocket(`ws://127.0.0.1:${port}/collab/${doc.id}?token=${doc.ownerKey}`);
+      ws.on('open', () => (ws as any)._socket.write(Buffer.from([0x81, 0x82, 0, 0, 0, 0, 0xff, 0xfe])));
+      ws.on('close', () => resolve());
+      ws.on('error', () => resolve());
+      setTimeout(() => (ws.terminate(), resolve()), 800);
+    });
+    expect((await call(`/api/docs/${doc.id}`, { key: doc.ownerKey })).status).toBe(200); // still alive
+  });
+
+  it('rejects malformed comments and never stores them', async () => {
+    const d = await create();
+    const bad = await call(`/api/docs/${d.id}/comments`, { method: 'PUT', key: d.ownerKey, json: { comments: [{ id: 1 }] } });
+    expect(bad.status).toBe(400);
+    const good = { id: 'c1', author: 'A', text: 'hi', createdAt: 1, resolved: false, replies: [{ id: 'r1', author: 'B', text: 'yo', createdAt: 2, extra: 'dropped' }] };
+    expect((await call(`/api/docs/${d.id}/comments`, { method: 'PUT', key: d.ownerKey, json: { comments: [good] } })).status).toBe(200);
+    const read = (await (await call(`/api/docs/${d.id}`, { key: d.ownerKey })).json()) as { comments: any[] };
+    expect(read.comments[0].replies[0]).toEqual({ id: 'r1', author: 'B', text: 'yo', createdAt: 2 });
+    expect((await call('/api/docs', { json: { comments: [{ nope: true }] } })).status).toBe(400);
+  });
+
+  it('does not delete a document when it cannot be read', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    const d = await create();
+    await writeFile(join(dir, `${d.id}.json`), '{ not json'); // corrupt on disk: unreadable, not "missing"
+    const res = await call(`/api/docs/${d.id}/comments`, { method: 'PUT', key: d.ownerKey, json: { comments: [] } });
+    expect([401, 403, 500]).toContain(res.status);
+    expect((await readdir(dir)).includes(`${d.id}.json`)).toBe(true);
+  });
+});

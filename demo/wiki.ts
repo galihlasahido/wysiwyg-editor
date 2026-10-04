@@ -9,7 +9,17 @@ const seed: Pages = {
   Onboarding: `<h1>Onboarding</h1><h2>Week one</h2><ul><li><p>Get access</p></li><li><p>Read the ${link('Style guide')}</p></li></ul><h2>Week two</h2><p>Pick a first task. Back to ${link('Home')}.</p>`,
   'Style guide': `<h1>Style guide</h1><p>Short sentences. Active voice. Link pages with the link button: use <code>#wiki:Page name</code> as the address.</p><p>See ${link('Onboarding')}.</p>`,
 };
-const load = (): Pages => { try { return { ...seed, ...JSON.parse(localStorage.getItem(KEY) || '{}') }; } catch { return { ...seed }; } };
+// Storage is shared by every page on this origin, so it is data to validate: only string values, and no inherited keys
+// (a page called "constructor" or "toString" must not hit Object.prototype).
+const load = (): Pages => {
+  const out: Pages = Object.create(null);
+  Object.assign(out, seed);
+  try {
+    const saved = JSON.parse(localStorage.getItem(KEY) || '{}');
+    if (saved && typeof saved === 'object' && !Array.isArray(saved)) for (const [k, v] of Object.entries(saved)) if (typeof v === 'string' && k !== '__proto__' && k.length <= 200) out[k] = v;
+  } catch { /* corrupt storage: start from the samples */ }
+  return out;
+};
 const pages = load();
 let current = 'Home';
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(pages)); } catch { /* storage blocked */ } };
@@ -18,7 +28,7 @@ const search = el('input', { class: 'out', placeholder: 'Search pages…', 'aria
 const nav = el('ul', { class: 'tips', style: 'list-style:none;padding:0;margin:8px 0' });
 const back = el('ul', { class: 'tips' });
 $('#app').append(el('div', { class: 'cols', style: 'grid-template-columns:240px 1fr' },
-  el('div', { class: 'panel' }, el('h2', {}, 'Pages'), search, nav, el('div', { class: 'actions' }, button('New page', () => { const n = prompt('Page name'); if (n?.trim()) { pages[n.trim()] ||= `<h1>${n.trim().replace(/[<&]/g, '')}</h1><p></p>`; open(n.trim()); } })), el('h2', {}, 'Linked from'), back),
+  el('div', { class: 'panel' }, el('h2', {}, 'Pages'), search, nav, el('div', { class: 'actions' }, button('New page', () => { const n = prompt('Page name'); if (n?.trim()) { if (!Object.hasOwn(pages, n.trim())) pages[n.trim()] = `<h1>${n.trim().replace(/[<&]/g, '')}</h1><p></p>`; open(n.trim()); } })), el('h2', {}, 'Linked from'), back),
   el('div', { class: 'panel' }, el('div', { id: 'editor' })),
 ));
 
@@ -26,7 +36,7 @@ const editor = createEditor({ element: $('#editor'), plugins: [...defaultPlugins
 
 function open(name: string) {
   current = name;
-  editor.setHTML(pages[name] ?? '<p></p>');
+  editor.setHTML(Object.hasOwn(pages, name) ? pages[name] : '<p></p>');
   renderNav();
   backlinks();
 }
@@ -45,7 +55,7 @@ editor.view.dom.addEventListener('click', (e) => {
   const a = (e.target as HTMLElement).closest('a[href^="#wiki:"]');
   if (!a) return;
   e.preventDefault();
-  open(decodeURIComponent(a.getAttribute('href')!.slice(6)));
+  try { open(decodeURIComponent(a.getAttribute('href')!.slice(6))); } catch { /* malformed %-escape in the link */ }
 });
 renderNav();
 backlinks();

@@ -1,5 +1,6 @@
 import type { Node as PMNode } from 'prosemirror-model';
 import type { Editor } from '../editor';
+import { inertElement, stripActiveContent } from '../inert';
 import type { EditorPlugin } from '../types';
 
 export interface MergeField { name: string; label?: string }
@@ -63,8 +64,8 @@ export interface RenderOptions {
  * `<img onerror=...>` can never become markup.
  */
 export function renderMergeFields(html: string, data: Record<string, unknown>, options: RenderOptions = {}): string {
-  const box = document.createElement('div');
-  box.innerHTML = html;
+  const box = inertElement(html);
+  stripActiveContent(box); // the template is a caller-supplied string: drop scripts, handlers and script URLs
   for (const el of Array.from(box.querySelectorAll<HTMLElement>('span[data-merge-field]'))) {
     const name = el.getAttribute('data-merge-field') ?? '';
     const v = Object.prototype.hasOwnProperty.call(data, name) ? data[name] : undefined;

@@ -1,8 +1,8 @@
 import { toggleMark } from 'prosemirror-commands';
 import type { EditorPlugin } from '../types';
+import { isSafeHref } from '../url';
 import { markActive } from './helpers';
 
-const SAFE = /^(https?:|mailto:|tel:|\/|#)/i;
 
 export const Link: EditorPlugin = {
   name: 'link',
@@ -15,11 +15,12 @@ export const Link: EditorPlugin = {
           tag: 'a[href]',
           getAttrs: (n) => {
             const href = (n as HTMLElement).getAttribute('href') ?? '';
-            return SAFE.test(href) ? { href, title: (n as HTMLElement).getAttribute('title') } : false;
+            return isSafeHref(href) ? { href, title: (n as HTMLElement).getAttribute('title') } : false;
           },
         },
       ],
-      toDOM: (m) => ['a', { href: m.attrs.href, title: m.attrs.title, rel: 'noopener noreferrer' }, 0],
+      // Checked again on output: nodes can also arrive from collaboration, which bypasses parseDOM.
+      toDOM: (m) => ['a', { href: isSafeHref(m.attrs.href) ? m.attrs.href : '#', title: m.attrs.title, rel: 'noopener noreferrer' }, 0],
     },
   },
   setup(editor) {
@@ -28,7 +29,7 @@ export const Link: EditorPlugin = {
       const { state, dispatch } = e.view;
       if (markActive(state, type)) return toggleMark(type)(state, dispatch);
       const url = href ?? window.prompt('Link URL');
-      if (!url || !SAFE.test(url)) return false;
+      if (!url || !isSafeHref(url)) return false;
       return toggleMark(type, { href: url })(state, dispatch);
     });
   },

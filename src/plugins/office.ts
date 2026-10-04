@@ -2,6 +2,7 @@ import { DOMParser as PMDOMParser } from 'prosemirror-model';
 import { AllSelection } from 'prosemirror-state';
 import type { Editor } from '../editor';
 import { openDialog } from '../dialog';
+import { inertElement } from '../inert';
 import { download, exportHTML } from '../export';
 import type { EditorPlugin } from '../types';
 import { FONT_SIZES } from './fonts';
@@ -36,8 +37,7 @@ export const Office: EditorPlugin = {
       const insertText = (text: string) => view.dispatch(view.state.tr.insertText(text).scrollIntoView());
       const insertHtml = (html: string) => {
         // Parsed with the editor schema, so unknown tags/attributes and unsafe URLs are dropped like any other input.
-        const box = document.createElement('div');
-        box.innerHTML = html;
+        const box = inertElement(html);
         const slice = PMDOMParser.fromSchema(view.state.schema).parseSlice(box);
         view.dispatch(view.state.tr.replaceSelection(slice).scrollIntoView());
       };
