@@ -57,3 +57,13 @@
   .wy-paged .wy-content { box-shadow: none; width: auto; }
   .wy-page-break, .wy-manual-break { height: 0 !important; break-after: page; }
 }
+
+/* ---- Find & replace ---- */
+.wy-editor { position: relative; }
+.wy-find { background: #fde68a; }
+.wy-find-current { background: #fb923c; }
+.wy-find-panel { position: absolute; top: 48px; right: 16px; z-index: 20; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; max-width: 360px; padding: 8px; background: #fff; border: 1px solid #d1d5db; border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,.15); font-size: 13px; }
+.wy-find-panel[hidden] { display: none; }
+.wy-find-panel input[type=text], .wy-find-q, .wy-find-r { height: 28px; padding: 0 8px; border: 1px solid #d1d5db; border-radius: 4px; font: inherit; width: 120px; }
+.wy-find-count { color: #6b7280; min-width: 36px; text-align: center; }
+.wy-find-case { display: flex; align-items: center; gap: 2px; cursor: pointer; }

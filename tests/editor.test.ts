@@ -127,3 +127,30 @@ describe('Editor', () => {
     expect(e.getMarkdown()).toBe('- [x] a');
   });
 });
+
+import { findMatches } from '../src';
+
+describe('Find & replace', () => {
+  beforeEach(() => (document.body.innerHTML = ''));
+
+  it('finds matches across formatting boundaries, case-insensitively by default', () => {
+    const e = make('<p>Hello <strong>wor</strong>ld, hello again</p>');
+    expect(findMatches(e.view.state.doc, 'hello')).toHaveLength(2);
+    expect(findMatches(e.view.state.doc, 'hello', true)).toHaveLength(1);
+    expect(findMatches(e.view.state.doc, 'world')).toHaveLength(1);
+    expect(findMatches(e.view.state.doc, '')).toHaveLength(0);
+  });
+
+  it('replaces the current match and all matches', () => {
+    const e = make('<p>cat dog cat</p><p>cat</p>');
+    expect(e.execute('find', 'cat')).toBe(true);
+    e.execute('replace', 'bird');
+    expect(e.getHTML()).toBe('<p>bird dog cat</p><p>cat</p>');
+    e.execute('replaceAll', 'fish');
+    expect(e.getHTML()).toBe('<p>bird dog fish</p><p>fish</p>');
+  });
+
+  it('reports no match', () => {
+    expect(make('<p>abc</p>').execute('find', 'zzz')).toBe(false);
+  });
+});
