@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>wysiwyg-editor: a modular rich-text editor in TypeScript</title>
+  <meta name="description" content="A modular rich-text editor in TypeScript built on ProseMirror, inspired by CKEditor 5: ribbon, pages, comments, collaboration, .docx, code blocks and more." />
+  <link rel="stylesheet" href="./demo/demo.css" />
+</head>
+<body class="landing">
+  <header class="hero">
+    <div class="wrap">
+      <p class="eyebrow">TypeScript · ProseMirror · MIT</p>
+      <h1>wysiwyg-editor</h1>
+      <p class="tagline">A modular rich-text editor inspired by CKEditor 5, aiming at a Google Docs-style editor for the web. Small core, everything is a plugin.</p>
+      <div class="cta">
+        <a class="btn primary" href="#demos">Try the demos</a>
+        <a class="btn" href="https://github.com/galihlasahido/wysiwyg-editor">View on GitHub</a>
+        <a class="btn" href="#quick-start">Quick start</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section id="about">
+      <h2>What this is</h2>
+      <p class="lead">An open-source editor engine plus a set of ready-made features and interfaces. Use the whole ribbon-and-pages experience, or take only the engine and build your own UI. The demos below are small real pages built with the library, not mock-ups.</p>
+      <div class="features">{{FEATURES}}</div>
+    </section>
+
+    <section id="quick-start">
+      <h2>Quick start</h2>
+      <p class="lead">Not published to npm yet: clone the repository and build it.</p>
+<pre class="out">git clone https://github.com/galihlasahido/wysiwyg-editor
+cd wysiwyg-editor
+pnpm install
+pnpm dev        # these demos, locally
+pnpm test       # unit, accessibility and server tests
+pnpm build      # the library in dist/</pre>
+<pre class="out">import { createEditor } from 'wysiwyg-editor';
+import 'wysiwyg-editor/style.css';
+
+const editor = createEditor({
+  element: document.getElementById('editor'),
+  content: '&lt;p&gt;Hello&lt;/p&gt;',
+  ribbon: true,                       // Office-style tabs (default: a compact toolbar)
+  pages: { header: 'My document', footer: 'Page {page} of {pages}' },
+  outline: true,
+  onChange: (html) =&gt; save(html),
+});
+
+editor.execute('bold');                // every feature is a command
+editor.getHTML();  editor.getMarkdown();</pre>
+      <table class="spec">
+        <thead><tr><th>Import</th><th>What you get</th><th>Needs</th></tr></thead>
+        <tbody>
+          <tr><td><code>wysiwyg-editor</code></td><td>Editor, all plugins, HTML and email export, document client</td><td>nothing extra</td></tr>
+          <tr><td><code>wysiwyg-editor/docx</code></td><td>.docx import and export</td><td><code>docx</code>, <code>mammoth</code></td></tr>
+          <tr><td><code>wysiwyg-editor/collab</code></td><td>Yjs collaboration and providers</td><td><code>yjs</code>, <code>y-prosemirror</code></td></tr>
+          <tr><td><code>wysiwyg-editor/react</code>, <code>/vue</code></td><td>Components</td><td><code>react</code> or <code>vue</code></td></tr>
+        </tbody>
+      </table>
+      <p class="lead">A plugin is an object: nodes and marks for the schema, commands, ProseMirror plugins and toolbar items.</p>
+<pre class="out">const Highlight = {
+  name: 'highlight-demo',
+  marks: { mark: { parseDOM: [{ tag: 'mark' }], toDOM: () =&gt; ['mark', 0] } },
+  setup(editor) { editor.registerCommand('mark', () =&gt; toggleMark(editor.schema.marks.mark)(editor.view.state, editor.view.dispatch)); },
+  toolbar: [{ name: 'mark', label: 'Mark', command: 'mark' }],
+};</pre>
+    </section>
+
+    <section id="demos">
+      <h2>Demos</h2>
+      <p class="lead">{{TOTAL}} examples. Each page has a "Show the code" section with the essential snippet.</p>
+    </section>
+
+{{SECTIONS}}
+
+    <section id="limits">
+      <h2>Honest limits</h2>
+      <ul class="tips">
+        <li>Pagination is visual: it measures blocks in the browser and spaces them across pages, so it can differ slightly from print output. Verified in Chrome.</li>
+        <li>Track changes tracks inline edits inside one paragraph; structural edits apply untracked. PDF export is the browser's print dialog.</li>
+        <li>Some demos use stand-ins so they work offline: the AI demo uses a mock provider, collaboration runs two editors in one page.</li>
+        <li>Not included because they need external services: equations, a hosted file manager, an image optimiser, a hosted spell checker.</li>
+      </ul>
+      <p>The full list is in the <a href="https://github.com/galihlasahido/wysiwyg-editor#known-limitations">README</a>.</p>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <div class="wrap">
+      <span>MIT licensed. <a href="https://github.com/galihlasahido/wysiwyg-editor">Source on GitHub</a>.</span>
+    </div>
+  </footer>
+</body>
+</html>

@@ -234,6 +234,15 @@ export const DEFAULT_RIBBON: RibbonTab[] = [
     groups: [{ id: 'help', label: 'Help', controls: [cmd('shortcuts', 'showShortcuts', 'Keyboard Shortcuts', 'keyboard', { size: 'large' }), cmd('about', 'showAbout', 'About', 'help', { size: 'large' })] }],
   },
   {
+    id: 'restrict',
+    label: 'Restrict',
+    groups: [
+      { id: 'authoring', label: 'Template', controls: [cmd('authorMode', 'toggleAuthorMode', 'Author mode', 'authorMode', { size: 'large', active: (e) => !!(e.extensions.restricted as { isAuthor(): boolean } | undefined)?.isAuthor() })] },
+      { id: 'locking', label: 'Locked sections', controls: [cmd('lock', 'lockBlocks', 'Lock blocks', 'lock', { size: 'large' }), cmd('unlock', 'unlockBlocks', 'Unlock', 'unlock', { size: 'large' })] },
+      { id: 'regions', label: 'Fill-in regions', controls: [cmd('region', 'insertEditableRegion', 'Make fill-in', 'editRegion', { size: 'large' }), cmd('unregion', 'removeEditableRegion', 'Remove fill-in', 'editRegion', { size: 'large' })] },
+    ],
+  },
+  {
     id: 'picture',
     label: 'Picture',
     when: imageSelected,

@@ -8,13 +8,13 @@ Everything is opt-in plugins; the core is small. It is **not published to npm ye
 
 ```sh
 pnpm install
-pnpm dev        # the demo gallery at http://localhost:5173 (19 examples)
+pnpm dev        # the demo gallery at http://localhost:5173 (21 examples)
 pnpm test       # 196 tests (unit, accessibility with axe-core, server integration)
 pnpm build      # library in dist/
 pnpm server     # reference backend on :8787
 ```
 
-**Live demos:** https://galihlasahido.github.io/wysiwyg-editor/ — a landing page plus 19 small real pages (classic, inline and
+**Live demos:** https://galihlasahido.github.io/wysiwyg-editor/ — a landing page plus 21 small real pages (classic, inline and
 document editors, a headless editor, developer docs with runnable code blocks, a notebook, a playground, a README editor,
 real-time and asynchronous collaboration, Word import/export, email, merge fields, source editing, Markdown, AI, images, mobile).
 Each has a "Show the code" section.
@@ -83,6 +83,19 @@ WAI-ARIA tab/toolbar patterns. Customise with `ribbon: { tabs, onOpenDocx, onExp
 **Code**: `CodeBlocks()` adds a language per code block (`data-language`, Markdown fences), a dependency-free syntax
 highlighter (JS/TS, Python, JSON, CSS, HTML, shell, SQL; swap in your own), a header with language picker and Copy, custom
 header actions (the demos add a sandboxed "Run"), Tab/Shift+Tab indentation and Enter that keeps and extends indentation.
+
+**Code editor**: `createCodeEditor({ element, value, language })` is a full code editor on the same engine: line numbers
+(aligned with wrapped lines, sticky when scrolling sideways), highlighting, auto-closing and wrapping of brackets and
+quotes, bracket-match highlight, Tab indent and auto-indent, `Mod-/` comment toggling per language, duplicate / move /
+delete line, go to line, find & replace, active-line highlight, several files (`openFile`) with separate undo, tab size,
+word wrap, font size, themes and cursor reporting. See `demo/code-editor` (explorer, tabs, run, HTML preview, status bar,
+command palette).
+
+**Restricted editing**: `RestrictedEditing()` adds `locked_section` blocks (a title with the table of contents, legal
+text) that cannot be changed, and `editable_region` blocks that can, while everything else stays ordinary text. It is
+enforced by rejecting transactions, so typing, deleting, pasting, dropping and find & replace are all covered, including
+a delete that spans a lock. Author mode (`authorMode` option, `toggleAuthorMode`, ribbon **Restrict** tab) lets a template
+author lock, unlock and mark fill-in areas. Programmatic and remote (collaboration) changes are not blocked.
 
 **Ruler** (paged view): cm scale with zero at the left margin, shaded margins you can drag, and Word-style paragraph
 markers: first-line ▼ and hanging ▲ with the left-indent box, and right indent. Drags preview with a guide line and commit once
@@ -182,12 +195,13 @@ Plugins may set `priority` (keymap order) and `transformTransaction` (rewrite us
   pages, so page geometry can differ slightly (a few px, occasionally ~15px on the page where a table turns into a list)
   from a true layout engine, and from print output. Verified in Chrome only. Header rows do not repeat across pages.
 - Footnotes are collected at the end of the document (endnotes), not at the bottom of each page.
+- **Restricted editing** is enforced in the browser only: it protects against accidental edits, not against someone who edits the stored HTML or talks to the server directly.
 - **Track changes** tracks inline edits inside one paragraph; structural edits (splitting/joining blocks, tables) apply untracked.
 - **PDF** is the browser's print dialog (Save as PDF), not a generated file.
 - **.docx import** goes through mammoth: alignment, colors, page setup and comments are not imported. Export embeds
   `data:` images and fetches remote ones when CORS allows; otherwise it writes the alt text.
 - Image cropping, resize, captions and alt text are supported; the .docx export crops with canvas in browsers and exports the full image where canvas is unavailable.
-- Code blocks have no line numbers, and the built-in highlighter is a scanner, not a parser (no nested template literals or regex literals).
+- The code editor has a single cursor (no multi-cursor), no code folding and no minimap, and the built-in highlighter is a scanner, not a parser (no nested template literals or regex literals).
 - Ribbon icons are drawn for this project (outline style, in the spirit of office suites); they are not Microsoft's assets.
   Dictation, the Microsoft Editor and add-ins from Word's ribbon are not included. Zoom uses CSS `zoom` (Chrome, Safari, Firefox 126+).
 - Ribbon labels are translated for Indonesian only (toolbar labels also for Spanish and Arabic); menu entries stay English.

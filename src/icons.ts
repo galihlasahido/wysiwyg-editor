@@ -137,6 +137,12 @@ export const ICONS: Record<string, string> = {
   switchBackground: '<circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.600 5.600 7 7M17 17l1.400 1.400M5.600 18.400 7 17M17 7l1.400-1.400"/>',
   print: '<path d="M7 9V4h10v5"/><rect x="4" y="9" width="16" height="8" rx="2"/><path d="M7 14h10v6H7z"/>',
 
+  // ---- restricted editing
+  lock: `<rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/><circle cx="12" cy="15.5" r="1.3" fill="currentColor" stroke="none"/>`,
+  unlock: `<rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V8a4 4 0 0 1 7.6-1.7" stroke="${A}"/><circle cx="12" cy="15.5" r="1.3" fill="currentColor" stroke="none"/>`,
+  editRegion: `<rect x="3.5" y="5" width="17" height="14" rx="2" stroke-dasharray="2.5 2" stroke="${A}"/><path d="m9 15 .6-2.6 5.2-5.2a1.4 1.4 0 0 1 2 2L11.600 14.400z"/>`,
+  authorMode: `<path d="M5 20v-3.5L16.500 5a2 2 0 0 1 3 3L8 19.500z"/><path d="m14.500 7 3 3" /><path d="M5 20h6" stroke="${A}"/>`,
+
   // ---- file / misc
   newDocument: `${doc}<path d="M12 11v6M9 14h6" stroke="${A}"/>`,
   save: '<path d="M5 4h11l3 3v13H5z"/><path d="M8 4v5h7V4M8 20v-6h8v6"/>',
@@ -150,6 +156,10 @@ export const ICONS: Record<string, string> = {
 
 // Aliases: several commands share an icon.
 ICONS.insertImage = ICONS.image;
+ICONS.lockBlocks = ICONS.lock;
+ICONS.unlockBlocks = ICONS.unlock;
+ICONS.editableRegion = ICONS.editRegion;
+ICONS.removeEditableRegion = ICONS.editRegion;
 ICONS.cropImage = ICONS.crop;
 ICONS.imageAlt = ICONS.alt;
 ICONS.toggleTracking = ICONS.trackChanges;

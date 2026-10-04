@@ -54,3 +54,5 @@ export { CodeBlocks, DEFAULT_LANGUAGES } from './code-blocks';
 export type { CodeBlocksOptions, CodeLanguage, CodeAction } from './code-blocks';
 export { CodeEditing, findMatchingBracket } from './code-editing';
 export type { CodeEditingOptions, CursorInfo } from './code-editing';
+export { RestrictedEditing } from './restricted-editing';
+export type { RestrictedEditingOptions } from './restricted-editing';

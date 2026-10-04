@@ -119,11 +119,13 @@ export class Editor {
         if (tr.docChanged && !tr.getMeta('wy-raw')) {
           for (const t of editor.transformers) tr = t(tr, this.state);
         }
+        const before = this.state.doc;
         const next = this.state.apply(tr);
         this.updateState(next);
         if (!editor.ready) return;
         editor.toolbar.update(next);
-        if (tr.docChanged) config.onChange?.(editor.getHTML());
+        // A plugin may have rejected the transaction (restricted editing): then nothing changed and nobody is told.
+        if (tr.docChanged && next.doc !== before) config.onChange?.(editor.getHTML());
       },
     });
 

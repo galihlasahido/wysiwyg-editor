@@ -271,6 +271,13 @@ function blocks(node: PMNode, ctx: Ctx): Block[] {
     case 'ordered_list':
     case 'task_list':
       return listBlocks(node, ctx, 0);
+    case 'locked_section':
+    case 'editable_region': {
+      // Locking is an editing concern; in Word the content is simply part of the document.
+      const out: Block[] = [];
+      node.forEach((c) => out.push(...blocks(c, ctx)));
+      return out;
+    }
     case 'blockquote': {
       ctx.quote++;
       const out: Block[] = [];
