@@ -63,3 +63,5 @@ export type { DiagramModel, Shape, Arrow, ShapeType } from './diagram';
 export { CodeAdvanced, foldEnd, foldEnds } from './code-advanced';
 export type { CodeAdvancedOptions } from './code-advanced';
 export type { FoldingProvider } from './code-blocks';
+export { FileManager } from './file-manager';
+export type { FileManagerPluginOptions } from './file-manager';

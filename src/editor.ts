@@ -55,7 +55,8 @@ export class Editor {
   private systemQuery: MediaQueryList | null = null;
   private onSystemTheme: ((e: MediaQueryListEvent) => void) | null = null;
   private transformers: NonNullable<EditorPlugin['transformTransaction']>[] = [];
-  readonly uploadImage: (file: File) => Promise<string>;
+  /** Turns a dropped, pasted or uploaded image into a URL for the document. Base64 by default; a plugin (the file manager) may wrap it. */
+  uploadImage: (file: File) => Promise<string>;
   private commands = new Map<string, Command>();
   private readOnlySafe = new Set<string>();
   

@@ -125,7 +125,7 @@ export const DEFAULT_RIBBON: RibbonTab[] = [
       {
         id: 'illustrations',
         label: 'Illustrations',
-        controls: [{ kind: 'menu', id: 'picture', label: 'Picture', icon: 'image', need: 'image', size: 'large', entries: () => [{ label: 'Upload from device…', command: 'uploadImage', icon: 'uploadImage' }, { label: 'From URL…', command: 'image', icon: 'link' }] }],
+        controls: [{ kind: 'menu', id: 'picture', label: 'Picture', icon: 'image', need: 'image', size: 'large', entries: () => [{ label: 'Upload from device…', command: 'uploadImage', icon: 'uploadImage' }, { label: 'From URL…', command: 'image', icon: 'link' }, { label: 'From the file library…', command: 'openFiles', icon: 'folder' }] }],
       },
       { id: 'links', label: 'Links', controls: [it('link', { size: 'large', label: 'Link', icon: 'link' })] },
       { id: 'toc', label: 'Table of Contents', controls: [it('toc', { size: 'large', label: 'Table of Contents', icon: 'toc' })] },
@@ -249,6 +249,7 @@ export const DEFAULT_RIBBON: RibbonTab[] = [
     label: 'Picture',
     when: imageSelected,
     groups: [
+      { id: 'imgedit', label: 'Edit', controls: [cmd('editImg', 'editImage', 'Edit image', 'imageEdit', { size: 'large' })] },
       { id: 'crop', label: 'Crop', controls: [it('cropImage', { size: 'large', label: 'Crop', icon: 'crop' }), cmd('resetCrop', 'resetCrop', 'Reset crop', 'cropReset', { size: 'large' })] },
       {
         id: 'imgsize',

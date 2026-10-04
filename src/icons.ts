@@ -137,6 +137,10 @@ export const ICONS: Record<string, string> = {
   switchBackground: '<circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.600 5.600 7 7M17 17l1.400 1.400M5.600 18.400 7 17M17 7l1.400-1.400"/>',
   print: '<path d="M7 9V4h10v5"/><rect x="4" y="9" width="16" height="8" rx="2"/><path d="M7 14h10v6H7z"/>',
 
+  // ---- files and image editing
+  folder: `<path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2.5h7a2 2 0 0 1 2 2v7.500a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/>`,
+  imageEdit: `<rect x="3.5" y="4.5" width="13" height="13" rx="2"/><circle cx="8" cy="9" r="1.3"/><path d="m3.500 15 3.500-3.500 3 3"/><path d="m14 20 .6-2.600L19.500 12.500a1.400 1.400 0 0 1 2 2L16.600 19.400z" stroke="${A}"/>`,
+
   // ---- restricted editing
   lock: `<rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/><circle cx="12" cy="15.5" r="1.3" fill="currentColor" stroke="none"/>`,
   unlock: `<rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V8a4 4 0 0 1 7.6-1.7" stroke="${A}"/><circle cx="12" cy="15.5" r="1.3" fill="currentColor" stroke="none"/>`,
@@ -156,6 +160,8 @@ export const ICONS: Record<string, string> = {
 
 // Aliases: several commands share an icon.
 ICONS.insertImage = ICONS.image;
+ICONS.files = ICONS.folder;
+ICONS.editImage = ICONS.imageEdit;
 ICONS.lockBlocks = ICONS.lock;
 ICONS.unlockBlocks = ICONS.unlock;
 ICONS.editableRegion = ICONS.editRegion;

@@ -46,3 +46,11 @@ export { CodeEditor, createCodeEditor, languageForFilename } from './code-editor
 export type { CodeEditorOptions, CodeFileInput } from './code-editor';
 export { splitSlides } from './slides';
 export type { Slide, SlideOptions } from './slides';
+export { openFileManager, addFiles, rejectReason, matchesAccept, readImageSize, DEFAULT_BLOCKED } from './file-manager';
+export type { FileManagerOptions } from './file-manager';
+export { MemoryFileStore, IndexedDBFileStore, createFileStore, fileKind, cleanFileName, uniqueName, isRasterImage } from './files';
+export type { FileStore, StoredFile, FileKind } from './files';
+export { openImageEditor } from './image-editor';
+export type { ImageEditorOptions, ImageEditResult } from './image-editor';
+export { applyAdjustments, boxBlur, FILTER_PRESETS, NEUTRAL as NEUTRAL_ADJUSTMENTS, formatBytes } from './image-ops';
+export type { Adjustments } from './image-ops';
