@@ -31,3 +31,5 @@ export { TrackChanges, getChanges } from './track-changes';
 export type { Change, TrackChangesOptions } from './track-changes';
 export { Versions, VersionStore, localStorageVersions } from './versions';
 export type { Version, VersionsOptions, VersionsPlugin, VersionPersistence } from './versions';
+export { Collaboration } from './collaboration';
+export type { CollaborationOptions } from './collaboration';

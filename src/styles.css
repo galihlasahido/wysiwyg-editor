@@ -122,3 +122,7 @@
 .wy-version { background: #fff; border: 1px solid #e5e7eb; border-radius: 6px; padding: 8px; margin-top: 8px; }
 .wy-version-meta { font-size: 11px; color: #6b7280; margin-bottom: 4px; }
 @media print { .wy-versions { display: none !important; } }
+
+/* ---- Collaboration cursors (y-prosemirror) ---- */
+.ProseMirror-yjs-cursor { position: relative; margin-left: -1px; margin-right: -1px; border-left: 1px solid; border-right: 1px solid; word-break: normal; pointer-events: none; }
+.ProseMirror-yjs-cursor > div { position: absolute; top: -1.4em; left: -1px; font-size: 11px; line-height: 1.2; padding: 1px 4px; color: #fff; white-space: nowrap; border-radius: 3px 3px 3px 0; user-select: none; }

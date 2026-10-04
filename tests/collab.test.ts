@@ -229,3 +229,93 @@ describe('Versions', () => {
     expect(v.store.list().map((x) => x.label)).toEqual(['Autosave']);
   });
 });
+
+import * as Y from 'yjs';
+import { Awareness } from 'y-protocols/awareness';
+import { Collaboration, linkDocs } from '../src';
+
+describe('Collaboration (Yjs)', () => {
+  const peer = (ydoc: Y.Doc, seed?: string, awareness?: Awareness, name = 'u') => {
+    const el = document.createElement('div');
+    document.body.append(el);
+    return new Editor({ element: el, plugins: [...defaultPlugins, Collaboration({ ydoc, seed, awareness, user: { name, color: '#f00' } })] });
+  };
+  const flush = () => new Promise((r) => setTimeout(r, 10));
+
+  it('propagates edits between two editors in both directions', async () => {
+    document.body.innerHTML = '';
+    const a = new Y.Doc();
+    const b = new Y.Doc();
+    linkDocs(a, b);
+    const ea = peer(a, '<p>hello</p>');
+    await flush();
+    const eb = peer(b);
+    await flush();
+    expect(eb.getHTML()).toBe('<p>hello</p>');
+    ea.view.dispatch(ea.view.state.tr.insertText('A', 1));
+    await flush();
+    expect(eb.getHTML()).toBe('<p>Ahello</p>');
+    eb.view.dispatch(eb.view.state.tr.insertText('B', eb.view.state.doc.content.size - 1));
+    await flush();
+    expect(ea.getHTML()).toBe('<p>AhelloB</p>');
+  });
+
+  it('merges concurrent edits made while disconnected', async () => {
+    document.body.innerHTML = '';
+    const a = new Y.Doc();
+    const b = new Y.Doc();
+    const unlink = linkDocs(a, b);
+    const ea = peer(a, '<p>abc</p>');
+    await flush();
+    const eb = peer(b);
+    await flush();
+    unlink();
+    ea.view.dispatch(ea.view.state.tr.insertText('X', 1));
+    eb.view.dispatch(eb.view.state.tr.insertText('Y', 4));
+    await flush();
+    linkDocs(a, b);
+    await flush();
+    expect(ea.getHTML()).toBe(eb.getHTML());
+    expect(ea.getHTML()).toBe('<p>XabcY</p>');
+  });
+
+  it('undo only reverts the local user’s own changes', async () => {
+    document.body.innerHTML = '';
+    const a = new Y.Doc();
+    const b = new Y.Doc();
+    linkDocs(a, b);
+    const ea = peer(a, '<p>abc</p>');
+    await flush();
+    const eb = peer(b);
+    await flush();
+    ea.view.dispatch(ea.view.state.tr.insertText('X', 1));
+    await flush();
+    eb.view.dispatch(eb.view.state.tr.insertText('Y', 5));
+    await flush();
+    expect(ea.getHTML()).toBe('<p>XabcY</p>');
+    ea.execute('undo');
+    await flush();
+    expect(ea.getHTML()).toBe('<p>abcY</p>'); // A's X is gone, B's Y is kept
+    expect(eb.getHTML()).toBe('<p>abcY</p>');
+  });
+
+  it('does not seed a document that already has content', async () => {
+    document.body.innerHTML = '';
+    const a = new Y.Doc();
+    const b = new Y.Doc();
+    linkDocs(a, b);
+    peer(a, '<p>first</p>');
+    await flush();
+    const eb = peer(b, '<p>second</p>');
+    await flush();
+    expect(eb.getHTML()).toBe('<p>first</p>');
+  });
+
+  it('shares presence through awareness', async () => {
+    document.body.innerHTML = '';
+    const a = new Y.Doc();
+    const aw = new Awareness(a);
+    peer(a, '<p>x</p>', aw, 'Ana');
+    expect(aw.getLocalState()?.user).toMatchObject({ name: 'Ana' });
+  });
+});

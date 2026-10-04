@@ -27,11 +27,14 @@ export const Essentials: EditorPlugin = {
     },
   },
   setup(editor) {
-    editor.registerCommand('undo', (e) => undo(e.view.state, e.view.dispatch));
-    editor.registerCommand('redo', (e) => redo(e.view.state, e.view.dispatch));
+    // With collaboration, Yjs owns undo/redo (per-user), so ProseMirror's history must not be installed.
+    const collab = editor.config.plugins.some((p) => p.name === 'collaboration');
+    if (!collab) {
+      editor.registerCommand('undo', (e) => undo(e.view.state, e.view.dispatch));
+      editor.registerCommand('redo', (e) => redo(e.view.state, e.view.dispatch));
+    }
     return [
-      history(),
-      keymap({ 'Mod-z': undo, 'Mod-y': redo, 'Shift-Mod-z': redo }),
+      ...(collab ? [] : [history(), keymap({ 'Mod-z': undo, 'Mod-y': redo, 'Shift-Mod-z': redo })]),
       keymap(baseKeymap),
       dropCursor(),
       gapCursor(),

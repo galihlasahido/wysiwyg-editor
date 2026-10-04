@@ -26,3 +26,4 @@ export function createEditor(
   if (outline) plugins.push(Outline);
   return new Editor({ ...rest, plugins });
 }
+export { linkDocs, createBroadcastProvider } from './collab-providers';

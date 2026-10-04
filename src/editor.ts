@@ -42,6 +42,7 @@ export class Editor {
   readonly workspace: HTMLElement;
   readonly config: EditorConfig;
   private readOnly: boolean;
+  private ready = false;
   private transformers: NonNullable<EditorPlugin['transformTransaction']>[] = [];
   readonly uploadImage: (file: File) => Promise<string>;
   private commands = new Map<string, Command>();
@@ -79,6 +80,7 @@ export class Editor {
     const pmPlugins = byPriority.flatMap((p) => p.setup?.(this) ?? []);
     const doc = this.parseHTML(config.content ?? '');
     const state = EditorState.create({ doc, plugins: pmPlugins });
+    const editor = this; // eslint-disable-line @typescript-eslint/no-this-alias
 
     this.view = new EditorView(content, {
       state,
@@ -90,14 +92,17 @@ export class Editor {
         'aria-label': config.placeholder || 'Rich text editor',
         dir: config.direction ?? 'ltr',
       },
-      dispatchTransaction: (tr) => {
+      // Plugin views may dispatch while EditorView is still being constructed (e.g. Yjs sync), when
+      // `editor.view` is not assigned yet. ProseMirror calls this with the view as `this`.
+      dispatchTransaction(this: EditorView, tr) {
         if (tr.docChanged && !tr.getMeta('wy-raw')) {
-          for (const t of this.transformers) tr = t(tr, this.view.state);
+          for (const t of editor.transformers) tr = t(tr, this.state);
         }
-        const next = this.view.state.apply(tr);
-        this.view.updateState(next);
-        this.toolbar.update(next);
-        if (tr.docChanged) config.onChange?.(this.getHTML());
+        const next = this.state.apply(tr);
+        this.updateState(next);
+        if (!editor.ready) return;
+        editor.toolbar.update(next);
+        if (tr.docChanged) config.onChange?.(editor.getHTML());
       },
     });
 
@@ -106,6 +111,7 @@ export class Editor {
     this.root.prepend(this.toolbar.el);
     this.toolbar.update(this.view.state);
     if (this.readOnly) this.root.classList.add('is-readonly');
+    this.ready = true;
   }
 
   /** `readOnlySafe` commands (e.g. adding comments) keep working in read-only mode. */
