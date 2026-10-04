@@ -33,3 +33,5 @@ export { Versions, VersionStore, localStorageVersions } from './versions';
 export type { Version, VersionsOptions, VersionsPlugin, VersionPersistence } from './versions';
 export { Collaboration } from './collaboration';
 export type { CollaborationOptions } from './collaboration';
+export { Mentions } from './mentions';
+export type { MentionItem, MentionsOptions } from './mentions';

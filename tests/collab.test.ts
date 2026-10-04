@@ -319,3 +319,82 @@ describe('Collaboration (Yjs)', () => {
     expect(aw.getLocalState()?.user).toMatchObject({ name: 'Ana' });
   });
 });
+
+import { Mentions, type MentionItem } from '../src';
+
+describe('Mentions', () => {
+  const people = [{ id: 'u1', label: 'Ana Lee' }, { id: 'u2', label: 'Andre' }, { id: 'u3', label: 'Bob' }];
+  const flush = () => new Promise((r) => setTimeout(r, 5));
+  const setup = (search: (q: string) => MentionItem[] | Promise<MentionItem[]> = (q) => people.filter((p) => p.label.toLowerCase().includes(q.toLowerCase()))) => {
+    document.body.innerHTML = '';
+    const el = document.createElement('div');
+    document.body.append(el);
+    return new Editor({ element: el, content: '<p>hi</p>', plugins: [...defaultPlugins, Mentions({ search })] });
+  };
+  const type = (e: Editor, text: string) => e.view.dispatch(e.view.state.tr.insertText(text, e.view.state.selection.from));
+  const key = (e: Editor, k: string) => e.view.someProp('handleKeyDown', (f) => f(e.view, new KeyboardEvent('keydown', { key: k })));
+
+  it('shows suggestions while typing after @ and filters them', async () => {
+    const e = setup();
+    e.view.dispatch(e.view.state.tr.setSelection(TextSelection.atEnd(e.view.state.doc)));
+    type(e, ' @an');
+    await flush();
+    expect([...e.root.querySelectorAll('.wy-mention-item')].map((n) => n.textContent)).toEqual(['Ana Lee', 'Andre']);
+  });
+
+  it('inserts the highlighted suggestion with Enter, using arrow keys to move', async () => {
+    const e = setup();
+    e.view.dispatch(e.view.state.tr.setSelection(TextSelection.atEnd(e.view.state.doc)));
+    type(e, ' @an');
+    await flush();
+    expect(key(e, 'ArrowDown')).toBe(true);
+    expect(key(e, 'Enter')).toBe(true);
+    expect(e.getHTML()).toBe('<p>hi <span class="wy-mention" data-mention-id="u2">@Andre</span> </p>');
+    expect(e.root.querySelector('.wy-mention-popup')!.hasAttribute('hidden')).toBe(true);
+    expect(e.getMarkdown()).toBe('hi @Andre ');
+  });
+
+  it('closes on Escape and does not trigger inside words like emails', async () => {
+    const e = setup();
+    e.view.dispatch(e.view.state.tr.setSelection(TextSelection.atEnd(e.view.state.doc)));
+    type(e, ' @b');
+    await flush();
+    const popup = e.root.querySelector('.wy-mention-popup')!;
+    expect(popup.hasAttribute('hidden')).toBe(false);
+    expect(key(e, 'Escape')).toBe(true);
+    expect(popup.hasAttribute('hidden')).toBe(true);
+    const e2 = setup();
+    e2.view.dispatch(e2.view.state.tr.setSelection(TextSelection.atEnd(e2.view.state.doc)));
+    type(e2, 'a@b');
+    await flush();
+    expect(e2.root.querySelectorAll('.wy-mention-item')).toHaveLength(0);
+  });
+
+  it('ignores stale async results and survives a failing search', async () => {
+    let calls = 0;
+    const e = setup(async (q) => {
+      const n = ++calls;
+      await new Promise((r) => setTimeout(r, n === 1 ? 30 : 1)); // first (older) request answers last
+      return [{ id: `r${n}`, label: `result-${q}` }];
+    });
+    e.view.dispatch(e.view.state.tr.setSelection(TextSelection.atEnd(e.view.state.doc)));
+    type(e, ' @a');
+    type(e, 'b');
+    await new Promise((r) => setTimeout(r, 60));
+    expect([...e.root.querySelectorAll('.wy-mention-item')].map((n) => n.textContent)).toEqual(['result-ab']);
+    const bad = setup(() => Promise.reject(new Error('down')));
+    bad.view.dispatch(bad.view.state.tr.setSelection(TextSelection.atEnd(bad.view.state.doc)));
+    type(bad, ' @x');
+    await flush();
+    expect(bad.root.querySelectorAll('.wy-mention-item')).toHaveLength(0);
+  });
+
+  it('inserts programmatically, validates input, and round-trips HTML', () => {
+    const e = setup();
+    expect(e.execute('insertMention', { id: '', label: 'x' })).toBe(false);
+    e.view.dispatch(e.view.state.tr.setSelection(TextSelection.atEnd(e.view.state.doc)));
+    expect(e.execute('insertMention', { id: 'u3', label: 'Bob' })).toBe(true);
+    e.setHTML(e.getHTML());
+    expect(e.getHTML()).toContain('data-mention-id="u3">@Bob</span>');
+  });
+});

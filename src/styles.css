@@ -126,3 +126,10 @@
 /* ---- Collaboration cursors (y-prosemirror) ---- */
 .ProseMirror-yjs-cursor { position: relative; margin-left: -1px; margin-right: -1px; border-left: 1px solid; border-right: 1px solid; word-break: normal; pointer-events: none; }
 .ProseMirror-yjs-cursor > div { position: absolute; top: -1.4em; left: -1px; font-size: 11px; line-height: 1.2; padding: 1px 4px; color: #fff; white-space: nowrap; border-radius: 3px 3px 3px 0; user-select: none; }
+
+/* ---- Mentions ---- */
+.wy-mention { background: #dbeafe; color: #1d4ed8; border-radius: 3px; padding: 0 2px; }
+.wy-mention-popup { position: absolute; z-index: 30; min-width: 160px; max-height: 220px; overflow-y: auto; background: #fff; border: 1px solid #d1d5db; border-radius: 6px; box-shadow: 0 4px 16px rgba(0,0,0,.15); font-size: 13px; }
+.wy-mention-popup[hidden] { display: none; }
+.wy-mention-item { padding: 6px 10px; cursor: pointer; }
+.wy-mention-item.is-active, .wy-mention-item:hover { background: #eff6ff; }
