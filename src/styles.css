@@ -143,6 +143,21 @@
 .wy-image-handle { display: none; position: absolute; right: -5px; bottom: -5px; width: 10px; height: 10px; background: var(--wy-accent); border: 1px solid #fff; cursor: nwse-resize; touch-action: none; }
 .wy-image.is-selected .wy-image-handle { display: block; }
 
+/* ---- Image crop ---- */
+.wy-crop-box { display: contents; } /* becomes an inline-block clipping box only while the image is cropped */
+.wy-crop-ui { position: absolute; left: 0; top: 0; z-index: 3; cursor: default; user-select: none; }
+.wy-crop-clip { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.wy-crop-shade { position: absolute; box-shadow: 0 0 0 9999px rgba(0,0,0,.55); }
+.wy-crop-rect { position: absolute; box-sizing: border-box; border: 2px solid var(--wy-accent); cursor: move; outline: none; touch-action: none; }
+.wy-crop-rect:focus-visible { outline: 2px solid #fff; outline-offset: 1px; }
+.wy-crop-handle { position: absolute; width: 12px; height: 12px; background: var(--wy-accent); border: 1px solid #fff; border-radius: 2px; box-sizing: border-box; touch-action: none; }
+.wy-crop-nw { left: -7px; top: -7px; cursor: nwse-resize; } .wy-crop-n { left: calc(50% - 6px); top: -7px; cursor: ns-resize; }
+.wy-crop-ne { right: -7px; top: -7px; cursor: nesw-resize; } .wy-crop-e { right: -7px; top: calc(50% - 6px); cursor: ew-resize; }
+.wy-crop-se { right: -7px; bottom: -7px; cursor: nwse-resize; } .wy-crop-s { left: calc(50% - 6px); bottom: -7px; cursor: ns-resize; }
+.wy-crop-sw { left: -7px; bottom: -7px; cursor: nesw-resize; } .wy-crop-w { left: -7px; top: calc(50% - 6px); cursor: ew-resize; }
+.wy-crop-bar { position: absolute; left: 0; bottom: -34px; display: flex; gap: 2px; padding: 2px; background: var(--wy-bg); border: 1px solid var(--wy-border-2); border-radius: 6px; box-shadow: var(--wy-pop-shadow); }
+.wy-crop-bar .wy-btn { height: 26px; min-width: 28px; padding: 0 6px; }
+
 /* ---- Footnotes ---- */
 .wy-content .ProseMirror { counter-reset: wy-fn; }
 .wy-content sup.wy-fn { counter-increment: wy-fn; cursor: pointer; color: var(--wy-link); font-size: 0.75em; }

@@ -146,3 +146,38 @@ describe('docx import', () => {
     await expect(importDocx(make('<p>x</p>'), new Blob(['not a zip']))).rejects.toThrow();
   });
 });
+
+describe('docx export of cropped images', () => {
+  it('exports a cropped image (full image fallback where canvas is unavailable) without failing', async () => {
+    const e = make(`<p><span class="wy-crop" data-crop="0.25,0,0.25,0" data-nw="400" data-nh="200" style="width: 100px"><img src="${PNG}" alt="c"></span></p>`);
+    expect(e.view.state.doc.firstChild!.firstChild!.attrs.crop).toMatchObject({ left: 0.25, right: 0.25 });
+    const { doc, names } = await parts(e, { fetchImages: false });
+    expect(names.some((n) => n.startsWith('word/media/'))).toBe(true);
+    expect(doc).toContain('<w:drawing>');
+  });
+
+  it('uses canvas cropping when the browser provides it', async () => {
+    const calls: number[][] = [];
+    const g = globalThis as any;
+    const realBitmap = g.createImageBitmap;
+    const realOff = g.OffscreenCanvas;
+    g.createImageBitmap = async () => ({ width: 400, height: 200 });
+    g.OffscreenCanvas = class {
+      constructor(public width: number, public height: number) {}
+      getContext() { return { drawImage: (...a: number[]) => calls.push(a.slice(1)) }; }
+      async convertToBlob() {
+        // a real 1x1 PNG so the exporter can read its header
+        return new Blob([Uint8Array.from(atob(PNG.split(',')[1]), (c) => c.charCodeAt(0))]);
+      }
+    };
+    try {
+      const e = make(`<p><span class="wy-crop" data-crop="0.25,0,0.25,0.5" data-nw="400" data-nh="200" style="width: 100px"><img src="${PNG}"></span></p>`);
+      await parts(e, { fetchImages: false });
+      expect(calls).toEqual([[100, 0, 200, 100, 0, 0, 200, 100]]); // source rect = the visible half, drawn 1:1
+    } finally {
+      g.createImageBitmap = realBitmap;
+      g.OffscreenCanvas = realOff;
+    }
+  });
+});
+

@@ -62,6 +62,9 @@ export const ICONS: Record<string, string> = {
   horizontalRule: '<path d="M3 12h18"/><path d="M7 6h10M7 18h10" opacity=".4"/>',
   link: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3A4 4 0 0 0 10 18.7l1-1"/>',
   image: `<rect x="3.5" y="4.5" width="17" height="15" rx="2"/><circle cx="9" cy="10" r="1.7" fill="${O}" stroke="none"/><path d="m4 18 5-5 3 3 3-3 5.5 5" stroke="${A}"/>`,
+  crop: `<path d="M7 3v14a1 1 0 0 0 1 1h13"/><path d="M3 7h14a1 1 0 0 1 1 1v13" stroke="${A}"/>`,
+  cropReset: `<path d="M7 3v14a1 1 0 0 0 1 1h13"/><path d="M3 7h14a1 1 0 0 1 1 1v13" opacity=".4"/><path d="M16 5a6 6 0 0 1 4 4M20 5v4h-4" stroke="${A}"/>`,
+  alt: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 15l2.500-6 2.500 6M7.800 13.200h3.400M15 9v6M15 9h2a1.500 1.500 0 0 1 0 3h-2"/>',
   uploadImage: `<path d="M12 15V4m-3.5 3.5L12 4l3.5 3.5" stroke="${A}"/><path d="M4 14v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/>`,
   imageCaption: '<rect x="3.5" y="4" width="17" height="11" rx="2"/><path d="m4 13 4-4 3 3 3-3 5.5 5"/><path d="M7 19h10"/>',
   insertTable: table(`<path d="M3.5 7a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2v3h-17z" fill="${A}" fill-opacity=".28" stroke="none"/>`),
@@ -147,6 +150,8 @@ export const ICONS: Record<string, string> = {
 
 // Aliases: several commands share an icon.
 ICONS.insertImage = ICONS.image;
+ICONS.cropImage = ICONS.crop;
+ICONS.imageAlt = ICONS.alt;
 ICONS.toggleTracking = ICONS.trackChanges;
 
 export function hasIcon(name: string): boolean {

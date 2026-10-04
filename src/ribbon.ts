@@ -1,4 +1,4 @@
-import type { EditorState } from 'prosemirror-state';
+import { NodeSelection, type EditorState } from 'prosemirror-state';
 import type { Editor } from './editor';
 import { hasIcon, icon } from './icons';
 import { SPECIAL_CHARACTERS } from './plugins/special-characters';
@@ -19,7 +19,7 @@ export type RibbonControl =
   | { kind: 'chars'; id: string; label: string; icon: string; need: string; chars: string[]; size?: Size }
   | { kind: 'select'; item: string; width?: number }
   | { kind: 'zoom' }
-  | { kind: 'spin'; id: string; label: string; icon?: string; command: string; get: (s: EditorState) => number; set: (v: number) => unknown; min: number; max: number; step: number; unit: string }
+  | { kind: 'spin'; id: string; label: string; icon?: string; command: string; get: (s: EditorState) => number; set: (v: number) => unknown; min: number; max: number; step: number; unit: string; /** `set` returns the full argument list instead of one argument. */ spread?: boolean }
   | { kind: 'stack'; controls: RibbonControl[] }
   | { kind: 'row'; controls: RibbonControl[] };
 
@@ -46,6 +46,7 @@ const inTable = (s: EditorState) => {
   for (let d = $from.depth; d > 0; d--) if ($from.node(d).type.name === 'table') return true;
   return false;
 };
+const imageSelected = (s: EditorState) => s.selection instanceof NodeSelection && s.selection.node.type.name === 'image';
 const block = (s: EditorState) => s.selection.$from.parent.attrs as Record<string, number | null>;
 const flagOn = (cls: string) => (e: Editor) => !e.root.classList.contains(cls);
 const panelOpen = (sel: string) => (e: Editor) => !!e.root.querySelector(`${sel}:not([hidden])`);
@@ -231,6 +232,22 @@ export const DEFAULT_RIBBON: RibbonTab[] = [
     id: 'help',
     label: 'Help',
     groups: [{ id: 'help', label: 'Help', controls: [cmd('shortcuts', 'showShortcuts', 'Keyboard Shortcuts', 'keyboard', { size: 'large' }), cmd('about', 'showAbout', 'About', 'help', { size: 'large' })] }],
+  },
+  {
+    id: 'picture',
+    label: 'Picture',
+    when: imageSelected,
+    groups: [
+      { id: 'crop', label: 'Crop', controls: [it('cropImage', { size: 'large', label: 'Crop', icon: 'crop' }), cmd('resetCrop', 'resetCrop', 'Reset crop', 'cropReset', { size: 'large' })] },
+      {
+        id: 'imgsize',
+        label: 'Size',
+        controls: [
+          { kind: 'spin', id: 'imageWidth', label: 'Width', icon: 'size', command: 'imageWidth', get: (s) => (imageSelected(s) ? ((s.selection as NodeSelection).node.attrs.width ?? 0) : 0), set: (v) => [v], min: 24, max: 2000, step: 10, unit: 'px', spread: true },
+        ],
+      },
+      { id: 'imgtext', label: 'Text', controls: [it('imageCaption', { size: 'large', label: 'Caption', icon: 'imageCaption' }), it('imageAlt', { size: 'large', label: 'Alt Text', icon: 'alt' })] },
+    ],
   },
   {
     id: 'table',
@@ -523,7 +540,10 @@ export class Ribbon {
         input.setAttribute('aria-label', `${text.textContent} (${c.unit})`);
         const apply = () => {
           const v = Number(input.value);
-          if (input.value !== '' && Number.isFinite(v)) ed.execute(c.command, c.set(Math.max(c.min, Math.min(c.max, v))));
+          if (input.value !== '' && Number.isFinite(v)) {
+            const arg = c.set(Math.max(c.min, Math.min(c.max, v)));
+            ed.execute(c.command, ...(c.spread && Array.isArray(arg) ? arg : [arg]));
+          }
           this.update(ed.view.state);
         };
         input.addEventListener('change', apply);

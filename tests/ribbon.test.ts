@@ -33,7 +33,7 @@ describe('Ribbon structure', () => {
   it('builds tabs and groups, shows Home first, and hides the contextual Table tab', () => {
     const e = make();
     const tabs = [...e.root.querySelectorAll<HTMLElement>('.wy-tab')];
-    expect(tabs.map((t) => t.textContent)).toEqual(['File', 'Home', 'Insert', 'Layout', 'References', 'Review', 'View', 'Help', 'Table']);
+    expect(tabs.map((t) => t.textContent)).toEqual(['File', 'Home', 'Insert', 'Layout', 'References', 'Review', 'View', 'Help', 'Picture', 'Table']);
     expect(tab(e, 'home').getAttribute('aria-selected')).toBe('true');
     expect(tab(e, 'table').hidden).toBe(true);
     expect([...e.root.querySelectorAll('#wy-panel-home .wy-group-label')].map((l) => l.textContent)).toEqual(['Undo', 'Clipboard', 'Font', 'Paragraph', 'Styles', 'Editing']);
@@ -351,6 +351,29 @@ describe('Office commands', () => {
     expect(e.root.querySelector('.wy-dialog')!.textContent).toContain('Ctrl/Cmd + B');
     (e.root.querySelector('.wy-dialog button') as HTMLElement).click();
     expect(e.root.querySelector('.wy-dialog')).toBeNull();
+  });
+});
+
+describe('Picture tab', () => {
+  it('appears only while an image is selected and offers crop, size, caption and alt text', () => {
+    const e = make('<p>a <img src="https://x.test/a.png" width="200"></p>');
+    expect(tab(e, 'picture').hidden).toBe(true);
+    let pos = -1;
+    e.view.state.doc.descendants((n, p) => void (n.type.name === 'image' && (pos = p)));
+    e.view.dispatch(e.view.state.tr.setSelection(NodeSelection.create(e.view.state.doc, pos)));
+    expect(tab(e, 'picture').hidden).toBe(false);
+    tab(e, 'picture').click();
+    const labels = [...e.root.querySelectorAll('#wy-panel-picture .wy-rbtn')].map((b) => b.getAttribute('aria-label'));
+    expect(labels).toEqual(expect.arrayContaining(['Crop', 'Reset crop', 'Caption', 'Alt Text']));
+    const width = control(e, 'Width (px)') as HTMLInputElement;
+    expect(width.value).toBe('200');
+    width.value = '320';
+    width.dispatchEvent(new Event('change', { bubbles: true }));
+    let w = 0;
+    e.view.state.doc.descendants((n) => void (n.type.name === 'image' && (w = n.attrs.width)));
+    expect(w).toBe(320);
+    select(e, 1);
+    expect(tab(e, 'picture').hidden).toBe(true);
   });
 });
 

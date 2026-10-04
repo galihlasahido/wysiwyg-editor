@@ -36,3 +36,4 @@ export { openDialog } from './dialog';
 export { Ribbon, DEFAULT_RIBBON } from './ribbon';
 export type { RibbonOptions, RibbonTab, RibbonGroup, RibbonControl } from './ribbon';
 export { icon, ICONS, hasIcon } from './icons';
+export * from './crop';

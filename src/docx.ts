@@ -4,6 +4,7 @@
  */
 import * as D from 'docx';
 import type { Mark, Node as PMNode } from 'prosemirror-model';
+import { cropBytes, cropToString, type Crop } from './crop';
 import type { Editor } from './editor';
 import type { PageSettings } from './plugins/pages';
 import type { CommentsPlugin, CommentThread } from './plugins/comments';
@@ -66,10 +67,16 @@ async function loadImage(src: string, fetchRemote: boolean): Promise<ImageData |
   }
 }
 
-function collectImageSrcs(doc: PMNode): string[] {
-  const out = new Set<string>();
-  doc.descendants((n) => void (n.type.name === 'image' && out.add(n.attrs.src)));
-  return [...out];
+const imageKey = (attrs: { src: string; crop?: Crop | null }) => (attrs.crop ? `${attrs.src}|${cropToString(attrs.crop)}` : attrs.src);
+
+function collectImages(doc: PMNode): { key: string; src: string; crop: Crop | null }[] {
+  const out = new Map<string, { key: string; src: string; crop: Crop | null }>();
+  doc.descendants((n) => {
+    if (n.type.name !== 'image') return;
+    const key = imageKey(n.attrs as { src: string; crop?: Crop | null });
+    out.set(key, { key, src: n.attrs.src, crop: n.attrs.crop ?? null });
+  });
+  return [...out.values()];
 }
 
 interface Ctx {
@@ -167,7 +174,7 @@ function inlineChildren(node: PMNode, ctx: Ctx): D.ParagraphChild[] {
     } else if (child.type.name === 'footnote') {
       run = new D.FootnoteReferenceRun(footnoteText(ctx, child.attrs.text));
     } else if (child.type.name === 'image') {
-      const img = ctx.images.get(child.attrs.src);
+      const img = ctx.images.get(imageKey(child.attrs as { src: string; crop?: Crop | null }));
       if (img) {
         const w = child.attrs.width ?? Math.min(img.width, 600);
         run = new D.ImageRun({
@@ -305,7 +312,17 @@ export async function buildDocx(editor: Editor, options: ExportOptions = {}): Pr
   const exported = threads.filter((t) => used.has(t.id));
 
   const images = new Map<string, ImageData | null>();
-  await Promise.all(collectImageSrcs(doc).map(async (src) => images.set(src, await loadImage(src, options.fetchImages !== false))));
+  await Promise.all(
+    collectImages(doc).map(async ({ key, src, crop }) => {
+      let img = await loadImage(src, options.fetchImages !== false);
+      if (img && crop) {
+        // Word needs the cropped pixels; render them with canvas. Without canvas the full image is exported.
+        const cropped = await cropBytes(img.data, crop);
+        if (cropped) img = { data: cropped.data, type: 'png', width: cropped.width, height: cropped.height };
+      }
+      images.set(key, img);
+    }),
+  );
 
   const ctx: Ctx = {
     images,
