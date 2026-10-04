@@ -369,3 +369,47 @@ describe('i18n, RTL and templates', () => {
     expect(e.getHTML()).toBe('<p>mine</p>');
   });
 });
+
+describe('Paragraph indents and spacing', () => {
+  beforeEach(() => (document.body.innerHTML = ''));
+  const build = (html: string) => {
+    const el = document.createElement('div');
+    document.body.append(el);
+    return new Editor({ element: el, content: html, plugins: defaultPlugins });
+  };
+
+  const attrs = (e: Editor) => e.view.state.doc.firstChild!.attrs;
+
+  it('sets left/right/first-line indent and spacing, and round-trips them', () => {
+    const e = build('<p>abc</p>');
+    expect(e.execute('paragraphIndent', { left: 40, right: 20, firstLine: -15 })).toBe(true);
+    expect(e.execute('paragraphSpacing', { before: 6, after: 12 })).toBe(true);
+    const want = { indentLeft: 40, indentRight: 20, firstLine: -15, spaceBefore: 6, spaceAfter: 12 };
+    expect(attrs(e)).toMatchObject(want);
+    e.setHTML(e.getHTML()); // CSS shorthand normalisation by the browser must not lose values
+    expect(attrs(e)).toMatchObject(want);
+  });
+
+  it('clears a value with null or 0, keeps others, and rejects junk', () => {
+    const e = build('<p style="margin-left: 40px; margin-right: 10px">abc</p>');
+    expect(attrs(e)).toMatchObject({ indentLeft: 40, indentRight: 10 });
+    e.execute('paragraphIndent', { left: 0 });
+    expect(attrs(e)).toMatchObject({ indentLeft: null, indentRight: 10 });
+    expect(e.execute('paragraphIndent', {})).toBe(false);
+    expect(e.execute('paragraphIndent', { left: 'x' as any })).toBe(false);
+    e.execute('paragraphIndent', { left: 99999 });
+    expect(attrs(e).indentLeft).toBe(1500); // clamped
+  });
+
+  it('drops unsafe or out-of-range CSS when loading HTML', () => {
+    const e = build('<p style="margin-left: expression(alert(1)); text-indent: 9999px; margin-top: 5em">x</p>');
+    expect(attrs(e)).toMatchObject({ indentLeft: null, firstLine: null, spaceBefore: null });
+  });
+
+  it('applies to every selected paragraph and works for headings', () => {
+    const e = build('<h1>a</h1><p>b</p>');
+    e.view.dispatch(e.view.state.tr.setSelection(TextSelection.create(e.view.state.doc, 1, e.view.state.doc.content.size - 1)));
+    e.execute('paragraphIndent', { left: 24 });
+    expect((e.getHTML().match(/margin-left: 24px/g) ?? []).length).toBe(2);
+  });
+});

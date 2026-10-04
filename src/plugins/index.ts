@@ -40,3 +40,5 @@ export type { AIProvider, AIRequest, AIAction, AIOptions } from './ai';
 export { Direction } from './direction';
 export { Templates, DEFAULT_TEMPLATES } from './templates';
 export type { DocTemplate } from './templates';
+export { ParagraphFormat, setBlockAttrs, currentBlock } from './paragraph';
+export type { BlockAttrs } from './helpers';

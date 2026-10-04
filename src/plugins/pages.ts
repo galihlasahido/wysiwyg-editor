@@ -1,6 +1,7 @@
 import { Plugin, PluginKey } from 'prosemirror-state';
-import { Decoration, DecorationSet } from 'prosemirror-view';
+import { Decoration, DecorationSet, type EditorView } from 'prosemirror-view';
 import { keymap } from 'prosemirror-keymap';
+import { Ruler } from '../ruler';
 import type { EditorPlugin } from '../types';
 
 /** Page sizes in CSS px (96 dpi). */
@@ -275,49 +276,41 @@ export function Pages(options: PageOptions = {}): EditorPlugin {
         return true;
       });
 
-      const buildRuler = () => {
-        root.querySelector('.wy-ruler')?.remove();
-        if (options.ruler === false) return;
-        const { width } = dims();
-        const ruler = document.createElement('div');
-        ruler.className = 'wy-ruler';
-        ruler.style.width = `${width}px`;
-        const cm = 96 / 2.54;
-        for (let i = 1; i * cm < width; i++) {
-          const t = document.createElement('span');
-          t.className = 'wy-ruler-num';
-          t.style.left = `${i * cm}px`;
-          t.textContent = String(i);
-          ruler.append(t);
-        }
-        const handle = (side: 'left' | 'right') => {
-          const h = document.createElement('div');
-          h.className = `wy-ruler-handle wy-ruler-${side}`;
-          h.title = `${side === 'left' ? 'Left' : 'Right'} margin`;
-          const place = () => (h.style.left = `${side === 'left' ? settings.margins.left : width - settings.margins.right}px`);
-          place();
-          h.addEventListener('pointerdown', (ev) => {
-            ev.preventDefault();
-            h.setPointerCapture(ev.pointerId);
-            const rect = ruler.getBoundingClientRect();
-            const move = (e2: PointerEvent) => {
-              const x = e2.clientX - rect.left;
-              editor.execute('pageMargins', side === 'left' ? { left: x } : { right: width - x });
-            };
-            const up = () => {
-              h.removeEventListener('pointermove', move);
-              h.removeEventListener('pointerup', up);
-            };
-            h.addEventListener('pointermove', move);
-            h.addEventListener('pointerup', up);
-          });
-          ruler.append(h);
-        };
-        handle('left');
-        handle('right');
-        editor.workspace.prepend(ruler);
-      };
-      renderRuler = buildRuler;
+      // The ruler is created once and updated in place (see ruler.ts).
+      const guide = document.createElement('div');
+      guide.className = 'wy-ruler-guide';
+      guide.hidden = true;
+      editor.workspace.append(guide);
+      // `editor.view` is not assigned while EditorView is being constructed, so keep the plugin's own reference.
+      let pmView: EditorView | null = null;
+      const pageEl = () => editor.root.querySelector<HTMLElement>('.wy-content')!;
+      const scaleNow = () => pageEl().getBoundingClientRect().width / dims().width || 1;
+      const ruler =
+        options.ruler === false
+          ? null
+          : new Ruler({
+              width: () => dims().width,
+              margins: () => settings.margins,
+              setMargins: (m) => editor.execute('pageMargins', m),
+              paragraph: () => {
+                const v = pmView ?? editor.view;
+                if (!v) return null;
+                const parent = v.state.selection.$from.parent;
+                if (!parent.isTextblock || !('indentLeft' in parent.type.spec.attrs!)) return null;
+                return { left: parent.attrs.indentLeft ?? 0, right: parent.attrs.indentRight ?? 0, firstLine: parent.attrs.firstLine ?? 0 };
+              },
+              setParagraph: (p) => editor.execute('paragraphIndent', p),
+              scale: scaleNow,
+              guide: (x) => {
+                guide.hidden = x === null;
+                if (x === null) return;
+                const ws = editor.workspace.getBoundingClientRect();
+                guide.style.left = `${pageEl().getBoundingClientRect().left - ws.left + editor.workspace.scrollLeft + x * scaleNow()}px`;
+                guide.style.height = `${editor.workspace.scrollHeight}px`;
+              },
+            });
+      if (ruler) editor.workspace.prepend(ruler.el);
+      renderRuler = () => ruler?.rebuild();
 
       const plugin = new Plugin<DecorationSet>({
         key: pagesKey,
@@ -327,6 +320,7 @@ export function Pages(options: PageOptions = {}): EditorPlugin {
         },
         props: { decorations: (state) => pagesKey.getState(state) },
         view(view) {
+          pmView = view;
           let lastSig = '';
           // Widgets inside a paragraph, table row or list item sit at unknown indents; stretch them to the full page.
           const alignNestedWidgets = () => {
@@ -513,15 +507,15 @@ export function Pages(options: PageOptions = {}): EditorPlugin {
           view.dom.addEventListener('load', onResize, true); // images changing height
           window.addEventListener('resize', onResize);
           document.fonts?.ready.then(onResize);
-          buildRuler();
           applyVars();
           return {
-            update: () => schedule(),
+            update: () => (ruler?.update(), schedule()),
             destroy() {
               cancel();
               view.dom.removeEventListener('load', onResize, true);
               window.removeEventListener('resize', onResize);
-              root.querySelector('.wy-ruler')?.remove();
+              ruler?.el.remove();
+              guide.remove();
             },
           };
         },
