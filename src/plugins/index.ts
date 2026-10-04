@@ -33,3 +33,5 @@ export { Versions, VersionStore, localStorageVersions } from './versions';
 export type { Version, VersionsOptions, VersionsPlugin, VersionPersistence } from './versions';
 export { Mentions } from './mentions';
 export type { MentionItem, MentionsOptions } from './mentions';
+export { Autosave } from './autosave';
+export type { AutosaveOptions, SaveStatus } from './autosave';

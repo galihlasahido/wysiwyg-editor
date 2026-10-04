@@ -28,3 +28,5 @@ export function createEditor(
 }
 export { exportHTML, download } from './export';
 export type { PageSettings } from './plugins/pages';
+export { DocumentClient, ApiError, ConflictError, createHttpSaver } from './storage';
+export type { RemoteDocument, ShareRole } from './storage';

@@ -133,3 +133,9 @@
 .wy-mention-popup[hidden] { display: none; }
 .wy-mention-item { padding: 6px 10px; cursor: pointer; }
 .wy-mention-item.is-active, .wy-mention-item:hover { background: #eff6ff; }
+
+/* ---- Autosave ---- */
+.wy-save-status { position: absolute; right: 12px; bottom: 4px; font-size: 12px; color: #6b7280; }
+.wy-save-status[data-status='saving'], .wy-save-status[data-status='unsaved'] { color: #b45309; }
+.wy-save-status[data-status='error'], .wy-save-status[data-status='conflict'] { color: #b91c1c; font-weight: 600; }
+@media print { .wy-save-status { display: none !important; } }
