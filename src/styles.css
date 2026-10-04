@@ -155,3 +155,7 @@
 @media (forced-colors: active) { .wy-btn.is-active { outline: 2px solid Highlight; } .wy-ins { text-decoration: underline; } .wy-del { text-decoration: line-through; } }
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
 .wy-editor[dir='rtl'] .wy-find-panel { right: auto; left: 16px; }
+
+/* Page breaks between table rows / list items */
+.wy-page-break-row > td { padding: 0 !important; border: 0 !important; overflow: visible; background: transparent; }
+.wy-page-break-item { list-style: none; margin: 0; padding: 0; }

@@ -328,42 +328,103 @@ export function Pages(options: PageOptions = {}): EditorPlugin {
         props: { decorations: (state) => pagesKey.getState(state) },
         view(view) {
           let lastSig = '';
+          // Widgets inside a paragraph, table row or list item sit at unknown indents; stretch them to the full page.
+          const alignNestedWidgets = () => {
+            const page = editor.root.querySelector<HTMLElement>('.wy-content')?.getBoundingClientRect();
+            if (!page) return;
+            for (const w of view.dom.querySelectorAll<HTMLElement>('.wy-page-break')) {
+              if (w.parentElement === view.dom) continue; // top-level widgets are laid out by CSS
+              w.style.width = `${page.width}px`;
+              w.style.marginLeft = '0px';
+              w.style.marginRight = '0px';
+              w.style.marginLeft = `${page.left - w.getBoundingClientRect().left}px`;
+            }
+          };
           const measure = (force = false) => {
             const { doc } = view.state;
             const metrics: BlockMetric[] = [];
             const positions: number[] = [];
             const anchors: (LineGroup[] | undefined)[] = [];
             const blockEnds: number[] = [];
+            const modes: ('block' | 'row' | 'item')[] = [];
+            const cols: number[] = [];
+
+            // Heights are measured top-to-top between consecutive units (blocks, table rows, list items), after
+            // removing the height of our own page widgets. Unlike `rect.height + margin` this includes margins that
+            // collapse out of their box (e.g. a <p> inside an <li>), so it matches what the layout really consumes.
+            // `:scope >` matters: a break widget contains its own header/footer divs, which must not be counted twice.
+            const widgetRects = [...view.dom.querySelectorAll<HTMLElement>(':scope > .wy-page-header, :scope > .wy-page-end, .wy-page-break')].map((w) =>
+              (w.closest('tr.wy-page-break-row, li.wy-page-break-item') ?? w).getBoundingClientRect(),
+            );
+            const flat = (y: number) => y - widgetRects.reduce((t, r) => (r.bottom <= y + 0.5 ? t + r.height : t), 0);
+            const pmTop = flat(view.dom.getBoundingClientRect().top);
+
+            interface Unit { top: number; metric: BlockMetric; lastMargin: number }
+            const units: Unit[] = [];
+            const push = (top: number, metric: BlockMetric, pos: number, end: number, mode: 'block' | 'row' | 'item', colCount: number, lastMargin: number, lines?: LineGroup[]) => {
+              if (lines) anchors[units.length] = lines;
+              units.push({ top: flat(top), metric, lastMargin });
+              positions.push(pos);
+              blockEnds.push(end);
+              modes.push(mode);
+              cols.push(colCount);
+            };
+
             doc.forEach((node, offset) => {
               const dom = view.nodeDOM(offset);
               if (!(dom instanceof HTMLElement)) return;
               const cs = getComputedStyle(dom);
               const rect = dom.getBoundingClientRect();
+              const mb = parseFloat(cs.marginBottom) || 0;
+              const isTable = node.type.name === 'table';
+              const isList = /_list$/.test(node.type.name);
+              if ((isTable || isList) && node.childCount > 1) {
+                let colCount = 1;
+                if (isTable) {
+                  colCount = 0;
+                  node.firstChild!.forEach((cell) => (colCount += cell.attrs.colspan || 1));
+                }
+                node.forEach((_c, childOffset, i) => {
+                  const cdom = view.nodeDOM(offset + 1 + childOffset);
+                  const top = cdom instanceof HTMLElement ? cdom.getBoundingClientRect().top : rect.top;
+                  const last = i === node.childCount - 1;
+                  // Before the first child the break goes before the whole block.
+                  push(top, { height: 0 }, i === 0 ? offset : offset + 1 + childOffset, offset + node.nodeSize, i === 0 ? 'block' : isTable ? 'row' : 'item', colCount, last ? mb : 0);
+                });
+                return;
+              }
               // Page-break widgets already placed inside a paragraph must not count toward its size.
-              const widgets = [...dom.querySelectorAll<HTMLElement>('.wy-page-break')].map((w) => w.getBoundingClientRect());
-              const widgetsHeight = widgets.reduce((t, r) => t + r.height, 0);
-              const adj = (top: number) => widgets.reduce((t, r) => (r.bottom <= top + 0.5 ? t + r.height : t), 0);
-              const margin = (parseFloat(cs.marginTop) || 0) + (parseFloat(cs.marginBottom) || 0);
-              const metric: BlockMetric = { height: rect.height - widgetsHeight + margin, breakAfter: node.type.name === 'page_break' };
+              const inner = [...dom.querySelectorAll<HTMLElement>('.wy-page-break')].map((w) => w.getBoundingClientRect());
+              const innerHeight = inner.reduce((t, r) => t + r.height, 0);
+              const adj = (top: number) => inner.reduce((t, r) => (r.bottom <= top + 0.5 ? t + r.height : t), 0);
+              const metric: BlockMetric = { height: 0, breakAfter: node.type.name === 'page_break' };
+              let lines: LineGroup[] | undefined;
               if (node.type.name === 'paragraph' && node.childCount > 0) {
                 const groups = measureLines(dom, rect.top, adj);
                 if (groups.length >= 4) {
-                  const bottom = rect.height - widgetsHeight;
+                  const bottom = rect.height - innerHeight;
                   metric.lines = groups.map((g, i) => (i + 1 < groups.length ? groups[i + 1].top : bottom) - (i === 0 ? 0 : g.top));
-                  anchors[metrics.length] = groups;
+                  lines = groups;
                 }
               }
-              metrics.push(metric);
-              positions.push(offset);
-              blockEnds.push(offset + node.nodeSize);
+              push(rect.top, metric, offset, offset + node.nodeSize, 'block', 1, mb, lines);
             });
             // Endnotes sit after the last block; count them so the last page's footer stays below them.
             const notes = view.dom.querySelector<HTMLElement>('.wy-footnotes');
-            if (notes) {
-              metrics.push({ height: notes.getBoundingClientRect().height });
-              positions.push(doc.content.size);
-              blockEnds.push(doc.content.size);
-            }
+            if (notes) push(notes.getBoundingClientRect().top, { height: 0 }, doc.content.size, doc.content.size, 'block', 1, 0);
+
+            // Bottom edge of the last content element (widgets of ours excluded), in flat coordinates.
+            const lastEl = [...view.dom.children].filter((c) => !c.matches('.wy-page-header, .wy-page-end, .wy-page-break')).pop();
+            const contentBottom = lastEl ? flat(lastEl.getBoundingClientRect().bottom) : pmTop;
+
+            units.forEach((u, i) => {
+              const next = units[i + 1];
+              // Last unit: down to the end of the content, plus its own bottom margin.
+              let height = next ? next.top - u.top : contentBottom - u.top + u.lastMargin;
+              if (i === 0) height += u.top - pmTop; // the first unit also owns any gap above it
+              u.metric.height = Math.max(0, height);
+              metrics.push(u.metric);
+            });
             const result = paginate(metrics, contentHeight());
             // Resolve each break to a document position; a mid-paragraph break needs the position of its first line.
             const breakPos = result.breaks.map((b) => {
@@ -372,6 +433,7 @@ export function Pages(options: PageOptions = {}): EditorPlugin {
               const hit = g && view.posAtCoords({ left: g.left + 0.5, top: g.viewTop + g.height / 2 });
               return hit && hit.pos > positions[b.index] + 1 && hit.pos < blockEnds[b.index] - 1 ? hit.pos : positions[b.index];
             });
+            alignNestedWidgets();
             const sig = JSON.stringify([result, breakPos, settings]);
             if (!force && sig === lastSig) return;
             lastSig = sig;
@@ -383,6 +445,7 @@ export function Pages(options: PageOptions = {}): EditorPlugin {
             ];
             result.breaks.forEach((b, i) => {
               const page = i + 1;
+              const mode = b.line === undefined ? modes[b.index] : 'block';
               decos.push(
                 Decoration.widget(
                   breakPos[i],
@@ -394,9 +457,25 @@ export function Pages(options: PageOptions = {}): EditorPlugin {
                       el('wy-page-gap', GAP),
                       el('wy-page-header', m.top, hdr(page + 1)),
                     );
+                    // Between table rows / list items the widget must itself be a valid <tr> / <li>.
+                    if (mode === 'row') {
+                      const tr = document.createElement('tr');
+                      tr.className = 'wy-page-break-row';
+                      const td = document.createElement('td');
+                      td.colSpan = cols[b.index];
+                      td.append(w);
+                      tr.append(td);
+                      return tr;
+                    }
+                    if (mode === 'item') {
+                      const li = document.createElement('li');
+                      li.className = 'wy-page-break-item';
+                      li.append(w);
+                      return li;
+                    }
                     return w;
                   },
-                  { side: -1, key: `b${page}-${b.filler}-${m.top}-${m.bottom}-${result.pages}-${ftr(page)}-${hdr(page + 1)}` },
+                  { side: -1, key: `b${page}-${mode}-${b.filler}-${m.top}-${m.bottom}-${result.pages}-${ftr(page)}-${hdr(page + 1)}` },
                 ),
               );
             });
