@@ -1,0 +1,59 @@
+{
+  "name": "wysiwyg-editor",
+  "version": "0.1.0",
+  "description": "A modular, TypeScript WYSIWYG rich-text editor inspired by CKEditor 5, built on ProseMirror.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/wysiwyg-editor.js",
+  "module": "./dist/wysiwyg-editor.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/wysiwyg-editor.js"
+    },
+    "./style.css": "./dist/style.css"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build && tsc -p tsconfig.build.json",
+    "build:demo": "vite build --config vite.demo.config.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/advancedynamic/wysiwyg-editor.git"
+  },
+  "keywords": [
+    "wysiwyg",
+    "rich-text-editor",
+    "prosemirror",
+    "typescript",
+    "ckeditor-alternative"
+  ],
+  "dependencies": {
+    "prosemirror-commands": "^1.7.2",
+    "prosemirror-dropcursor": "^1.8.4",
+    "prosemirror-gapcursor": "^1.4.1",
+    "prosemirror-history": "^1.5.1",
+    "prosemirror-inputrules": "^1.5.1",
+    "prosemirror-keymap": "^1.2.3",
+    "prosemirror-model": "^1.25.12",
+    "prosemirror-schema-list": "^1.5.1",
+    "prosemirror-state": "^1.4.4",
+    "prosemirror-tables": "^1.8.5",
+    "prosemirror-transform": "^1.12.2",
+    "prosemirror-view": "^1.42.6"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.4",
+    "jsdom": "^26.1.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.2",
+    "vitest": "^5.0.3"
+  }
+}

@@ -1,0 +1,21 @@
+.wy-editor { border: 1px solid #c4c4c4; border-radius: 6px; background: #fff; color: #1a1a1a; font-family: system-ui, sans-serif; }
+.wy-editor:focus-within { border-color: #2563eb; box-shadow: 0 0 0 2px rgba(37,99,235,.2); }
+.wy-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; padding: 6px; border-bottom: 1px solid #e3e3e3; background: #fafafa; border-radius: 6px 6px 0 0; }
+.wy-btn, .wy-select { height: 30px; min-width: 30px; padding: 0 8px; border: 1px solid transparent; border-radius: 4px; background: transparent; font: inherit; font-size: 13px; cursor: pointer; }
+.wy-btn:hover, .wy-select:hover { background: #ececec; }
+.wy-btn.is-active { background: #dbeafe; border-color: #93c5fd; }
+.wy-sep { width: 1px; height: 20px; background: #d4d4d4; margin: 0 4px; }
+.wy-content .ProseMirror { min-height: 200px; padding: 12px 16px; outline: none; line-height: 1.6; }
+.wy-content .ProseMirror:empty::before, .wy-content .ProseMirror > p:only-child:empty::before { content: attr(data-placeholder); color: #9a9a9a; pointer-events: none; }
+.wy-content blockquote { margin: 1em 0; padding-left: 1em; border-left: 4px solid #d4d4d4; color: #555; }
+.wy-content pre { background: #1e1e1e; color: #eee; padding: 12px; border-radius: 6px; overflow-x: auto; }
+.wy-content code { background: #f0f0f0; padding: 1px 4px; border-radius: 3px; font-family: ui-monospace, monospace; }
+.wy-content pre code { background: none; padding: 0; }
+.wy-content img { max-width: 100%; }
+.wy-content table { border-collapse: collapse; width: 100%; table-layout: fixed; margin: 1em 0; }
+.wy-content td, .wy-content th { border: 1px solid #ccc; padding: 6px 8px; position: relative; vertical-align: top; }
+.wy-content .selectedCell::after { content: ''; position: absolute; inset: 0; background: rgba(37,99,235,.15); pointer-events: none; }
+.wy-content a { color: #2563eb; }
+.ProseMirror-gapcursor { display: none; pointer-events: none; position: absolute; }
+.ProseMirror-gapcursor:after { content: ''; display: block; position: absolute; top: -2px; width: 20px; border-top: 1px solid #000; }
+.ProseMirror-focused .ProseMirror-gapcursor { display: block; }
