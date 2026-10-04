@@ -8,13 +8,13 @@ Everything is opt-in plugins; the core is small. It is **not published to npm ye
 
 ```sh
 pnpm install
-pnpm dev        # the demo gallery at http://localhost:5173 (21 examples)
+pnpm dev        # the demo gallery at http://localhost:5173 (30 examples)
 pnpm test       # 196 tests (unit, accessibility with axe-core, server integration)
 pnpm build      # library in dist/
 pnpm server     # reference backend on :8787
 ```
 
-**Live demos:** https://galihlasahido.github.io/wysiwyg-editor/ — a landing page plus 21 small real pages (classic, inline and
+**Live demos:** https://galihlasahido.github.io/wysiwyg-editor/ — a landing page plus 30 small real pages (classic, inline and
 document editors, a headless editor, developer docs with runnable code blocks, a notebook, a playground, a README editor,
 real-time and asynchronous collaboration, Word import/export, email, merge fields, source editing, Markdown, AI, images, mobile).
 Each has a "Show the code" section.

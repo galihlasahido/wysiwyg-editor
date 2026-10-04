@@ -15,10 +15,21 @@ GROUPS = [
  ]),
  ('Coding', 'Developer-oriented UIs, from a full code editor to docs and notebooks.', [
    ('code-editor', 'Full code editor', 'Line numbers, highlighting, bracket matching and pairing, comments, line operations, several files, run and preview, status bar and command palette.', ['IDE', 'Line numbers', 'Files']),
+   ('markdown-live', 'Markdown with live preview', 'The code editor with line numbers beside a rendered, sanitised preview.', ['Markdown', 'Live']),
    ('coding-docs', 'Developer docs', 'Highlighted code blocks with a language picker, Copy, smart indentation and a sandboxed Run button.', ['Code', 'Run']),
    ('coding-notebook', 'Notebook', 'Prose and runnable cells with outputs under each cell and a shared kernel.', ['Code', 'Notebook']),
    ('coding-playground', 'Playground', 'HTML, CSS and JavaScript blocks with a live sandboxed preview and console.', ['HTML/CSS/JS', 'Live']),
    ('coding-readme', 'README editor', 'Write visually, get Markdown with language fences, or edit the Markdown.', ['Markdown', 'Code']),
+ ]),
+ ('Real-world documents', 'Complete workflows built from the same parts.', [
+   ('contract-form', 'Contract form', 'Locked clauses, fill-in fields, a progress list of empty fields, export to Word or PDF.', ['Forms', 'Locked', '.docx']),
+   ('resume-builder', 'Resume builder', 'Locked headings keep the layout; template, accent colour and print to PDF.', ['Template', 'Print']),
+   ('legal-review', 'Legal document review', 'Locked standard clauses, suggestions, comments and versions on paged layout.', ['Review', 'Locked']),
+   ('meeting-notes', 'Meeting notes', 'Templates, @mentions, checklists and an action-item list collected on the side.', ['Templates', 'Mentions']),
+   ('blog-cms', 'Blog / CMS editor', 'Title, slug, cover, body with images, responsive preview, HTML and Markdown output.', ['CMS', 'Preview']),
+   ('wiki', 'Knowledge base / wiki', 'Linked pages stored in the browser, search, backlinks, table of contents, versions.', ['Wiki', 'Links']),
+   ('bilingual', 'Bilingual (LTR + RTL)', 'English and Arabic side by side, each with its own direction and interface language.', ['RTL', 'i18n']),
+   ('email-campaign', 'Email campaign', 'Merge fields, per-recipient validation and a table-based email preview.', ['Email', 'Merge fields']),
  ]),
  ('Collaboration and review', 'Working together, asynchronously or live.', [
    ('collab-realtime', 'Real-time collaboration', 'Two editors, one Yjs document: remote cursors, per-user undo, offline edits that merge.', ['Yjs', 'Cursors']),
