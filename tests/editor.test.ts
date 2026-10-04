@@ -215,3 +215,45 @@ describe('Images and tables', () => {
     expect(e.getHTML()).toMatch(/background-color: (#ffc9c9|rgb\(255, 201, 201\))/);
   });
 });
+
+describe('Special characters and format painter', () => {
+  beforeEach(() => (document.body.innerHTML = ''));
+
+  it('inserts a special character and rejects empty input', () => {
+    const e = make('<p>a</p>');
+    e.view.dispatch(e.view.state.tr.setSelection(TextSelection.atEnd(e.view.state.doc)));
+    expect(e.execute('insertText', '©')).toBe(true);
+    expect(e.execute('insertText', '')).toBe(false);
+    expect(e.getHTML()).toBe('<p>a©</p>');
+  });
+
+  it('copies formatting from one range to the next selection', async () => {
+    const e = make('<p><strong>bold</strong> plain</p>');
+    const sel = (from: number, to: number) => e.view.dispatch(e.view.state.tr.setSelection(TextSelection.create(e.view.state.doc, from, to)));
+    sel(1, 5);
+    e.execute('formatPainter');
+    sel(6, 11);
+    e.view.dom.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    await new Promise((r) => setTimeout(r, 5));
+    const painted = '<p><strong>bold</strong> <strong>plain</strong></p>';
+    expect(e.getHTML()).toBe(painted);
+    // one-shot: unbold a range, then a later selection must not be painted again
+    e.execute('bold');
+    const afterUnbold = e.getHTML();
+    sel(7, 9);
+    e.view.dom.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    await new Promise((r) => setTimeout(r, 5));
+    expect(e.getHTML()).toBe(afterUnbold);
+  });
+
+  it('cancels with a second click', async () => {
+    const e = make('<p><strong>b</strong> c</p>');
+    e.view.dispatch(e.view.state.tr.setSelection(TextSelection.create(e.view.state.doc, 1, 2)));
+    e.execute('formatPainter');
+    e.execute('formatPainter');
+    e.view.dispatch(e.view.state.tr.setSelection(TextSelection.create(e.view.state.doc, 3, 4)));
+    e.view.dom.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    await new Promise((r) => setTimeout(r, 5));
+    expect(e.getHTML()).toBe('<p><strong>b</strong> c</p>');
+  });
+});

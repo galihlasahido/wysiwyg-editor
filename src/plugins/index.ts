@@ -19,3 +19,5 @@ export { FindReplace, findMatches } from './find-replace';
 export type { Match } from './find-replace';
 export { WordCount, getStats } from './word-count';
 export type { Stats } from './word-count';
+export { SpecialCharacters, SPECIAL_CHARACTERS } from './special-characters';
+export { FormatPainter } from './format-painter';

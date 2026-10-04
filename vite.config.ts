@@ -12,5 +12,5 @@ export default defineConfig({
     },
     rollupOptions: { external: [/^prosemirror-/, /^markdown-it/] },
   },
-  test: { environment: 'jsdom', include: ['tests/**/*.test.ts'] },
+  test: { environment: 'jsdom', include: ['tests/**/*.test.ts'], setupFiles: ['tests/setup.ts'] },
 });
