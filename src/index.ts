@@ -39,3 +39,5 @@ export { icon, ICONS, hasIcon } from './icons';
 export * from './crop';
 export { toEmailHTML, toEmailText } from './email';
 export type { EmailOptions } from './email';
+export { simpleHighlight, resolveLanguage } from './highlight';
+export type { Highlighter, Token, TokenType } from './highlight';

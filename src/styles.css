@@ -317,3 +317,31 @@
 .wy-source-mode .wy-source { display: block; height: 100%; }
 .wy-source-mode .wy-content, .wy-source-mode .wy-ruler { display: none; }
 .wy-source-mode .wy-workspace { background: var(--wy-bg); padding: 0; }
+
+/* ---- Small screens / touch ---- */
+.touch .wy-btn, .touch .wy-select, .touch .wy-rbtn-small { min-height: 40px; min-width: 40px; }
+.touch .wy-toolbar { gap: 4px; }
+@media (max-width: 640px) {
+  .wy-paged .wy-workspace { padding: 0 8px 24px; }
+  .wy-outline { display: none; }
+  .wy-comments, .wy-versions { width: 180px; }
+  .wy-find-panel { left: 8px; right: 8px; max-width: none; }
+  .wy-dialog { padding: 12px; }
+}
+
+/* ---- Code blocks ---- */
+.wy-content pre { position: relative; padding-top: 36px; tab-size: 2; }
+.wy-content pre code { font-size: 13px; line-height: 1.55; }
+.wy-code-bar { position: absolute; left: 0; right: 0; top: 0; display: flex; align-items: center; gap: 6px; padding: 4px 8px; border-radius: 6px 6px 0 0; background: rgba(255,255,255,.07); user-select: none; }
+.wy-code-lang { height: 22px; border: 1px solid rgba(255,255,255,.2); border-radius: 4px; background: rgba(0,0,0,.25); color: #ddd; font: inherit; font-size: 12px; }
+.wy-code-btn { height: 22px; padding: 0 8px; border: 1px solid rgba(255,255,255,.2); border-radius: 4px; background: rgba(0,0,0,.25); color: #ddd; font: inherit; font-size: 12px; cursor: pointer; }
+.wy-code-btn:hover { background: rgba(255,255,255,.15); }
+.wy-code-btn[hidden] { display: none; }
+.wy-code-copy { margin-left: auto; }
+.wy-tok-comment { color: #7f8c98; font-style: italic; }
+.wy-tok-string { color: #a5d6a7; }
+.wy-tok-number, .wy-tok-literal { color: #f5a97f; }
+.wy-tok-keyword, .wy-tok-tag { color: #c4a7ff; }
+.wy-tok-function { color: #7cc4ff; }
+.wy-tok-attr, .wy-tok-property { color: #ffd479; }
+.wy-tok-variable { color: #ff9ac1; }

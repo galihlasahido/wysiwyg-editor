@@ -9,7 +9,7 @@ const knownNodes: Record<string, (state: MarkdownSerializerState, node: PMNode, 
       state.wrapBlock('> ', null, node, () => state.renderContent(node));
     },
     code_block(state, node) {
-      state.write('```\n');
+      state.write('```' + (node.attrs.language ?? '') + '\n');
       state.text(node.textContent, false);
       state.ensureNewLine();
       state.write('```');
@@ -142,7 +142,7 @@ export function markdownToDoc(schema: Schema, md: string): PMNode {
   if (nodes.heading) tokens.heading = { block: 'heading', getAttrs: (t: any) => ({ level: +t.tag.slice(1) }) };
   if (nodes.code_block) {
     tokens.code_block = { block: 'code_block', noCloseToken: true };
-    tokens.fence = { block: 'code_block', getAttrs: () => ({}), noCloseToken: true };
+    tokens.fence = { block: 'code_block', getAttrs: (t: any) => ({ language: /^[\w+#-]{1,20}$/.test((t.info ?? '').trim().split(/\s+/)[0] ?? '') ? t.info.trim().split(/\s+/)[0].toLowerCase() : null }), noCloseToken: true };
   }
   if (nodes.horizontal_rule) tokens.hr = { node: 'horizontal_rule' };
   if (nodes.image)

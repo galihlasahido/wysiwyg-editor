@@ -29,7 +29,8 @@ const attrs = { author: { default: 'Anonymous' }, date: { default: 0 } };
 const markSpec = (tag: 'ins' | 'del', inclusive: boolean) => ({
   attrs,
   inclusive,
-  parseDOM: [{ tag: `${tag}[data-author]`, getAttrs: (n: HTMLElement | string) => ({ author: (n as HTMLElement).getAttribute('data-author'), date: Number((n as HTMLElement).getAttribute('data-date')) || 0 }) }],
+  // Priority above the plain <del>/<s> rule of the strikethrough mark, or saved suggestions reload as ordinary formatting.
+  parseDOM: [{ tag: `${tag}[data-author]`, priority: 60, getAttrs: (n: HTMLElement | string) => ({ author: (n as HTMLElement).getAttribute('data-author'), date: Number((n as HTMLElement).getAttribute('data-date')) || 0 }) }],
   toDOM: (m: Mark) => [tag, { class: tag === 'ins' ? 'wy-ins' : 'wy-del', 'data-author': m.attrs.author, 'data-date': String(m.attrs.date), title: `${m.attrs.author}${m.attrs.date ? ' · ' + new Date(m.attrs.date).toLocaleString() : ''}` }, 0] as const,
 });
 

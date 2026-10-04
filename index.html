@@ -3,12 +3,33 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>wysiwyg-editor demo</title>
-  <style>body{max-width:1200px;margin:40px auto;padding:0 16px;font-family:system-ui,sans-serif}pre#out{background:#f6f6f6;padding:12px;white-space:pre-wrap;word-break:break-all}</style>
+  <title>wysiwyg-editor demos</title>
+  <link rel="stylesheet" href="./demo/demo.css" />
 </head>
 <body>
-  <h1>wysiwyg-editor</h1>
-  <div id="editor"></div>
-  <script type="module" src="/demo/main.ts"></script>
+  <header class="demo-head">
+    <h1>wysiwyg-editor</h1>
+    <p>A modular rich-text editor in TypeScript, built on ProseMirror and inspired by CKEditor 5. Each demo below is a small, real page that uses the library as you would. <a href="https://github.com/galihlasahido/wysiwyg-editor">Source on GitHub</a>.</p>
+  </header>
+  <main class="demo-main">
+    <div class="cards">
+    <a class="card" href="./demo/feature-rich.html"><h2>Feature-rich editor</h2><p>The whole thing: ribbon, pages and ruler, comments, suggestions, versions and collaboration.</p><div class="tags"><span class="tag">Ribbon</span><span class="tag">Pages</span><span class="tag">Collaboration</span></div></a>
+    <a class="card" href="./demo/ai.html"><h2>AI assistant</h2><p>Improve, fix, shorten, expand, summarize or translate a selection. Streams into a preview you accept or discard.</p><div class="tags"><span class="tag">AI</span><span class="tag">Streaming</span></div></a>
+    <a class="card" href="./demo/collab-realtime.html"><h2>Real-time collaboration</h2><p>Two editors, one document: remote cursors, per-user undo, offline edits that merge.</p><div class="tags"><span class="tag">Yjs</span><span class="tag">Cursors</span></div></a>
+    <a class="card" href="./demo/collab-async.html"><h2>Comments, suggestions and history</h2><p>Threaded comments, accept/reject tracked changes, restore versions.</p><div class="tags"><span class="tag">Review</span><span class="tag">Track changes</span></div></a>
+    <a class="card" href="./demo/editor-types.html"><h2>Different user interfaces</h2><p>Classic, inline with a balloon toolbar, and a document editor with ribbon and pages.</p><div class="tags"><span class="tag">Classic</span><span class="tag">Inline</span><span class="tag">Document</span></div></a>
+    <a class="card" href="./demo/productivity.html"><h2>Productivity</h2><p>Templates, slash commands, @-mentions and Markdown shortcuts.</p><div class="tags"><span class="tag">Slash</span><span class="tag">Mentions</span><span class="tag">Templates</span></div></a>
+    <a class="card" href="./demo/export-word-pdf.html"><h2>Export to Word and PDF</h2><p>Download .docx with page setup, headers and footers, or print to PDF.</p><div class="tags"><span class="tag">.docx</span><span class="tag">PDF</span></div></a>
+    <a class="card" href="./demo/import-word.html"><h2>Import from Word</h2><p>Open a .docx and get clean, schema-validated content. Undoable.</p><div class="tags"><span class="tag">.docx</span><span class="tag">Import</span></div></a>
+    <a class="card" href="./demo/email.html"><h2>Email editing</h2><p>Compose, then preview the table-based, inline-styled HTML and the plain-text part.</p><div class="tags"><span class="tag">Email</span><span class="tag">HTML</span></div></a>
+    <a class="card" href="./demo/merge-fields.html"><h2>Merge fields</h2><p>Placeholders like {{first_name}} rendered per recipient, safely.</p><div class="tags"><span class="tag">Templates</span><span class="tag">Safe</span></div></a>
+    <a class="card" href="./demo/source-editing.html"><h2>Source editing</h2><p>Edit the HTML directly; unsupported or unsafe markup is dropped.</p><div class="tags"><span class="tag">HTML</span><span class="tag">Sanitised</span></div></a>
+    <a class="card" href="./demo/markdown.html"><h2>Markdown editor</h2><p>WYSIWYG and Markdown side by side, kept in sync.</p><div class="tags"><span class="tag">Markdown</span></div></a>
+    <a class="card" href="./demo/headless.html"><h2>Headless editor</h2><p>Drive the engine from your own UI through commands and state.</p><div class="tags"><span class="tag">API</span><span class="tag">Custom UI</span></div></a>
+    <a class="card" href="./demo/images.html"><h2>Images: upload, resize, crop</h2><p>Upload with progress, resize, crop, caption and alt text.</p><div class="tags"><span class="tag">Images</span><span class="tag">Crop</span></div></a>
+    <a class="card" href="./demo/mobile.html"><h2>Mobile friendly</h2><p>A wrapping compact toolbar with touch-sized controls in a 375px frame.</p><div class="tags"><span class="tag">Responsive</span><span class="tag">Touch</span></div></a>
+    </div>
+    <p class="status" style="margin-top:24px">Not included (they need external services): equations, a hosted file manager, an image optimiser and a hosted spell checker. Browser spell check is available as a toggle.</p>
+  </main>
 </body>
 </html>

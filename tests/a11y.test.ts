@@ -80,7 +80,7 @@ describe('text contrast in the stylesheet (WCAG AA 4.5:1)', () => {
   // Rules scoped to the dark theme/page are checked against dark backgrounds, not white, so leave them out here.
   const css = (require('node:fs').readFileSync('src/styles.css', 'utf8') as string)
     .split('\n')
-    .filter((line) => !/\[data-(theme|page)='dark'\]/.test(line))
+    .filter((line) => !/\[data-(theme|page)='dark'\]/.test(line) && !/\.wy-(tok|code)-/.test(line))
     .join('\n');
   const lum = (hex: string) => {
     const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
@@ -94,6 +94,14 @@ describe('text contrast in the stylesheet (WCAG AA 4.5:1)', () => {
   it('uses no light-gray text colors that fail contrast on white', () => {
     const colors = [...css.matchAll(/(?<![-\w])color:\s*(#[0-9a-f]{6})/gi)].map((m) => m[1].toLowerCase());
     const failing = [...new Set(colors)].filter((c) => ratio(c, '#ffffff') < 4.5 && c !== '#ffffff');
+    expect(failing).toEqual([]);
+  });
+
+  it('syntax-highlight colors stay readable on the dark code block background', () => {
+    const all = require('node:fs').readFileSync('src/styles.css', 'utf8') as string;
+    const tokens = [...all.matchAll(/\.wy-tok-[\w, .-]*\{[^}]*?color:\s*(#[0-9a-f]{6})/gi)].map((m) => m[1].toLowerCase());
+    expect(tokens.length).toBeGreaterThanOrEqual(6);
+    const failing = [...new Set(tokens)].filter((c) => ratio(c, '#1e1e1e') < 4.5);
     expect(failing).toEqual([]);
   });
 });

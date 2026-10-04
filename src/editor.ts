@@ -28,8 +28,8 @@ export interface EditorConfig {
   locale?: string;
   /** Show the Office-style tabbed ribbon instead of the compact toolbar. */
   ribbon?: boolean | RibbonOptions;
-  /** Chrome theme. The paper follows it unless changed with `setPageDark`. Default 'light'. */
-  theme?: 'light' | 'dark';
+  /** Chrome theme. 'auto' follows the system setting. The paper follows it unless changed with `setPageDark`. Default 'light'. */
+  theme?: 'light' | 'dark' | 'auto';
 }
 
 const baseNodes: Record<string, NodeSpec> = {
@@ -51,6 +51,8 @@ export class Editor {
   readonly extensions: Record<string, unknown> = {};
   private readOnly: boolean;
   private ready = false;
+  private systemQuery: MediaQueryList | null = null;
+  private onSystemTheme: ((e: MediaQueryListEvent) => void) | null = null;
   private transformers: NonNullable<EditorPlugin['transformTransaction']>[] = [];
   readonly uploadImage: (file: File) => Promise<string>;
   private commands = new Map<string, Command>();
@@ -74,8 +76,15 @@ export class Editor {
     this.root.className = 'wy-editor';
     const direction = config.direction ?? (isRtlLocale(config.locale) ? 'rtl' : 'ltr');
     this.root.dir = direction;
-    this.root.dataset.theme = config.theme ?? 'light';
-    this.root.dataset.page = config.theme ?? 'light';
+    const system = typeof matchMedia === 'function' ? matchMedia('(prefers-color-scheme: dark)') : null;
+    const initial = config.theme === 'auto' ? (system?.matches ? 'dark' : 'light') : config.theme ?? 'light';
+    this.root.dataset.theme = initial;
+    this.root.dataset.page = initial;
+    if (config.theme === 'auto' && system?.addEventListener) {
+      this.onSystemTheme = (e: MediaQueryListEvent) => this.setTheme(e.matches ? 'dark' : 'light');
+      system.addEventListener('change', this.onSystemTheme);
+      this.systemQuery = system;
+    }
     this.body = document.createElement('div');
     this.body.className = 'wy-body';
     this.workspace = document.createElement('div');
@@ -218,6 +227,7 @@ export class Editor {
   }
 
   destroy(): void {
+    if (this.systemQuery && this.onSystemTheme) this.systemQuery.removeEventListener('change', this.onSystemTheme);
     this.view.destroy();
     this.root.remove();
   }

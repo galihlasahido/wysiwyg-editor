@@ -165,6 +165,20 @@ describe('Track changes', () => {
     expect(e.getHTML()).not.toContain('<del');
   });
 
+  it('round-trips deletions too (not as plain strikethrough)', () => {
+    const e = setup('<p>abc</p>');
+    e.view.dispatch(e.view.state.tr.delete(2, 3));
+    expect(getChanges(e.view.state.doc)).toMatchObject([{ type: 'deletion', text: 'b' }]);
+    e.setHTML(e.getHTML());
+    expect(getChanges(e.view.state.doc)).toMatchObject([{ type: 'deletion', text: 'b', author: 'Ana' }]);
+    expect(e.getHTML()).toContain('<del');
+    expect(e.getHTML()).not.toContain('<s>');
+    // a plain <del> without review data is still just strikethrough
+    e.setHTML('<p>x<del>y</del></p>');
+    expect(getChanges(e.view.state.doc)).toHaveLength(0);
+    expect(e.getHTML()).toContain('<s>y</s>');
+  });
+
   it('round-trips marks through HTML', () => {
     const e = setup('<p>a</p>');
     e.view.dispatch(e.view.state.tr.insertText('X', 2));

@@ -19,8 +19,20 @@ export const Blocks: EditorPlugin = {
       group: 'block',
       code: true,
       defining: true,
-      parseDOM: [{ tag: 'pre', preserveWhitespace: 'full' }],
-      toDOM: () => ['pre', ['code', 0]],
+      attrs: { language: { default: null } },
+      parseDOM: [
+        {
+          tag: 'pre',
+          preserveWhitespace: 'full',
+          getAttrs: (n) => {
+            const pre = n as HTMLElement;
+            const fromClass = /(?:^|\s)language-([\w+#-]{1,20})(?:\s|$)/.exec(pre.querySelector('code')?.className ?? '')?.[1];
+            const lang = pre.getAttribute('data-language') ?? fromClass ?? null;
+            return { language: lang && /^[\w+#-]{1,20}$/.test(lang) ? lang.toLowerCase() : null };
+          },
+        },
+      ],
+      toDOM: (n) => (n.attrs.language ? ['pre', { 'data-language': n.attrs.language }, ['code', { class: `language-${n.attrs.language}` }, 0]] : ['pre', ['code', 0]]),
     },
     horizontal_rule: { group: 'block', parseDOM: [{ tag: 'hr' }], toDOM: () => ['hr'] },
   },
