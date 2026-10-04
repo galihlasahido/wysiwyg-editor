@@ -11,7 +11,7 @@ $('#app').append(el('div', { id: 'editor' }));
 const editor = createEditor({
   element: $('#editor'),
   content,
-  plugins: [...defaultPlugins, Comments({ author: 'Reviewer' }), TrackChanges({ author: 'Reviewer' }), Versions({ author: 'Reviewer' }), RestrictedEditing()],
+  plugins: [...defaultPlugins, Comments({ author: 'Reviewer' }), TrackChanges({ author: 'Reviewer' }), Versions({ author: 'Reviewer' }), RestrictedEditing({ authorControls: false })],
   ribbon: true,
   pages: { header: 'Agreement (draft)', footer: 'Page {page} of {pages}', height: '70vh' },
 });

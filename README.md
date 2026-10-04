@@ -101,7 +101,7 @@ stored as validated JSON and rendered as SVG) and `splitSlides` (turn a document
 text) that cannot be changed, and `editable_region` blocks that can, while everything else stays ordinary text. It is
 enforced by rejecting transactions, so typing, deleting, pasting, dropping and find & replace are all covered, including
 a delete that spans a lock. Author mode (`authorMode` option, `toggleAuthorMode`, ribbon **Restrict** tab) lets a template
-author lock, unlock and mark fill-in areas. Programmatic and remote (collaboration) changes are not blocked.
+author lock, unlock and mark fill-in areas. Programmatic and remote (collaboration) changes are not blocked. In an app where end users fill in a template, pass `RestrictedEditing({ authorControls: false })`: the author buttons and the ribbon's Restrict tab are then hidden (the commands stay available to your own code).
 
 **Ruler** (paged view): cm scale with zero at the left margin, shaded margins you can drag, and Word-style paragraph
 markers: first-line ▼ and hanging ▲ with the left-indent box, and right indent. Drags preview with a guide line and commit once
@@ -167,8 +167,9 @@ const { id, ownerKey, version } = await client.create({ html: '<p>Hi</p>' });
 createEditor({ element, plugins: [...defaultPlugins, Autosave({ save: createHttpSaver({ client, id, secret: ownerKey, version }) })] });
 ```
 
-This is a **reference**, not a production server: single process, local files, no user accounts or rate limiting, and the
-WebSocket token travels in the URL query (it can end up in logs). Put it behind TLS and your own auth before real use.
+This is a **reference**, not a production server: single process, local files, no user accounts, and only document creation is rate limited
+(see `createKey`, `createLimitPerMinute`, `maxDocs`). The WebSocket token travels in the URL query (it can end up in logs).
+Put it behind TLS and your own auth and rate limiting before real use.
 
 ## AI assistant
 
@@ -201,12 +202,14 @@ Plugins may set `priority` (keymap order) and `transformTransaction` (rewrite us
   pages, so page geometry can differ slightly (a few px, occasionally ~15px on the page where a table turns into a list)
   from a true layout engine, and from print output. Verified in Chrome only. Header rows do not repeat across pages.
 - Footnotes are collected at the end of the document (endnotes), not at the bottom of each page.
+- **Server hardening knobs:** `createServer({ createKey, createLimitPerMinute, maxDocs })` protect document creation (a key, a per-address rate and a total cap; the defaults are 60 per minute and 10,000 documents). Put the server behind a reverse proxy with TLS and your own rate limiting for public use; tokens in a URL are accepted for reads and WebSocket only.
 - **Restricted editing** is enforced in the browser only: it protects against accidental edits, not against someone who edits the stored HTML or talks to the server directly.
 - **Track changes** tracks inline edits inside one paragraph; structural edits (splitting/joining blocks, tables) apply untracked.
 - **PDF** is the browser's print dialog (Save as PDF), not a generated file.
 - **.docx import** goes through mammoth: alignment, colors, page setup and comments are not imported. Export embeds
   `data:` images and fetches remote ones when CORS allows; otherwise it writes the alt text.
 - Image cropping, resize, captions and alt text are supported; the .docx export crops with canvas in browsers and exports the full image where canvas is unavailable.
+- Formula columns follow merged cells (`colspan`/`rowspan`), but a formula only sees its own table.
 - The code editor's extra cursors are carets only (no multiple selections, no select-next-occurrence), folding is by indentation (not by syntax), and the built-in highlighter is a scanner, not a parser (no nested template literals or regex literals).
 - Ribbon icons are drawn for this project (outline style, in the spirit of office suites); they are not Microsoft's assets.
   Dictation, the Microsoft Editor and add-ins from Word's ribbon are not included. Zoom uses CSS `zoom` (Chrome, Safari, Firefox 126+).

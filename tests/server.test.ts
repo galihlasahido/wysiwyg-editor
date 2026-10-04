@@ -308,3 +308,33 @@ describe('hardening', () => {
     expect((await readdir(dir)).includes(`${d.id}.json`)).toBe(true);
   });
 });
+
+describe('creation protection', () => {
+  it('requires the creation key, limits the rate and caps the total', async () => {
+    const d = await mkdtemp(join(tmpdir(), 'wy-lim-'));
+    const srv = createServer({ dataDir: d, createKey: 'secret-key', createLimitPerMinute: 3, maxDocs: 4 });
+    const p = await srv.listen(0);
+    const post = (key?: string) => fetch(`http://127.0.0.1:${p}/api/docs`, { method: 'POST', headers: { 'content-type': 'application/json', ...(key ? { authorization: `Bearer ${key}` } : {}) }, body: '{}' });
+    expect((await post()).status).toBe(401);
+    expect((await post('wrong')).status).toBe(401);
+    expect((await post('secret-key')).status).toBe(201);
+    expect((await post('secret-key')).status).toBe(201);
+    expect((await post('secret-key')).status).toBe(201);
+    expect((await post('secret-key')).status).toBe(429); // 4th within the minute
+    await srv.close();
+    const srv2 = createServer({ dataDir: d, createLimitPerMinute: 0, maxDocs: 3 });
+    const p2 = await srv2.listen(0);
+    expect((await fetch(`http://127.0.0.1:${p2}/api/docs`, { method: 'POST', body: '{}', headers: { 'content-type': 'application/json' } })).status).toBe(507); // already 3 stored
+    await srv2.close();
+    await rm(d, { recursive: true, force: true });
+  });
+});
+
+describe('token in the URL', () => {
+  it('is accepted for reads but not for writes', async () => {
+    const d = await create();
+    expect((await call(`/api/docs/${d.id}?token=${d.ownerKey}`)).status).toBe(200);
+    const put = await call(`/api/docs/${d.id}?token=${d.ownerKey}`, { method: 'PUT', json: { version: 1, html: '<p>x</p>' } });
+    expect(put.status).toBe(401);
+  });
+});

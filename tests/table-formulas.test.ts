@@ -67,3 +67,19 @@ describe('formula semantics', () => {
     expect(v([['0x10', '1e3', 'Infinity', '12.5', '=A1', '=SUM(A1:D1)']])[0]).toEqual(['0x10', '1e3', 'Infinity', 12.5, '0x10', 12.5]);
   });
 });
+
+describe('merged cells', () => {
+  const T = '<table><tr><td colspan="2"><p>10</p></td><td><p>5</p></td></tr><tr><td><p>1</p></td><td><p>2</p></td><td><p>=A1+C1</p></td></tr></table>';
+  it('keeps column letters aligned with what the user sees (export)', () => {
+    expect(computeFormulasInHTML(T)).toContain('>15<');
+  });
+  it('keeps column letters aligned in the editor', () => {
+    const ed = createEditor({ element: document.body.appendChild(document.createElement('div')), plugins: [...defaultPlugins, TableFormulas], content: T });
+    expect(ed.view.dom.querySelector('.wy-formula-value')?.textContent).toBe('15');
+    ed.destroy();
+  });
+  it('rowspan too', () => {
+    const html = '<table><tr><td rowspan="2">7</td><td>3</td></tr><tr><td>=A1*B1</td></tr></table>';
+    expect(computeFormulasInHTML(html)).toContain('>21<');
+  });
+});

@@ -5,7 +5,7 @@
  */
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { createServer as createHttpServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
-import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { WebSocketServer, type WebSocket } from 'ws';
 import * as Y from 'yjs';
@@ -42,6 +42,10 @@ export class FileStore {
 
   async init() {
     await mkdir(this.dir, { recursive: true });
+  }
+  /** Number of stored documents. */
+  async count(): Promise<number> {
+    return (await readdir(this.dir)).filter((f) => /^[a-f0-9]{24}\.json$/.test(f)).length;
   }
   private path(id: string, ext = 'json') {
     if (!ID.test(id)) throw new Error('bad id'); // ids are validated, so no path traversal is possible
@@ -156,6 +160,12 @@ export interface ServerOptions {
   dataDir: string;
   /** Origin allowed for cross-origin browser requests. Omit to allow same-origin only. */
   allowedOrigin?: string;
+  /** If set, creating a document requires `Authorization: Bearer <createKey>`. Recommended for anything public. */
+  createKey?: string;
+  /** Documents created per client address per minute (0 = unlimited). Default 60. */
+  createLimitPerMinute?: number;
+  /** Refuse to create more than this many documents (0 = unlimited). Default 10000. */
+  maxDocs?: number;
 }
 
 export interface RunningServer {
@@ -168,6 +178,7 @@ export interface RunningServer {
 export function createServer(options: ServerOptions): RunningServer {
   const store = new FileStore(options.dataDir);
   const rooms = new Map<string, Room>();
+  const created = new Map<string, number[]>(); // creation timestamps per client address, for rate limiting
   /** Writes in flight, so `close()` can wait for them: nothing may touch the data directory after it resolves. */
   const inflight = new Set<Promise<unknown>>();
   let closing = false;
@@ -198,6 +209,23 @@ export function createServer(options: ServerOptions): RunningServer {
     if (parts[0] !== 'api' || parts[1] !== 'docs') throw new HttpError(404, 'Not found');
 
     if (parts.length === 2 && req.method === 'POST') {
+      // Creation is the only unauthenticated write, so it is the one to protect: key, per-client rate and a total cap.
+      if (options.createKey) {
+        const given = bearer(req);
+        if (!given || !safeEqual(sha(given), sha(options.createKey))) throw new HttpError(401, 'A creation key is required');
+      }
+      const limit = options.createLimitPerMinute ?? 60;
+      if (limit > 0) {
+        const who = req.socket.remoteAddress ?? 'unknown';
+        const now = Date.now();
+        const recent = (created.get(who) ?? []).filter((t) => now - t < 60000);
+        if (recent.length >= limit) throw new HttpError(429, 'Too many documents created; try again in a minute');
+        recent.push(now);
+        created.set(who, recent);
+        if (created.size > 5000) for (const [k, v] of created) if (!v.some((t) => now - t < 60000)) created.delete(k); // bounded memory
+      }
+      const cap = options.maxDocs ?? 10000;
+      if (cap > 0 && (await store.count()) >= cap) throw new HttpError(507, 'Document limit reached');
       const body = await readJson(req);
       const id = randomBytes(12).toString('hex');
       const ownerKey = token();
@@ -219,7 +247,8 @@ export function createServer(options: ServerOptions): RunningServer {
 
     const id = parts[2];
     if (!id || !ID.test(id)) throw new HttpError(404, 'Not found');
-    const secret = bearer(req) ?? url.searchParams.get('token');
+    // A token in the URL ends up in logs and Referer headers, so it is accepted only for reads (share links), never for writes.
+    const secret = bearer(req) ?? (req.method === 'GET' ? url.searchParams.get('token') : null);
     const current = await store.get(id);
     // Unknown document and missing/invalid credentials are indistinguishable, so ids cannot be probed.
     const role = current ? roleFor(current, secret) : null;

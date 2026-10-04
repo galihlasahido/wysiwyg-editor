@@ -2,6 +2,7 @@ import { NodeSelection, type EditorState } from 'prosemirror-state';
 import type { Editor } from './editor';
 import { hasIcon, icon } from './icons';
 import { SPECIAL_CHARACTERS } from './plugins/special-characters';
+import { restrictedKey } from './plugins/restricted-editing';
 import type { ToolbarItem } from './types';
 
 // ---- layout description ---------------------------------------------------------------------------------------
@@ -236,6 +237,7 @@ export const DEFAULT_RIBBON: RibbonTab[] = [
   {
     id: 'restrict',
     label: 'Restrict',
+    when: (s) => !!restrictedKey.getState(s)?.controls,
     groups: [
       { id: 'authoring', label: 'Template', controls: [cmd('authorMode', 'toggleAuthorMode', 'Author mode', 'authorMode', { size: 'large', active: (e) => !!(e.extensions.restricted as { isAuthor(): boolean } | undefined)?.isAuthor() })] },
       { id: 'locking', label: 'Locked sections', controls: [cmd('lock', 'lockBlocks', 'Lock blocks', 'lock', { size: 'large' }), cmd('unlock', 'unlockBlocks', 'Unlock', 'unlock', { size: 'large' })] },

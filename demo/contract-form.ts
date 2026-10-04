@@ -19,7 +19,7 @@ $('#app').append(
   el('div', { class: 'cols' }, el('div', { class: 'panel' }, el('div', { id: 'editor' })), el('div', { class: 'panel' }, el('h2', {}, 'Progress'), status, list)),
 );
 
-const editor = createEditor({ element: $('#editor'), content, plugins: [...defaultPlugins, RestrictedEditing()] });
+const editor = createEditor({ element: $('#editor'), content, plugins: [...defaultPlugins, RestrictedEditing({ authorControls: false })] });
 const regions = () => [...editor.view.dom.querySelectorAll<HTMLElement>('.wy-region')].filter((r) => !r.querySelector('[data-task]'));
 const initial = regions().map((r) => r.textContent!.trim());
 

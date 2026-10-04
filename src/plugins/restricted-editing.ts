@@ -1,10 +1,19 @@
 import type { Node as PMNode, ResolvedPos } from 'prosemirror-model';
-import { Plugin, type EditorState, type Transaction } from 'prosemirror-state';
+import { Plugin, PluginKey, type EditorState, type Transaction } from 'prosemirror-state';
 import { Step } from 'prosemirror-transform';
 import type { Editor } from '../editor';
 import type { EditorPlugin } from '../types';
 
+/** Holds whether the author controls (toolbar buttons and ribbon tab) are shown. Read by the ribbon. */
+export const restrictedKey = new PluginKey<{ controls: boolean }>('wy-restricted');
+
 export interface RestrictedEditingOptions {
+  /**
+   * Show the author buttons (Author mode, lock, unlock, fill-in) in the toolbar and the ribbon's Restrict tab. Default true.
+   * Set it to false in an app where end users fill in a template: otherwise one click on "Author mode" lifts every
+   * restriction. The commands (`setAuthorMode`, `lockBlocks`, ...) stay available to your own code.
+   */
+  authorControls?: boolean;
   /** Start in author mode: everything is editable and the lock commands work. Default false. */
   authorMode?: boolean;
   /** Extra class name(s) added to every locked section, so you can style them with your own CSS. */
@@ -220,6 +229,8 @@ export function RestrictedEditing(options: RestrictedEditingOptions = {}): Edito
 
       return [
         new Plugin({
+          key: restrictedKey,
+          state: { init: () => ({ controls: options.authorControls !== false }), apply: (_tr, v) => v },
           filterTransaction(tr: Transaction, _state: EditorState) {
             if (author || !tr.docChanged || BYPASS_META.some((m) => tr.getMeta(m))) return true;
             for (let i = 0; i < tr.steps.length; i++) {
@@ -238,7 +249,7 @@ export function RestrictedEditing(options: RestrictedEditingOptions = {}): Edito
         }),
       ];
     },
-    toolbar: [
+    toolbar: options.authorControls === false ? [] : [
       { name: 'authorMode', label: 'Template author mode', icon: 'T', command: 'toggleAuthorMode', isActive: () => author },
       { name: 'lockBlocks', label: 'Lock selected blocks', icon: '🔒', command: 'lockBlocks' },
       { name: 'unlockBlocks', label: 'Unlock section', icon: '🔓', command: 'unlockBlocks' },

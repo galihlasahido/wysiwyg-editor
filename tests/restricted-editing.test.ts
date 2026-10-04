@@ -133,3 +133,16 @@ describe('RestrictedEditing: ranges that span regions', () => {
     expect(html).toContain('<p>dog</p></div>');
   });
 });
+
+describe('RestrictedEditing author controls', () => {
+  it('can hide the author buttons while keeping the commands', () => {
+    ed = createEditor({ element: document.body.appendChild(document.createElement('div')), content: HTML, plugins: [...defaultPlugins, RestrictedEditing({ authorControls: false })], ribbon: true });
+    expect(ed.root.querySelector('[aria-label="Template author mode"], [title="Template author mode"]')).toBeNull();
+    expect([...ed.root.querySelectorAll('[role=tab]')].some((t) => t.textContent?.trim() === 'Restrict' && !(t as HTMLElement).hidden)).toBe(false);
+    expect(ed.hasCommand('toggleAuthorMode')).toBe(true);
+  });
+  it('shows them by default', () => {
+    ed = createEditor({ element: document.body.appendChild(document.createElement('div')), content: HTML, plugins: [...defaultPlugins, RestrictedEditing()], ribbon: true });
+    expect([...ed.root.querySelectorAll('[role=tab]')].some((t) => t.textContent?.trim() === 'Restrict' && !(t as HTMLElement).hidden)).toBe(true);
+  });
+});

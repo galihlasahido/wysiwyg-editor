@@ -14,7 +14,7 @@ const content =
   sec('Experience', '<p><strong>Role, Company</strong> — 2022 to now</p><ul><li><p>What you achieved, with a number</p></li><li><p>What you led or built</p></li></ul>') +
   sec('Education', '<p><strong>Degree, School</strong> — 2018</p>') +
   sec('Skills', '<p>TypeScript, Node, SQL</p>');
-const editor = createEditor({ element: $('#editor'), content, plugins: [...defaultPlugins, RestrictedEditing({ labels: false })], toolbar: ['bold', 'italic', 'link', '|', 'bulletList', 'orderedList'] });
+const editor = createEditor({ element: $('#editor'), content, plugins: [...defaultPlugins, RestrictedEditing({ labels: false, authorControls: false })], toolbar: ['bold', 'italic', 'link', '|', 'bulletList', 'orderedList'] });
 accent.addEventListener('input', () => $('#host').style.setProperty('--cv', accent.value));
 tpl.addEventListener('change', () => ($('#host').className = `panel cv-host ${tpl.value}`));
 $('#app').append(codePanel(`
