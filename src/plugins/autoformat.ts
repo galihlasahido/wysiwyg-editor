@@ -22,6 +22,7 @@ export const Autoformat: EditorPlugin = {
     if (nodes.blockquote) rules.push(wrappingInputRule(/^\s*>\s$/, nodes.blockquote));
     if (nodes.code_block) rules.push(textblockTypeInputRule(/^```$/, nodes.code_block));
     if (nodes.bullet_list) rules.push(wrappingInputRule(/^\s*([-+*])\s$/, nodes.bullet_list));
+    if (nodes.task_list) rules.unshift(wrappingInputRule(/^\s*\[( |x)?\]\s$/, nodes.task_list));
     if (nodes.ordered_list)
       rules.push(
         wrappingInputRule(/^(\d+)\.\s$/, nodes.ordered_list, (m) => ({ order: +m[1] }), (m, node) => node.childCount + node.attrs.order === +m[1]),

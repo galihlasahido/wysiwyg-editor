@@ -33,6 +33,8 @@ export type ToolbarItem = ToolbarButton | ToolbarSelect | ToolbarSeparator;
 /** A feature module, similar to a CKEditor 5 plugin. */
 export interface EditorPlugin {
   name: string;
+  /** Higher runs first for keymaps/ProseMirror plugins. Default 0. */
+  priority?: number;
   nodes?: Record<string, NodeSpec>;
   marks?: Record<string, MarkSpec>;
   /** Called once the schema is built. Returns ProseMirror plugins and may register commands. */

@@ -51,7 +51,8 @@ export class Editor {
     this.root.append(content);
     config.element.append(this.root);
 
-    const pmPlugins = config.plugins.flatMap((p) => p.setup?.(this) ?? []);
+    const byPriority = [...config.plugins].sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0));
+    const pmPlugins = byPriority.flatMap((p) => p.setup?.(this) ?? []);
     const doc = this.parseHTML(config.content ?? '');
     const state = EditorState.create({ doc, plugins: pmPlugins });
 

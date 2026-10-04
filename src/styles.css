@@ -19,3 +19,9 @@
 .ProseMirror-gapcursor { display: none; pointer-events: none; position: absolute; }
 .ProseMirror-gapcursor:after { content: ''; display: block; position: absolute; top: -2px; width: 20px; border-top: 1px solid #000; }
 .ProseMirror-focused .ProseMirror-gapcursor { display: block; }
+.wy-content ul[data-task-list] { list-style: none; padding-left: 4px; }
+.wy-content li[data-task] { position: relative; padding-left: 28px; }
+.wy-content li[data-task]::before { content: ''; position: absolute; left: 4px; top: .35em; width: 16px; height: 16px; border: 2px solid #6b7280; border-radius: 3px; background: #fff; cursor: pointer; box-sizing: border-box; }
+.wy-content li[data-task][data-checked='true']::before { background: #2563eb; border-color: #2563eb; }
+.wy-content li[data-task][data-checked='true']::after { content: '✓'; position: absolute; left: 7px; top: .2em; color: #fff; font-size: 12px; pointer-events: none; }
+.wy-content li[data-task][data-checked='true'] > p { text-decoration: line-through; color: #6b7280; }

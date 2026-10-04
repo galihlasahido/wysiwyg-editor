@@ -36,7 +36,7 @@ new Editor({
 Bold / italic / underline / strike / inline code · headings · text alignment · text color & highlight ·
 bulleted & numbered lists with indent · block quote · code block · horizontal line · links ·
 images (URL, file picker, paste, drag & drop; pluggable `uploadImage` adapter, Base64 by default) · tables ·
-undo/redo · Markdown import/export (`getMarkdown()` / `setMarkdown()`) ·
+undo/redo · font family/size · line spacing · checklists · Markdown import/export (`getMarkdown()` / `setMarkdown()`) ·
 Markdown-style autoformat (`# `, `- `, `1. `, `> `, ` ``` `, `**bold**`).
 Link and image URLs are restricted to safe schemes.
 
@@ -54,7 +54,8 @@ const MyPlugin: EditorPlugin = {
 ## Roadmap — goal: a Google Docs-style editor on the web
 
 - [x] Core editing, lists, tables, images, links, alignment, colors, Markdown
-- [ ] **Docs-style editing:** font family/size, line spacing, checklists, indent, table cell merge/styling, image resize/crop/captions
+- [x] **Docs-style editing (partial):** font family/size, line spacing, checklists
+- [ ] Still to do: table cell merge/styling, image resize/crop/captions
 - [ ] **Page layout:** paginated view, page size/margins, headers/footers, page numbers, page breaks, ruler, outline/TOC sidebar
 - [ ] **Productivity:** find & replace, word count, format painter, special characters, footnotes, spell check, templates
 - [ ] **Collaboration:** real-time co-editing with cursors (Yjs), comments, suggesting mode / track changes, version history, mentions

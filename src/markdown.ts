@@ -32,6 +32,13 @@ const serializer = new MarkdownSerializer(
       const start = node.attrs.order || 1;
       state.renderList(node, '   ', (i) => `${start + i}. `);
     },
+    task_list(state, node) {
+      state.renderList(node, '  ', () => '- ');
+    },
+    task_item(state, node) {
+      state.write(node.attrs.checked ? '[x] ' : '[ ] ');
+      state.renderContent(node);
+    },
     list_item(state, node) {
       state.renderContent(node);
     },
@@ -73,6 +80,8 @@ const serializer = new MarkdownSerializer(
       close: (_s, mark) => `](${mark.attrs.href}${mark.attrs.title ? ` "${mark.attrs.title.replace(/"/g, '\\"')}"` : ''})`,
     },
     underline: noMark,
+    font_family: noMark,
+    font_size: noMark,
     text_color: noMark,
     highlight: noMark,
   },

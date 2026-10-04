@@ -84,4 +84,40 @@ describe('Editor', () => {
     expect(e.getHTML()).not.toContain('<script');
     expect(e.getHTML()).not.toContain('<a');
   });
+
+  it('Enter in a list creates a new list item', () => {
+    const e = make('<ul><li><p>a</p></li></ul>');
+    e.view.dispatch(e.view.state.tr.setSelection(TextSelection.atEnd(e.view.state.doc)));
+    const ev = new KeyboardEvent('keydown', { key: 'Enter' });
+    e.view.someProp('handleKeyDown', (f) => f(e.view, ev));
+    expect(e.getHTML()).toBe('<ul><li><p>a</p></li><li><p></p></li></ul>');
+  });
+
+  it('sets font size and family and survives reload', () => {
+    const e = make('<p>abc</p>');
+    selectAll(e);
+    e.execute('fontSize', '24');
+    e.execute('fontFamily', 'Georgia');
+    e.setHTML(e.getHTML());
+    expect(e.getHTML()).toContain('font-size: 24px');
+    expect(e.getHTML()).toMatch(/font-family: (&quot;|'|")?Georgia/);
+  });
+
+  it('sets line spacing and keeps alignment', () => {
+    const e = make('<p>abc</p>');
+    e.execute('align', 'center');
+    e.execute('lineHeight', '2');
+    expect(e.getHTML()).toMatch(/text-align: center; line-height: 2/);
+  });
+
+  it('creates and toggles a checklist, exporting to Markdown', () => {
+    const e = make('<p>todo</p>');
+    e.execute('taskList');
+    expect(e.getHTML()).toContain('data-task');
+    const { state } = e.view;
+    let pos = -1;
+    state.doc.descendants((n, p) => { if (n.type.name === 'task_item') pos = p; });
+    e.view.dispatch(state.tr.setNodeMarkup(pos, undefined, { checked: true }));
+    expect(e.getMarkdown()).toBe('- [x] todo');
+  });
 });

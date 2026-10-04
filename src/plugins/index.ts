@@ -9,3 +9,5 @@ export { Table } from './table';
 export { Autoformat } from './autoformat';
 export { Alignment } from './alignment';
 export { Colors } from './colors';
+export { Fonts, FONT_FAMILIES, FONT_SIZES } from './fonts';
+export { TaskList } from './task-list';

@@ -4,18 +4,19 @@ import { gapCursor } from 'prosemirror-gapcursor';
 import { history, redo, undo } from 'prosemirror-history';
 import { keymap } from 'prosemirror-keymap';
 import type { EditorPlugin } from '../types';
-import { alignAttrs, alignDOM } from './helpers';
+import { blockAttrDefs, blockAttrs, blockDOM } from './helpers';
 
 /** Paragraphs, undo/redo, base keymap, cursors. */
 export const Essentials: EditorPlugin = {
   name: 'essentials',
+  priority: -100, // base keymap must be the fallback, after every other plugin's keys
   nodes: {
     paragraph: {
       content: 'inline*',
       group: 'block',
-      attrs: { align: { default: null } },
-      parseDOM: [{ tag: 'p', getAttrs: alignAttrs }],
-      toDOM: (n) => ['p', alignDOM(n.attrs.align), 0],
+      attrs: blockAttrDefs(),
+      parseDOM: [{ tag: 'p', getAttrs: blockAttrs }],
+      toDOM: (n) => ['p', blockDOM(n.attrs), 0],
     },
     hard_break: {
       inline: true,

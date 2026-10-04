@@ -1,6 +1,6 @@
 import { setBlockType } from 'prosemirror-commands';
 import type { EditorPlugin } from '../types';
-import { alignAttrs, alignDOM } from './helpers';
+import { blockAttrDefs, blockAttrs, blockDOM } from './helpers';
 
 const LEVELS = [1, 2, 3, 4];
 
@@ -8,12 +8,12 @@ export const Heading: EditorPlugin = {
   name: 'heading',
   nodes: {
     heading: {
-      attrs: { level: { default: 1 }, align: { default: null } },
+      attrs: { level: { default: 1 }, ...blockAttrDefs() },
       content: 'inline*',
       group: 'block',
       defining: true,
-      parseDOM: LEVELS.map((level) => ({ tag: `h${level}`, getAttrs: (n) => ({ level, ...alignAttrs(n) }) })),
-      toDOM: (node) => [`h${node.attrs.level}`, alignDOM(node.attrs.align), 0],
+      parseDOM: LEVELS.map((level) => ({ tag: `h${level}`, getAttrs: (n) => ({ level, ...blockAttrs(n) }) })),
+      toDOM: (node) => [`h${node.attrs.level}`, blockDOM(node.attrs), 0],
     },
   },
   setup(editor) {
