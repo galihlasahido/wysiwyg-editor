@@ -17,3 +17,5 @@ export { Outline, getOutline } from './outline';
 export type { OutlineItem } from './outline';
 export { FindReplace, findMatches } from './find-replace';
 export type { Match } from './find-replace';
+export { WordCount, getStats } from './word-count';
+export type { Stats } from './word-count';

@@ -67,3 +67,6 @@
 .wy-find-panel input[type=text], .wy-find-q, .wy-find-r { height: 28px; padding: 0 8px; border: 1px solid #d1d5db; border-radius: 4px; font: inherit; width: 120px; }
 .wy-find-count { color: #6b7280; min-width: 36px; text-align: center; }
 .wy-find-case { display: flex; align-items: center; gap: 2px; cursor: pointer; }
+
+.wy-statusbar { padding: 4px 12px; border-top: 1px solid #e3e3e3; background: #fafafa; color: #6b7280; font-size: 12px; border-radius: 0 0 6px 6px; }
+@media print { .wy-statusbar, .wy-find-panel { display: none !important; } }

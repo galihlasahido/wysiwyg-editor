@@ -2,6 +2,7 @@ import { DOMParser, DOMSerializer, Schema, type MarkSpec, type NodeSpec } from '
 import { EditorState } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { Toolbar } from './toolbar';
+import { getStats, type Stats } from './plugins/word-count';
 import { markdownToDoc, docToMarkdown } from './markdown';
 import type { Command, EditorPlugin, ToolbarItem } from './types';
 
@@ -107,6 +108,10 @@ export class Editor {
     const state = EditorState.create({ doc, plugins: this.view.state.plugins });
     this.view.updateState(state);
     this.toolbar.update(state);
+  }
+
+  getStats(): Stats {
+    return getStats(this.view.state.doc);
   }
 
   getMarkdown(): string {

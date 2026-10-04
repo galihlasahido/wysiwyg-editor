@@ -154,3 +154,20 @@ describe('Find & replace', () => {
     expect(make('<p>abc</p>').execute('find', 'zzz')).toBe(false);
   });
 });
+
+describe('Word count', () => {
+  beforeEach(() => (document.body.innerHTML = ''));
+
+  it('counts words across blocks and ignores extra whitespace', () => {
+    const e = make('<p>Hello  world</p><p>again</p>');
+    expect(e.getStats()).toEqual({ words: 3, characters: 17, charactersNoSpaces: 15 });
+  });
+
+  it('is zero for an empty document and updates the status bar', () => {
+    const e = make('');
+    expect(e.getStats().words).toBe(0);
+    e.setHTML('<p>one two</p>');
+    e.view.dispatch(e.view.state.tr.insertText('!', 1)); // trigger a plugin view update
+    expect(e.root.querySelector('.wy-statusbar')!.textContent).toContain('2 words');
+  });
+});
