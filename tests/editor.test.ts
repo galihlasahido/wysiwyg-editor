@@ -303,3 +303,69 @@ describe('Footnotes and spell check', () => {
     expect(e.view.dom.getAttribute('spellcheck')).toBe('false');
   });
 });
+
+import { Editor, defaultPlugins, registerLocale as reg, Templates } from '../src';
+
+describe('i18n, RTL and templates', () => {
+  beforeEach(() => (document.body.innerHTML = ''));
+
+  const build = (config: object, plugins: any[] = []) => {
+    const el = document.createElement('div');
+    document.body.append(el);
+    return new Editor({ element: el, plugins: [...defaultPlugins, ...plugins], ...config } as any);
+  };
+
+  it('translates toolbar labels and falls back to English', () => {
+    const e = build({ locale: 'id' });
+    expect(e.toolbar.el.querySelector('[aria-label="Tebal"]')).not.toBeNull();
+    expect(e.toolbar.el.querySelector('[aria-label="Bold"]')).toBeNull();
+    const en = build({});
+    expect(en.toolbar.el.querySelector('[aria-label="Bold"]')).not.toBeNull();
+    expect(build({ locale: 'xx' }).toolbar.el.querySelector('[aria-label="Bold"]')).not.toBeNull();
+    expect(build({ locale: 'id-ID' }).toolbar.el.querySelector('[aria-label="Tebal"]')).not.toBeNull(); // region falls back to language
+  });
+
+  it('translates dropdown options and supports custom locales', () => {
+    const sel = build({ locale: 'id' }).toolbar.el.querySelector<HTMLSelectElement>('select[aria-label="Gaya paragraf"]')!;
+    expect([...sel.options].map((o) => o.text)).toContain('Judul 1');
+    reg('xx', { bold: 'GRAS' });
+    expect(build({ locale: 'xx' }).toolbar.el.querySelector('[aria-label="GRAS"]')).not.toBeNull();
+  });
+
+  it('renders translated labels as text, never as markup', () => {
+    reg('evil', { 'format-painter-x': '<img src=x onerror=alert(1)>', find: '<img src=x onerror=alert(1)>' });
+    const e = build({ locale: 'evil' });
+    expect(e.toolbar.el.querySelector('img')).toBeNull();
+  });
+
+  it('switches to RTL for RTL locales and honours an explicit direction', () => {
+    const ar = build({ locale: 'ar' });
+    expect(ar.root.dir).toBe('rtl');
+    expect(ar.view.dom.getAttribute('dir')).toBe('rtl');
+    expect(build({ locale: 'ar', direction: 'ltr' }).root.dir).toBe('ltr');
+    expect(build({}).root.dir).toBe('ltr');
+  });
+
+  it('sets per-paragraph direction and round-trips it', () => {
+    const e = build({ content: '<p>abc</p>' });
+    expect(e.execute('direction', 'sideways' as any)).toBe(false);
+    e.execute('direction', 'rtl');
+    expect(e.getHTML()).toBe('<p dir="rtl">abc</p>');
+    e.setHTML(e.getHTML());
+    expect(e.getHTML()).toBe('<p dir="rtl">abc</p>');
+    e.execute('direction', 'rtl'); // same direction again clears it
+    expect(e.getHTML()).toBe('<p>abc</p>');
+    e.setHTML('<p dir="evil">x</p>');
+    expect(e.getHTML()).toBe('<p>x</p>');
+  });
+
+  it('applies a template as one undoable step', () => {
+    const e = build({ content: '<p>mine</p>' }, [Templates()]);
+    expect(e.execute('applyTemplate', 'nope')).toBe(false);
+    expect(e.execute('applyTemplate', 'meeting')).toBe(true);
+    expect(e.getHTML()).toContain('<h1>Meeting notes</h1>');
+    expect(e.getHTML()).toContain('data-task-list');
+    e.execute('undo');
+    expect(e.getHTML()).toBe('<p>mine</p>');
+  });
+});

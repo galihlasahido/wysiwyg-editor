@@ -14,17 +14,18 @@ const ALIGNS = ['left', 'center', 'right', 'justify'];
 export const LINE_HEIGHTS = ['1', '1.15', '1.5', '2', '2.5', '3'];
 
 export function blockAttrDefs() {
-  return { align: { default: null }, lineHeight: { default: null } };
+  return { align: { default: null }, lineHeight: { default: null }, dir: { default: null } };
 }
 
-export function blockAttrs(dom: HTMLElement | string): { align: string | null; lineHeight: string | null } {
-  if (typeof dom === 'string') return { align: null, lineHeight: null };
+export function blockAttrs(dom: HTMLElement | string): { align: string | null; lineHeight: string | null; dir: string | null } {
+  if (typeof dom === 'string') return { align: null, lineHeight: null, dir: null };
   const a = dom.style.textAlign;
   const lh = dom.style.lineHeight;
-  return { align: ALIGNS.includes(a) ? a : null, lineHeight: LINE_HEIGHTS.includes(lh) ? lh : null };
+  const dir = dom.getAttribute('dir');
+  return { align: ALIGNS.includes(a) ? a : null, lineHeight: LINE_HEIGHTS.includes(lh) ? lh : null, dir: dir === 'rtl' || dir === 'ltr' ? dir : null };
 }
 
-export function blockDOM(attrs: { align?: string | null; lineHeight?: string | null }): Record<string, string> {
+export function blockDOM(attrs: { align?: string | null; lineHeight?: string | null; dir?: string | null }): Record<string, string> {
   const css = [attrs.align && `text-align: ${attrs.align}`, attrs.lineHeight && `line-height: ${attrs.lineHeight}`].filter(Boolean);
-  return css.length ? { style: css.join('; ') } : {};
+  return { ...(css.length ? { style: css.join('; ') } : {}), ...(attrs.dir ? { dir: attrs.dir } : {}) };
 }

@@ -1,6 +1,7 @@
 import { DOMParser, DOMSerializer, Schema, type MarkSpec, type NodeSpec } from 'prosemirror-model';
 import { EditorState } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
+import { isRtlLocale, translate } from './i18n';
 import { Toolbar } from './toolbar';
 import { getStats, type Stats } from './plugins/word-count';
 import { markdownToDoc, docToMarkdown } from './markdown';
@@ -66,6 +67,8 @@ export class Editor {
 
     this.root = document.createElement('div');
     this.root.className = 'wy-editor';
+    const direction = config.direction ?? (isRtlLocale(config.locale) ? 'rtl' : 'ltr');
+    this.root.dir = direction;
     this.body = document.createElement('div');
     this.body.className = 'wy-body';
     this.workspace = document.createElement('div');
@@ -92,7 +95,7 @@ export class Editor {
         role: 'textbox',
         'aria-multiline': 'true',
         'aria-label': config.placeholder || 'Rich text editor',
-        dir: config.direction ?? 'ltr',
+        dir: direction,
       },
       // Plugin views may dispatch while EditorView is still being constructed (e.g. Yjs sync), when
       // `editor.view` is not assigned yet. ProseMirror calls this with the view as `this`.
@@ -114,6 +117,11 @@ export class Editor {
     this.toolbar.update(this.view.state);
     if (this.readOnly) this.root.classList.add('is-readonly');
     this.ready = true;
+  }
+
+  /** Translate a UI label for the configured locale, falling back to `fallback` (English). */
+  t(key: string, fallback: string): string {
+    return translate(this.config.locale, key, fallback);
   }
 
   /** `readOnlySafe` commands (e.g. adding comments) keep working in read-only mode. */
