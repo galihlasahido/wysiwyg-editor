@@ -171,3 +171,17 @@ describe('image editor loading', () => {
     await expect(openImageEditor(document.body, { source: new Blob(['<svg/>'], { type: 'image/svg+xml' }) })).rejects.toThrow(/cannot be edited/);
   });
 });
+
+describe('data URLs', () => {
+  it('decode without fetch (a strict CSP blocks fetching data: URLs)', async () => {
+    const { dataUrlToBlob } = await import('../src/image-editor');
+    const b64 = dataUrlToBlob('data:image/png;base64,iVBORw0KGgo=');
+    expect(b64.type).toBe('image/png');
+    expect(b64.size).toBe(8);
+    expect(dataUrlToBlob('data:text/plain,hello%20world').size).toBe(11);
+    expect(() => dataUrlToBlob('data:oops')).toThrow(/not valid/);
+    const original = globalThis.fetch;
+    globalThis.fetch = (() => { throw new Error('fetch must not be used'); }) as typeof fetch;
+    try { dataUrlToBlob('data:image/png;base64,AAAA'); } finally { globalThis.fetch = original; }
+  });
+});

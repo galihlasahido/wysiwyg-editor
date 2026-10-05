@@ -322,7 +322,7 @@ Plugins are fixed when the editor is created (the schema cannot change afterward
   Dictation, the Microsoft Editor and add-ins from Word's ribbon are not included. Zoom uses CSS `zoom` (Chrome, Safari, Firefox 126+).
 - Ribbon labels are translated for Indonesian only (toolbar labels also for Spanish and Arabic); menu entries stay English.
 - Translations cover toolbar labels in 3 languages and have not been reviewed by native speakers.
-- Tested with jsdom (unit), real Chrome (layout, ruler dragging, zoom, collaboration) and axe-core. Not yet tested in Firefox/Safari or with screen readers.
+- Tested with jsdom (unit), axe-core, and Playwright end-to-end tests of the built demo site in **Chromium, Firefox and WebKit** (`pnpm e2e`: typing, paste from Word, pagination, comments, locked sections, collaboration, equations and diagrams, .docx, code editor, image editor, and every demo page loading without errors). Layout details such as exact page breaks were checked in Chrome only, and nothing was tested with screen readers.
 
 ## Security notes
 

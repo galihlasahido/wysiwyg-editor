@@ -47,3 +47,20 @@ describe('MemoryFileStore', () => {
     expect(await s.update('nope', { name: 'x' })).toBeNull();
   });
 });
+
+describe('ResilientFileStore', () => {
+  it('switches to the fallback when the primary fails, and keeps working', async () => {
+    const { ResilientFileStore } = await import('../src/files');
+    const broken = { list: async () => [], get: async () => null, put: async () => { throw new Error('Error preparing Blob/File data to be stored in object store'); }, update: async () => null, replace: async () => null, remove: async () => false };
+    let warned: unknown = null;
+    const s = new ResilientFileStore(broken, new MemoryFileStore(), (e) => (warned = e));
+    expect(s.degraded).toBe(false);
+    const rec = await s.put(new Blob(['x'], { type: 'text/plain' }), { name: 'a.txt' }); // fails over, then succeeds
+    expect(rec.name).toBe('a.txt');
+    expect(s.degraded).toBe(true);
+    expect(warned).toBeInstanceOf(Error);
+    expect((await s.list()).map((f) => f.name)).toEqual(['a.txt']);
+    expect((await s.get(rec.id))!.blob.size).toBe(1);
+    expect((await s.usage()).used).toBe(1);
+  });
+});

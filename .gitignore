@@ -3,3 +3,7 @@ dist
 demo-dist
 .DS_Store
 data
+
+test-results/
+playwright-report/
+blob-report/

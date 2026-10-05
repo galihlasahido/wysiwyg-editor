@@ -49,7 +49,7 @@ export { splitSlides } from './slides';
 export type { Slide, SlideOptions } from './slides';
 export { openFileManager, addFiles, rejectReason, matchesAccept, readImageSize, DEFAULT_BLOCKED } from './file-manager';
 export type { FileManagerOptions } from './file-manager';
-export { MemoryFileStore, IndexedDBFileStore, createFileStore, fileKind, cleanFileName, uniqueName, isRasterImage } from './files';
+export { MemoryFileStore, IndexedDBFileStore, ResilientFileStore, createFileStore, fileKind, cleanFileName, uniqueName, isRasterImage } from './files';
 export type { FileStore, StoredFile, FileKind } from './files';
 export { openImageEditor } from './image-editor';
 export type { ImageEditorOptions, ImageEditResult } from './image-editor';

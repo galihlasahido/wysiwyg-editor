@@ -86,10 +86,18 @@ function scaled(src: HTMLCanvasElement, w: number, h: number): HTMLCanvasElement
   return out;
 }
 
+/** Decode a data: URL without fetch(): a Content-Security-Policy with `connect-src 'self'` blocks fetching data: URLs. */
+export function dataUrlToBlob(url: string): Blob {
+  const m = /^data:([^,;]*)((?:;[^,;]*)*),(.*)$/is.exec(url);
+  if (!m) throw new Error('The picture address is not valid.');
+  const bytes = /;base64/i.test(m[2]) ? Uint8Array.from(atob(m[3].replace(/\s/g, '')), (c) => c.charCodeAt(0)) : new TextEncoder().encode(decodeURIComponent(m[3]));
+  return new Blob([bytes], { type: (m[1] || 'text/plain').toLowerCase() });
+}
+
 async function load(source: Blob | string, fetchSource?: (url: string) => Promise<Blob>): Promise<HTMLImageElement> {
   let blob: Blob;
   if (typeof source === 'string') {
-    if (/^data:/i.test(source)) blob = await (await fetch(source)).blob();
+    if (/^data:/i.test(source)) blob = dataUrlToBlob(source);
     else if (/^https?:|^\//i.test(source)) {
       if (fetchSource) blob = await fetchSource(source);
       else {

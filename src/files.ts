@@ -160,7 +160,40 @@ export class IndexedDBFileStore implements FileStore {
   }
 }
 
-/** IndexedDB when the browser has it, memory otherwise. */
+/**
+ * Uses `primary` until it fails, then switches to `fallback` for good. Browsers can refuse to store files in IndexedDB (private
+ * windows, some embedded or ephemeral contexts, a full disk): the library should keep working for this session instead of breaking.
+ */
+export class ResilientFileStore implements FileStore {
+  private current: FileStore;
+  private failed = false;
+  constructor(private primary: FileStore, private fallback: FileStore, private onFallback?: (error: unknown) => void) {
+    this.current = primary;
+  }
+  /** True once the primary store failed and files are kept in memory only. */
+  get degraded(): boolean { return this.failed; }
+  private async run<T>(fn: (s: FileStore) => Promise<T>): Promise<T> {
+    if (this.failed) return fn(this.fallback);
+    try {
+      return await fn(this.primary);
+    } catch (e) {
+      this.failed = true;
+      this.current = this.fallback;
+      this.onFallback?.(e);
+      return fn(this.fallback);
+    }
+  }
+  list() { return this.run((s) => s.list()); }
+  get(id: string) { return this.run((s) => s.get(id)); }
+  put(blob: Blob, meta: { name: string; folder?: string; width?: number; height?: number }) { return this.run((s) => s.put(blob, meta)); }
+  update(id: string, patch: { name?: string; folder?: string | null }) { return this.run((s) => s.update(id, patch)); }
+  replace(id: string, blob: Blob, size?: { width?: number; height?: number }) { return this.run((s) => s.replace(id, blob, size)); }
+  remove(id: string) { return this.run((s) => s.remove(id)); }
+  async usage() { const s = this.current; return s.usage ? s.usage() : { used: 0 }; }
+}
+
+/** IndexedDB when the browser has it (falling back to memory if it refuses files), memory otherwise. */
 export function createFileStore(name?: string): FileStore {
-  return typeof indexedDB !== 'undefined' ? new IndexedDBFileStore(name) : new MemoryFileStore();
+  if (typeof indexedDB === 'undefined') return new MemoryFileStore();
+  return new ResilientFileStore(new IndexedDBFileStore(name), new MemoryFileStore(), (e) => console.warn('File storage in IndexedDB is not available here; files are kept in memory for this session.', e));
 }

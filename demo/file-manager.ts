@@ -1,8 +1,8 @@
-import { FileManager, IndexedDBFileStore, MemoryFileStore, createEditor, defaultPlugins, type FileStore } from '../src';
+import { FileManager, createEditor, createFileStore, defaultPlugins } from '../src';
 import { $, button, codePanel, el } from './samples';
 
 // Files are kept in this browser (IndexedDB). Nothing is uploaded anywhere.
-const store: FileStore = typeof indexedDB !== 'undefined' ? new IndexedDBFileStore('wysiwyg-demo-files') : new MemoryFileStore();
+const store = createFileStore('wysiwyg-demo-files'); // IndexedDB, or memory when the browser refuses to store files
 
 /** A few sample pictures drawn on a canvas, so there is something to crop and adjust on first visit. */
 function sample(w: number, h: number, hue: number, label: string): Promise<Blob> {
