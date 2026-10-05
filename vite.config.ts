@@ -11,6 +11,8 @@ export default defineConfig({
         epub: resolve(import.meta.dirname, 'src/epub.ts'),
         collab: resolve(import.meta.dirname, 'src/collab.ts'),
         react: resolve(import.meta.dirname, 'src/react.ts'),
+        adapter: resolve(import.meta.dirname, 'src/adapter.ts'),
+        svelte: resolve(import.meta.dirname, 'src/svelte.ts'),
         vue: resolve(import.meta.dirname, 'src/vue.ts'),
       },
       fileName: (_format, name) => `${name}.js`,

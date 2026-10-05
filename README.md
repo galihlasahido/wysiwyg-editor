@@ -162,6 +162,40 @@ Markdown), so exports show it. A reference to a deleted caption says "Missing re
 
 Remember to leave the default `SpellCheck` out of the plugin list when you add this one (`defaultPlugins.filter((p) => p.name !== 'spellcheck')`).
 
+**Frameworks**: React (`wysiwyg-editor/react`), Vue (`wysiwyg-editor/vue`), a Svelte action and a framework-neutral binding for Angular and the rest. Plain `<wysiwyg-editor>` (web component) works everywhere too.
+
+```svelte
+<script>
+  import { wysiwyg } from 'wysiwyg-editor/svelte';
+  let html = '<p>Hello</p>';
+</script>
+<div use:wysiwyg={{ value: html, onChange: (h) => (html = h), readOnly: false }}></div>
+```
+
+`wysiwyg-editor/adapter` exports `bindEditor(element, config)` returning `{ editor, writeValue, onChange, onTouched, setDisabled, destroy }`, which is exactly the shape of Angular's `ControlValueAccessor`. A component for reactive and template-driven forms is a few lines (not compiled against Angular in this repo's tests; the binding itself is tested):
+
+```ts
+@Component({
+  selector: 'app-editor', standalone: true, template: '<div #host></div>',
+  providers: [{ provide: NG_VALUE_ACCESSOR, useExisting: forwardRef(() => EditorComponent), multi: true }],
+})
+export class EditorComponent implements ControlValueAccessor, AfterViewInit, OnDestroy {
+  @ViewChild('host', { static: true }) host!: ElementRef<HTMLElement>;
+  private binding?: EditorBinding;
+  private pending: string | null = null; private disabled = false;
+  private change: (v: string) => void = () => {}; private touched = () => {};
+  ngAfterViewInit() {
+    this.binding = bindEditor(this.host.nativeElement, { value: this.pending ?? '', disabled: this.disabled });
+    this.binding.onChange((h) => this.change(h)); this.binding.onTouched(() => this.touched());
+  }
+  writeValue(v: string | null) { this.pending = v; this.binding?.writeValue(v); }
+  registerOnChange(fn: (v: string) => void) { this.change = fn; }
+  registerOnTouched(fn: () => void) { this.touched = fn; }
+  setDisabledState(d: boolean) { this.disabled = d; this.binding?.setDisabled(d); }
+  ngOnDestroy() { this.binding?.destroy(); }
+}
+```
+
 **Restricted editing**: `RestrictedEditing()` adds `locked_section` blocks (a title with the table of contents, legal
 text) that cannot be changed, and `editable_region` blocks that can, while everything else stays ordinary text. It is
 enforced by rejecting transactions, so typing, deleting, pasting, dropping and find & replace are all covered, including
@@ -194,7 +228,7 @@ Results are previewed and applied only when accepted.
 
 **Accessibility & i18n**: ARIA roles/labels, WAI-ARIA toolbar keyboard navigation (roving tabindex), axe-core audit in the
 test suite, contrast-checked styles, `forced-colors` support; toolbar translations for `id`, `es`, `ar` (`locale`,
-`registerLocale`), RTL layout, React and Vue wrappers.
+`registerLocale`), RTL layout, React, Vue, Svelte and Angular wrappers.
 
 ## Saving to your own endpoint (and database)
 
