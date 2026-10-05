@@ -2,7 +2,8 @@ import type { Node as PMNode } from 'prosemirror-model';
 import { Plugin, TextSelection } from 'prosemirror-state';
 import type { EditorView, NodeView } from 'prosemirror-view';
 import type { EditorPlugin } from '../types';
-import { getOutline } from './outline';
+import { docIndex } from './helpers';
+import { getOutline, type OutlineItem } from './outline';
 
 /** Table of contents block, generated from headings and kept up to date as the document changes. */
 export const TableOfContents: EditorPlugin = {
@@ -18,6 +19,8 @@ export const TableOfContents: EditorPlugin = {
   },
   setup(editor) {
     const views = new Set<TocView>();
+    // Headings are indexed once and only re-read when a change touches a heading, so typing in a paragraph does not scan the document.
+    const headings = docIndex<OutlineItem>('toc-headings', (n) => n.type.name === 'heading', getOutline, (i, m) => ({ ...i, pos: m.map(i.pos) }));
 
     class TocView implements NodeView {
       dom = document.createElement('div');
@@ -26,10 +29,10 @@ export const TableOfContents: EditorPlugin = {
         this.dom.setAttribute('data-toc', '');
         this.dom.setAttribute('contenteditable', 'false');
         views.add(this);
-        this.render(view.state.doc);
+        this.render();
       }
-      render(doc: PMNode) {
-        const items = getOutline(doc);
+      render() {
+        const items = headings.get(this.view.state).items;
         const title = document.createElement('div');
         title.className = 'wy-toc-title';
         title.textContent = 'Table of contents';
@@ -40,19 +43,21 @@ export const TableOfContents: EditorPlugin = {
           empty.textContent = 'Add headings to build the table of contents.';
           nodes.push(empty);
         }
-        for (const item of items) {
+        items.forEach((_item, index) => {
           const a = document.createElement('a');
           a.className = 'wy-toc-item';
-          a.style.paddingLeft = `${(item.level - 1) * 16}px`;
-          a.textContent = item.text;
+          a.style.paddingLeft = `${(_item.level - 1) * 16}px`;
+          a.textContent = _item.text;
           a.addEventListener('mousedown', (e) => e.preventDefault());
           a.addEventListener('click', () => {
             const { state } = this.view;
-            this.view.dispatch(state.tr.setSelection(TextSelection.near(state.doc.resolve(item.pos + 1))));
-            (this.view.nodeDOM(item.pos) as HTMLElement | null)?.scrollIntoView?.({ block: 'start', behavior: 'smooth' });
+            const at = headings.get(state).items[index]; // the position as it is now, not when the list was drawn
+            if (!at) return;
+            this.view.dispatch(state.tr.setSelection(TextSelection.near(state.doc.resolve(at.pos + 1))));
+            (this.view.nodeDOM(at.pos) as HTMLElement | null)?.scrollIntoView?.({ block: 'start', behavior: 'smooth' });
           });
           nodes.push(a);
-        }
+        });
         this.dom.replaceChildren(...nodes);
       }
       update(node: PMNode) {
@@ -64,7 +69,7 @@ export const TableOfContents: EditorPlugin = {
     }
 
     editor.registerCommand('updateToc', (e) => {
-      for (const v of views) v.render(e.view.state.doc);
+      for (const v of views) v.render();
       return views.size > 0;
     });
     editor.registerCommand('removeToc', (e) => {
@@ -84,15 +89,17 @@ export const TableOfContents: EditorPlugin = {
     });
 
     return [
+      headings.plugin,
       new Plugin({
         props: { nodeViews: { toc: (_n, view) => new TocView(view) } },
         view() {
-          let last: PMNode | null = null;
+          let rev = -1;
           return {
             update(view) {
-              if (view.state.doc === last) return;
-              last = view.state.doc;
-              for (const v of views) v.render(last);
+              const now = headings.get(view.state).rev;
+              if (now === rev) return; // no heading changed
+              rev = now;
+              for (const v of views) v.render();
             },
           };
         },

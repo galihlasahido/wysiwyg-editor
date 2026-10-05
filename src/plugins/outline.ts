@@ -2,6 +2,7 @@ import type { Node as PMNode } from 'prosemirror-model';
 import { Plugin } from 'prosemirror-state';
 import { TextSelection } from 'prosemirror-state';
 import type { EditorPlugin } from '../types';
+import { docIndex } from './helpers';
 
 export interface OutlineItem { level: number; text: string; pos: number }
 
@@ -18,8 +19,10 @@ export const Outline: EditorPlugin = {
   name: 'outline',
   setup(editor) {
     let panelEl: HTMLElement | null = null;
+    const headings = docIndex<OutlineItem>('outline-headings', (n) => n.type.name === 'heading', getOutline, (i, m) => ({ ...i, pos: m.map(i.pos) }));
     editor.registerCommand('toggleOutline', () => (panelEl ? ((panelEl.hidden = !panelEl.hidden), true) : false), { readOnlySafe: true });
     return [
+      headings.plugin,
       new Plugin({
         view(view) {
           const aside = document.createElement('aside');
@@ -27,23 +30,24 @@ export const Outline: EditorPlugin = {
           aside.className = 'wy-outline';
           aside.setAttribute('aria-label', 'Document outline');
           editor.body.prepend(aside);
-          let last: PMNode | null = null;
+          let rev = -1;
           const render = () => {
-            if (view.state.doc === last) return;
-            last = view.state.doc;
+            const now = headings.get(view.state).rev;
+            if (now === rev) return; // no heading changed
+            rev = now;
             aside.replaceChildren();
             const title = document.createElement('div');
             title.className = 'wy-outline-title';
             title.textContent = 'Outline';
             aside.append(title);
-            const items = getOutline(view.state.doc);
+            const items = headings.get(view.state).items;
             if (!items.length) {
               const hint = document.createElement('div');
               hint.className = 'wy-outline-empty';
               hint.textContent = 'Headings appear here';
               aside.append(hint);
             }
-            for (const item of items) {
+            items.forEach((item, index) => {
               const b = document.createElement('button');
               b.type = 'button';
               b.className = 'wy-outline-item';
@@ -51,12 +55,13 @@ export const Outline: EditorPlugin = {
               b.textContent = item.text;
               b.addEventListener('click', () => {
                 const { state } = view;
-                view.dispatch(state.tr.setSelection(TextSelection.near(state.doc.resolve(item.pos + 1))));
-                (view.nodeDOM(item.pos) as HTMLElement | null)?.scrollIntoView?.({ block: 'start', behavior: 'smooth' });
+                const at = headings.get(state).items[index] ?? item; // the position as it is now
+                view.dispatch(state.tr.setSelection(TextSelection.near(state.doc.resolve(at.pos + 1))));
+                (view.nodeDOM(at.pos) as HTMLElement | null)?.scrollIntoView?.({ block: 'start', behavior: 'smooth' });
                 view.focus();
               });
               aside.append(b);
-            }
+            });
           };
           render();
           return { update: render, destroy: () => aside.remove() };

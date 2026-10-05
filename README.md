@@ -200,13 +200,13 @@ export class EditorComponent implements ControlValueAccessor, AfterViewInit, OnD
 
 | blocks | open | typing (median / p95) | getHTML | getMarkdown | setHTML |
 | --- | --- | --- | --- | --- | --- |
-| 500 | 29 ms | 0.5 / 1 ms | 3 ms | 5 ms | 32 ms |
-| 2,000 | 72 ms | 1.5 / 3 ms | 10 ms | 13 ms | 0.16 s |
-| 5,000 | 151 ms | 3.3 / 4 ms | 25 ms | 28 ms | 0.6 s |
-| 10,000 | 291 ms | 6.7 / 8 ms | 49 ms | 49 ms | 1.8 s |
-| 20,000 | 555 ms | 13.9 / 19 ms | 93 ms | 95 ms | 6 s |
+| 500 | 29 ms | 0.8 / 1.6 ms | 9 ms | 8 ms | 35 ms |
+| 2,000 | 73 ms | 0.4 / 2.3 ms | 14 ms | 14 ms | 0.17 s |
+| 5,000 | 156 ms | 0.8 / 3.2 ms | 26 ms | 30 ms | 0.6 s |
+| 10,000 | 289 ms | 1.3 / 3.1 ms | 50 ms | 52 ms | 1.8 s |
+| 20,000 | 548 ms | 3.3 / 4.3 ms | 101 ms | 98 ms | 6 s |
 
-Typing stays inside one 60 Hz frame up to about 15,000 blocks; the paged view adds roughly a millisecond per key at 2,000 blocks. Replacing a very large document (`setHTML`, opening a file) is bound by ProseMirror creating the DOM; there is no virtualisation, so past about 20,000 blocks split the content. The measurement came with fixes: the word count no longer re-reads the whole text on every key in big documents (it waits for a pause), and Markdown export is linear instead of quadratic (20,000 blocks took 10 s). Reproduce with `PERF=1 pnpm e2e e2e/perf.spec.ts --project=chromium --workers=1` (`e2e/perf-plugins.spec.ts` shows which plugins cost the most per keystroke); other browsers and slower machines will differ. Other plugins still scan the whole document on each change (captions, table of contents, footnotes, comments): about 8 ms of the 10 ms per key at 10,000 blocks is these, a candidate for incremental updates.
+Typing stays far inside one 60 Hz frame even at 20,000 blocks; the paged view adds about a millisecond per key at 2,000 blocks. Replacing a very large document (`setHTML`, opening a file) is bound by ProseMirror creating the DOM; there is no virtualisation, so past about 20,000 blocks split the content. The measurements drove three fixes: the word count no longer re-reads the whole text on every key in big documents (it waits for a pause), Markdown export is linear instead of quadratic (20,000 blocks took 10 s), and the plugins that derive something from the whole document (captions and cross-references, table of contents, outline, footnotes, comment anchors) no longer rescan it on every keystroke. They keep an index in the editor state and re-read it only when a change touches a heading, caption, footnote or commented text (`touchesDoc` and `docIndex` in `src/plugins/helpers.ts`, which your own plugins can use too); otherwise the stored positions are just moved along with the edit. At 10,000 blocks a keystroke went from 33 ms to 1.3 ms in total. A randomised test (`tests/incremental-index.test.ts`) compares every index with a full scan after each of 120 random edits (typing, splitting, headings, comments, footnotes, captions, undo) over 100 seeds. Reproduce the table with `PERF=1 pnpm e2e e2e/perf.spec.ts --project=chromium --workers=1` (`e2e/perf-plugins.spec.ts` shows which plugins cost the most per keystroke); other browsers and slower machines will differ.
 
 **Restricted editing**: `RestrictedEditing()` adds `locked_section` blocks (a title with the table of contents, legal
 text) that cannot be changed, and `editable_region` blocks that can, while everything else stays ordinary text. It is

@@ -4,6 +4,9 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Changed
+- Large documents: plugins that derive data from the whole document (captions, table of contents, outline, footnotes, comment anchors) update incrementally instead of rescanning on every keystroke; the word count waits for a pause on big documents; Markdown export is linear. Typing at 10,000 blocks: 33 ms to 1.3 ms per key.
+
 ## [0.1.0] - first public release
 
 A modular rich-text editor on ProseMirror with a plugin architecture. Everything below ships in this release.

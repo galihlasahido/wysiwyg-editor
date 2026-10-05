@@ -3,6 +3,7 @@ import { Plugin, TextSelection } from 'prosemirror-state';
 import { askDialog, avatar } from '../dialog';
 import type { Editor } from '../editor';
 import type { EditorPlugin } from '../types';
+import { docIndex } from './helpers';
 
 export interface CommentReply { /** Identifies the reply when comments are shared between editors. Added automatically. */ id?: string; author: string; text: string; createdAt: number }
 export interface CommentThread {
@@ -196,7 +197,10 @@ export function Comments(options: CommentsOptions = {}): CommentsPlugin {
       if (collab?.ydoc) store.bindShared(collab.ydoc.getMap('wy-comments'), collab.ydoc.getMap('wy-comment-replies'));
       let hiddenByUser = false;
       let rerender = () => {};
-      const sortedAnchors = () => [...findAnchors(editor.view.state.doc).values()].filter((a) => store.get(a.id)).sort((a, b) => a.from - b.from);
+      // where the commented ranges are: re-read only when a change touches commented text, otherwise moved along with the edit
+      const anchorIndex = docIndex<Anchor>('comment-anchors', (n) => n.marks.some((m) => m.type.name === 'comment'), (doc) => [...findAnchors(doc).values()], (a, m) => ({ ...a, from: m.map(a.from, 1), to: m.map(a.to, -1) })); // text typed right at either edge is outside the (non-inclusive) mark
+      const anchorMap = (state: import('prosemirror-state').EditorState) => new Map(anchorIndex.get(state).items.map((a) => [a.id, a]));
+      const sortedAnchors = () => [...anchorIndex.get(editor.view.state).items].filter((a) => store.get(a.id)).sort((a, b) => a.from - b.from);
       const goTo = (a: Anchor) => editor.view.dispatch(editor.view.state.tr.setSelection(TextSelection.create(editor.view.state.doc, a.from, a.to)).scrollIntoView());
       editor.registerCommand('toggleComments', () => ((hiddenByUser = !hiddenByUser), rerender(), true), safe);
       editor.registerCommand('nextComment', () => {
@@ -267,6 +271,7 @@ export function Comments(options: CommentsOptions = {}): CommentsPlugin {
       }, safe);
 
       return [
+        anchorIndex.plugin,
         new Plugin({
           view(view) {
             const panel = document.createElement('aside');
@@ -274,7 +279,7 @@ export function Comments(options: CommentsOptions = {}): CommentsPlugin {
             panel.setAttribute('aria-label', 'Comments');
             editor.body.append(panel);
             const render = () => {
-              const anchors = findAnchors(view.state.doc);
+              const anchors = anchorMap(view.state);
               const threads = store.list().filter((t) => anchors.has(t.id)).sort((a, b) => anchors.get(a.id)!.from - anchors.get(b.id)!.from);
               panel.replaceChildren();
               panel.hidden = hiddenByUser || store.list().length === 0;

@@ -4,6 +4,9 @@ import type { EditorView, NodeView } from 'prosemirror-view';
 import { openDialog } from '../dialog';
 import type { Editor } from '../editor';
 import type { EditorPlugin } from '../types';
+import { touchesDoc } from './helpers';
+
+const isCaptionNode = (n: PMNode) => n.type.name === 'caption' || n.type.name === 'xref' || n.type.name === 'caption_list';
 
 export interface CaptionKind {
   /** `figure`, `table` … stored in the document. */
@@ -254,7 +257,8 @@ export function Captions(options: CaptionsOptions = {}): EditorPlugin {
       editor.extensions.captions = { list: () => collectCaptions(editor.view.state.doc, kinds) };
       return [
         new Plugin({
-          appendTransaction: (trs, _old, state) => (trs.some((t) => t.docChanged) || !trs.length ? refresh(state) : null),
+          // the numbers only change when a caption, reference or list is added, removed, moved or edited: not when typing elsewhere
+          appendTransaction: (trs, _old, state) => (!trs.length || trs.some((t) => touchesDoc(t, isCaptionNode)) ? refresh(state) : null),
           view(view) {
             // a document loaded with stale numbers (or none) is brought up to date once
             queueMicrotask(() => { const tr = refresh(view.state); if (tr) view.dispatch(tr); });

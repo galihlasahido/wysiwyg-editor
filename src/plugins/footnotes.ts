@@ -2,6 +2,7 @@ import { NodeSelection, Plugin, PluginKey } from 'prosemirror-state';
 import { Decoration, DecorationSet } from 'prosemirror-view';
 import { askDialog } from '../dialog';
 import type { EditorPlugin } from '../types';
+import { docIndex } from './helpers';
 
 /**
  * Footnotes, collected as endnotes at the end of the document. The reference is an inline atom; its
@@ -21,6 +22,12 @@ export const Footnotes: EditorPlugin = {
     },
   },
   setup(editor) {
+    // the notes are indexed and only re-read when a change touches a footnote
+    const noteIndex = docIndex<{ pos: number; text: string }>('footnote-index', (n) => n.type.name === 'footnote', (doc) => {
+      const out: { pos: number; text: string }[] = [];
+      doc.descendants((n, pos) => void (n.type.name === 'footnote' && out.push({ pos, text: n.attrs.text })));
+      return out;
+    }, (i, m) => ({ ...i, pos: m.map(i.pos) }));
     const key = new PluginKey('footnotes');
     const edit = (pos: number, current: string) => {
       void askDialog(editor.root, { title: 'Footnote', label: 'Note text', description: 'Leave it empty to remove the footnote.', value: current, required: false, multiline: true, submitLabel: 'Save', maxLength: 1000 }).then((text) => {
@@ -54,12 +61,12 @@ export const Footnotes: EditorPlugin = {
     });
 
     return [
+      noteIndex.plugin,
       new Plugin({
         key,
         props: {
           decorations(state) {
-            const notes: string[] = [];
-            state.doc.descendants((n) => void (n.type.name === 'footnote' && notes.push(n.attrs.text)));
+            const notes = noteIndex.get(state).items.map((i) => i.text);
             if (!notes.length) return null;
             return DecorationSet.create(state.doc, [
               Decoration.widget(
