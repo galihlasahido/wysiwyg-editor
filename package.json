@@ -1,6 +1,6 @@
 {
   "name": "wysiwygido",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A modular, TypeScript WYSIWYG rich-text editor inspired by CKEditor 5, built on ProseMirror.",
   "license": "MIT",
   "type": "module",
@@ -44,7 +44,8 @@
       "types": "./dist/vue.d.ts",
       "import": "./dist/vue.js"
     },
-    "./style.css": "./dist/style.css"
+    "./style.css": "./dist/style.css",
+    "./package.json": "./package.json"
   },
   "files": [
     "dist",

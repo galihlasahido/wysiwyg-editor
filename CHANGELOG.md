@@ -7,6 +7,11 @@ All notable changes to this project are documented here. The format follows [Kee
 ### Changed
 - Large documents: plugins that derive data from the whole document (captions, table of contents, outline, footnotes, comment anchors) update incrementally instead of rescanning on every keystroke; the word count waits for a pause on big documents; Markdown export is linear. Typing at 10,000 blocks: 33 ms to 1.3 ms per key.
 
+## [0.1.1] - 2026-10-06
+
+### Fixed
+- `wysiwygido/package.json` can be imported (it is now listed in `exports`), which tools that read the package version expect.
+
 ## [0.1.0] - 2026-10-05 - first public release
 
 The package is named `wysiwygido` (the `wysiwyg-editor` name on npm belongs to another project). Builds are not minified and ship with source maps; your bundler minifies.
@@ -41,5 +46,6 @@ A modular rich-text editor on ProseMirror with a plugin architecture. Everything
 ### Known limitations
 See the README section "Known limitations".
 
-[Unreleased]: https://github.com/galihlasahido/wysiwyg-editor/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/galihlasahido/wysiwyg-editor/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/galihlasahido/wysiwyg-editor/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/galihlasahido/wysiwyg-editor/releases/tag/v0.1.0
