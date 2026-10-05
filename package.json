@@ -16,6 +16,14 @@
       "types": "./dist/collab.d.ts",
       "import": "./dist/collab.js"
     },
+    "./pdf": {
+      "types": "./dist/pdf.d.ts",
+      "import": "./dist/pdf.js"
+    },
+    "./epub": {
+      "types": "./dist/epub.d.ts",
+      "import": "./dist/epub.js"
+    },
     "./docx": {
       "types": "./dist/docx.d.ts",
       "import": "./dist/docx.js"
@@ -86,6 +94,7 @@
     "lib0": "^0.2.119",
     "mammoth": "^1.13.0",
     "mermaid": "^12.1.0",
+    "pdfjs-dist": "^6.4.299",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "tsx": "^4.23.15",
@@ -102,8 +111,10 @@
     "docx": "*",
     "katex": "*",
     "lib0": "*",
+    "jszip": "*",
     "mammoth": "*",
     "mermaid": "*",
+    "pdfjs-dist": "*",
     "react": "*",
     "vue": "*",
     "y-prosemirror": "*",
@@ -115,6 +126,12 @@
       "optional": true
     },
     "mammoth": {
+      "optional": true
+    },
+    "jszip": {
+      "optional": true
+    },
+    "pdfjs-dist": {
       "optional": true
     },
     "yjs": {

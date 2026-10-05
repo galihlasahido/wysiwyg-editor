@@ -143,3 +143,20 @@ test('ribbon menus do not offer commands whose plugin is not installed', async (
   await expect(page.locator('.wy-menu .wy-menu-item', { hasText: 'Diagram (Mermaid)' })).toHaveCount(0);
   expect(problems).toEqual([]);
 });
+
+test('a PDF opens as editable text and the document exports as a valid EPUB', async ({ page }) => {
+  const problems = await openDemo(page, 'pdf-epub');
+  await editorReady(page);
+  await page.getByRole('button', { name: 'Load the sample PDF' }).click();
+  await expect(page.locator('#status')).toHaveText('PDF imported.', { timeout: 20_000 });
+  await expect(page.locator('.ProseMirror h1')).toHaveText('Field Report 2026');
+  await expect(page.locator('.ProseMirror h2')).toHaveText('Findings');
+  await expect(page.locator('.ProseMirror li')).toHaveCount(3);
+  await expect(page.locator('.ProseMirror p', { hasText: 'volunteers in three regions' })).toContainText('summarises the results of the spring survey. The numbers');
+  const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download EPUB' }).click()]);
+  expect(download.suggestedFilename()).toBe('My book.epub');
+  const bytes = await (await import('node:fs/promises')).readFile((await download.path())!);
+  expect(bytes.subarray(0, 4).toString('latin1')).toBe('PK\u0003\u0004');
+  expect(bytes.toString('latin1')).toContain('application/epub+zip');
+  expect(problems).toEqual([]);
+});

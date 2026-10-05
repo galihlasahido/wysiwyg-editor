@@ -84,3 +84,5 @@ export { Charts, chartSVG, cleanChart, specFromRows } from './charts';
 export type { ChartSpec, ChartType } from './charts';
 export { Recording, isSafeClip } from './recording';
 export type { RecordingOptions } from './recording';
+export { PdfEpub } from './pdf-epub';
+export type { PdfEpubOptions } from './pdf-epub';
