@@ -41,6 +41,7 @@ GROUPS = [
    ('collab-async', 'Comments, suggestions and history', 'Threaded comments, accept or reject tracked changes, restore versions.', ['Review', 'Track changes']),
  ]),
  ('Documents', 'Getting content in and out.', [
+   ('charts', 'Charts from tables', 'Bar, line and pie charts built from a table, stored as data and written to Word as pictures.', ['Charts']),
    ('columns', 'Columns', 'Newspaper-style columns: wrap blocks in two to four columns with an optional rule and gap.', ['Layout']),
    ('captions', 'Captions and cross-references', 'Numbered figure and table captions that renumber themselves, cross-references that follow them, and a list of figures.', ['Captions', 'References']),
    ('export-word-pdf', 'Export to Word and PDF', 'Download .docx with page setup, headers and footers, or print to PDF.', ['.docx', 'PDF']),

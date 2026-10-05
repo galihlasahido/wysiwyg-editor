@@ -743,3 +743,8 @@ del.wy-diff-del, .wy-diff-legend .wy-diff-del { background: #fee2e2; color: #7f1
 .wy-columns > :first-child { margin-top: 0; }
 @media print { .wy-columns { border-color: transparent; padding: 0; } }
 @media (max-width: 600px) { .wy-columns { column-count: 1 !important; } }
+
+/* ---- Charts ---- */
+.wy-chart { margin: 14px auto; max-width: 600px; color: var(--wy-page-fg); }
+.wy-chart svg { display: block; width: 100%; height: auto; }
+.wy-chart.ProseMirror-selectednode { outline: 2px solid var(--wy-accent); border-radius: 6px; }

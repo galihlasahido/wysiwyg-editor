@@ -7,6 +7,7 @@ import type { Mark, Node as PMNode } from 'prosemirror-model';
 import { cropBytes, cropToString, type Crop } from './crop';
 import { latexToDocx } from './latex-docx';
 import { rasterizeSVG } from './svg-raster';
+import { chartSVG, cleanChart } from './chart';
 import type { Editor } from './editor';
 import type { PageSettings } from './plugins/pages';
 import type { CommentsPlugin, CommentThread } from './plugins/comments';
@@ -343,6 +344,15 @@ function blocks(node: PMNode, ctx: Ctx): Block[] {
     }
     case 'code_block':
       return node.textContent.split('\n').map((line) => new D.Paragraph({ children: [new D.TextRun({ text: line, font: 'Courier New', size: 20 })], shading: { type: D.ShadingType.CLEAR, fill: 'F0F0F0', color: 'auto' } }));
+    case 'chart': {
+      const png = ctx.diagrams.get(`chart:${node.attrs.spec}`);
+      const spec = cleanChart(node.attrs.spec);
+      if (png) {
+        const w = Math.min(png.width / 2, 520);
+        return [new D.Paragraph({ alignment: D.AlignmentType.CENTER, spacing: { before: 120, after: 120 }, children: [new D.ImageRun({ type: 'png', data: png.data, transformation: { width: w, height: Math.max(1, Math.round((w * png.height) / png.width)) }, altText: { name: 'chart', title: spec?.title || 'Chart', description: spec ? `${spec.type} chart: ${spec.labels.join(', ')}` : 'Chart' } })] })];
+      }
+      return spec ? [new D.Paragraph({ children: [new D.TextRun({ text: `Chart: ${spec.title || spec.type}`, italics: true, color: '6B7280' })] })] : [];
+    }
     case 'columns': {
       const out: Block[] = [];
       node.forEach((c) => out.push(...blocks(c, ctx)));
@@ -424,6 +434,7 @@ export async function buildDocx(editor: Editor, options: ExportOptions = {}): Pr
   const diagrams = new Map<string, ImageData | null>();
   const renderSVG = (editor.extensions.mermaid as { renderSVG?: (code: string, dark?: boolean) => Promise<string> } | undefined)?.renderSVG;
   const codes = new Set<string>();
+  const codesCharts = new Set<string>();
   doc.descendants((n) => void (n.type.name === 'mermaid_diagram' && codes.add(n.attrs.code)));
   if (renderSVG) {
     await Promise.all([...codes].map(async (code) => {
@@ -435,6 +446,16 @@ export async function buildDocx(editor: Editor, options: ExportOptions = {}): Pr
       }
     }));
   }
+
+  // Charts: the SVG is drawn from the data here, then rasterised like a diagram
+  doc.descendants((n) => {
+    if (n.type.name === 'chart') codesCharts.add(String(n.attrs.spec));
+  });
+  await Promise.all([...codesCharts].map(async (raw) => {
+    const spec = cleanChart(raw);
+    const png = spec ? await rasterizeSVG(chartSVG(spec)) : null;
+    diagrams.set(`chart:${raw}`, png ? { data: png.data, type: 'png', width: png.width, height: png.height } : null);
+  }));
 
   const ctx: Ctx = {
     images,

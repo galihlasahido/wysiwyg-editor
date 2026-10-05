@@ -121,3 +121,16 @@ test('form fields work inside a locked contract and report what is missing', asy
   expect(await page.locator('#answers').innerText()).toContain('Still required: accept');
   expect(problems).toEqual([]);
 });
+
+test('a chart is drawn from a table and exported to Word as a picture', async ({ page }) => {
+  const problems = await openDemo(page, 'charts');
+  await page.locator('.wy-editor td, .ProseMirror td').first().click();
+  await page.getByRole('button', { name: 'Bar chart from table' }).click();
+  await expect(page.locator('.wy-chart svg')).toHaveCount(2);
+  const media = await page.evaluate(async () => {
+    const blob: Blob = await (window as any).editor.exportDocx();
+    return new TextDecoder('latin1').decode(new Uint8Array(await blob.arrayBuffer())).includes('word/media/');
+  });
+  expect(media).toBe(true);
+  expect(problems).toEqual([]);
+});

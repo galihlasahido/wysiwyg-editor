@@ -54,6 +54,14 @@ const knownNodes: Record<string, (state: MarkdownSerializerState, node: PMNode, 
       const a = node.attrs;
       state.write(a.kind === 'checkbox' ? `${a.label ? `${state.esc(a.label)} ` : ''}${a.value === 'true' ? '[x]' : '[ ]'}` : `${a.label ? `${state.esc(a.label)}: ` : ''}${state.esc(a.value || '____')}`);
     },
+    chart(state, node) {
+      try {
+        const s = JSON.parse(node.attrs.spec);
+        const rows: string[][] = [['', ...s.series.map((x: { name: string }) => String(x.name))], ...s.labels.map((l: string, i: number) => [String(l), ...s.series.map((x: { values: number[] }) => String(x.values[i]))])];
+        rows.forEach((r, i) => { state.write(`| ${r.map((c) => state.esc(c)).join(' | ')} |\n`); if (i === 0) state.write(`| ${r.map(() => '---').join(' | ')} |\n`); });
+      } catch { /* an unreadable chart prints nothing */ }
+      state.closeBlock(node);
+    },
     columns(state, node) {
       state.renderContent(node);
     },

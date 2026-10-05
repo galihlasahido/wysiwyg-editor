@@ -149,6 +149,8 @@ Markdown), so exports show it. A reference to a deleted caption says "Missing re
 
 **Columns**: `Columns()` flows blocks into 2–4 newspaper columns (`insertColumns(n)` wraps the selection, `setColumns({ count, rule, gap })`, `removeColumns`). Columns collapse to one on narrow screens, and Word and Markdown export flow the text in a single column (native Word section columns are not written).
 
+**Charts**: `Charts()` draws bar, line and pie charts as SVG. With the cursor in a table, `insertChart('bar' | 'line' | 'pie')` uses the first row as series and the first column as labels (numbers like `1,200`, `$40` or `12%` are understood); `insertChart(type, { labels, series })` takes data directly and `setChart` changes the selected chart. The chart is saved as validated data (never markup) and redrawn on load; Word export writes it as a picture (needs a browser canvas) and Markdown as a table.
+
 **Restricted editing**: `RestrictedEditing()` adds `locked_section` blocks (a title with the table of contents, legal
 text) that cannot be changed, and `editable_region` blocks that can, while everything else stays ordinary text. It is
 enforced by rejecting transactions, so typing, deleting, pasting, dropping and find & replace are all covered, including

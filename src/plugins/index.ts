@@ -80,3 +80,5 @@ export type { FormFieldsOptions, FieldKind, FieldInfo } from './form-fields';
 export { Captions, collectCaptions } from './captions';
 export type { CaptionsOptions, CaptionKind, CaptionEntry } from './captions';
 export { Columns } from './columns';
+export { Charts, chartSVG, cleanChart, specFromRows } from './charts';
+export type { ChartSpec, ChartType } from './charts';
