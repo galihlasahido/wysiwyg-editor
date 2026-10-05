@@ -4,11 +4,11 @@ export interface DialogAction { label: string; primary?: boolean; onClick?: () =
  * A modal dialog inside the editor root (focus moves in, Escape or the backdrop closes, focus returns to the
  * editor). `body` may be a string (shown as text) or an element.
  */
-export function openDialog(root: HTMLElement, options: { title: string; body: string | HTMLElement; actions?: DialogAction[]; onClose?: () => void }): () => void {
+export function openDialog(root: HTMLElement, options: { title: string; body: string | HTMLElement; actions?: DialogAction[]; onClose?: () => void; /** A large dialog that covers the screen (for content you read, such as a comparison). */ wide?: boolean }): () => void {
   const backdrop = document.createElement('div');
-  backdrop.className = 'wy-dialog-backdrop';
+  backdrop.className = options.wide ? 'wy-dialog-backdrop wy-ask-backdrop' : 'wy-dialog-backdrop';
   const dlg = document.createElement('div');
-  dlg.className = 'wy-dialog';
+  dlg.className = options.wide ? 'wy-dialog wy-dialog-wide' : 'wy-dialog';
   dlg.setAttribute('role', 'dialog');
   dlg.setAttribute('aria-modal', 'true');
   const h = document.createElement('h2');

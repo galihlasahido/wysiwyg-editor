@@ -673,3 +673,22 @@ textarea.wy-ask-input { min-height: 84px; max-height: 40vh; }
 @keyframes wy-peer-flash { 0%, 40% { background: color-mix(in srgb, var(--wy-accent) 25%, transparent); } 100% { background: transparent; } }
 @media (prefers-reduced-motion: reduce) { .wy-peer-flash { animation: none; background: color-mix(in srgb, var(--wy-accent) 20%, transparent); } }
 @media print { .wy-presence { display: none; } }
+
+/* ---- Version comparison ---- */
+.wy-dialog.wy-dialog-wide { width: min(900px, 100%); max-height: calc(100vh - 32px); display: flex; flex-direction: column; border-radius: 12px; box-shadow: 0 24px 60px rgba(0, 0, 0, .35); }
+.wy-diff { display: flex; flex-direction: column; min-height: 0; gap: 8px; }
+.wy-diff-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.wy-diff-head select { max-width: 340px; height: 28px; border: 1px solid var(--wy-border-2); border-radius: 6px; background: var(--wy-bg); color: inherit; font: inherit; }
+.wy-diff-legend { display: flex; gap: 6px; font-size: 12px; }
+.wy-diff-legend span { padding: 2px 8px; border-radius: 999px; background: color-mix(in srgb, var(--wy-fg) 8%, transparent); }
+.wy-diff-page { max-height: 60vh; overflow: auto; border: 1px solid var(--wy-border); border-radius: 8px; padding: 12px 18px; }
+.wy-diff-text { outline: 0; min-height: 0; }
+ins.wy-diff-ins, .wy-diff-legend .wy-diff-ins { background: #dcfce7; color: #14532d; text-decoration: none; border-radius: 2px; }
+del.wy-diff-del, .wy-diff-legend .wy-diff-del { background: #fee2e2; color: #7f1d1d; text-decoration: line-through; border-radius: 2px; }
+.wy-diff-ins-block { background: #f0fdf4; box-shadow: -4px 0 0 #22c55e; color: #14532d; }
+.wy-diff-del-block { background: #fef2f2; box-shadow: -4px 0 0 #ef4444; color: #7f1d1d; text-decoration: line-through; opacity: .85; }
+.wy-editor[data-page='dark'] ins.wy-diff-ins, .wy-editor[data-theme='dark'] .wy-diff-legend .wy-diff-ins { background: #14532d; color: #bbf7d0; }
+.wy-editor[data-page='dark'] del.wy-diff-del, .wy-editor[data-theme='dark'] .wy-diff-legend .wy-diff-del { background: #7f1d1d; color: #fecaca; }
+.wy-editor[data-page='dark'] .wy-diff-ins-block { background: #052e16; color: #bbf7d0; }
+.wy-editor[data-page='dark'] .wy-diff-del-block { background: #450a0a; color: #fecaca; }
+@media print { .wy-dialog-wide { display: none; } }

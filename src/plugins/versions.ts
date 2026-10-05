@@ -1,4 +1,5 @@
-import { askDialog } from '../dialog';
+import { askDialog, openDialog } from '../dialog';
+import { diffDocuments } from '../diff';
 import type { Editor } from '../editor';
 import type { EditorPlugin } from '../types';
 
@@ -98,6 +99,44 @@ export function Versions(options: VersionsOptions = {}): VersionsPlugin {
         return true;
       });
       editor.registerCommand('deleteVersion', (_e, id: string) => store.remove(id));
+      /** Show what changed between a version and the current document (or another version). */
+      editor.registerCommand('compareVersion', (e, id: string, againstId?: string) => {
+        const v = store.get(id);
+        if (!v) return false;
+        const body = document.createElement('div');
+        body.className = 'wy-diff';
+        const pick = document.createElement('select');
+        pick.setAttribute('aria-label', 'Compare with');
+        pick.add(new Option('Current document', ''));
+        for (const o of store.list()) if (o.id !== id) pick.add(new Option(`${o.label} · ${new Date(o.createdAt).toLocaleString()}`, o.id));
+        if (againstId && store.get(againstId)) pick.value = againstId;
+        const legend = document.createElement('div');
+        legend.className = 'wy-diff-legend';
+        const page = document.createElement('div');
+        page.className = 'wy-content wy-diff-page';
+        const text = document.createElement('div');
+        text.className = 'ProseMirror wy-diff-text';
+        page.append(text);
+        const head = document.createElement('div');
+        head.className = 'wy-diff-head';
+        const label = document.createElement('label');
+        label.append(`“${v.label}” compared with `, pick);
+        head.append(label, legend);
+        body.append(head, page);
+        const render = () => {
+          const other = pick.value ? store.get(pick.value)?.html ?? '' : e.getHTML();
+          const r = diffDocuments(v.html, other);
+          text.innerHTML = r.html || '<p class="wy-diff-none">Both are empty.</p>'; // diffDocuments removes scripts and handlers
+          legend.replaceChildren();
+          const chip = (cls: string, t: string) => { const s = document.createElement('span'); s.className = cls; s.textContent = t; legend.append(s); };
+          if (!r.stats.changedBlocks) chip('wy-diff-same', 'No differences');
+          else { chip('wy-diff-ins', `+${r.stats.added} words`); chip('wy-diff-del', `−${r.stats.removed} words`); chip('wy-diff-count', `${r.stats.changedBlocks} blocks changed`); }
+        };
+        pick.addEventListener('change', render);
+        render();
+        openDialog(e.root, { title: 'Compare versions', body, wide: true, actions: [{ label: 'Close', primary: true }] });
+        return true;
+      }, { readOnlySafe: true });
       editor.registerCommand('toggleVersions', () => {
         panel.hidden = !panel.hidden;
         return true;
@@ -132,7 +171,13 @@ export function Versions(options: VersionsOptions = {}): VersionsPlugin {
           restore.className = 'wy-btn';
           restore.textContent = 'Restore';
           restore.addEventListener('click', () => editor.execute('restoreVersion', v.id));
-          row.append(name, meta, restore);
+          const compare = document.createElement('button');
+          compare.type = 'button';
+          compare.className = 'wy-btn';
+          compare.textContent = 'Compare';
+          compare.title = 'See what changed since this version';
+          compare.addEventListener('click', () => editor.execute('compareVersion', v.id));
+          row.append(name, meta, restore, compare);
           panel.append(row);
         }
       };

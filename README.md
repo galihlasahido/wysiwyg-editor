@@ -132,7 +132,7 @@ outline sidebar, print CSS. Paragraphs split between lines (two lines minimum pe
 lists between items.
 
 **Review**: `Comments` (threads, replies, resolve, works in read-only mode), `TrackChanges` (suggesting mode with
-accept/reject), `Versions` (named snapshots, restore is undoable, optional autosave and `localStorage` persistence),
+accept/reject), `Versions` (named snapshots, **Compare** shows what changed against the current document or another version: blocks first, then word by word; restore is undoable, optional autosave and `localStorage` persistence),
 read-only mode (`readOnly` / `setReadOnly`).
 
 **Import / export**: HTML (`exportHTML`), print / save as PDF (`editor.execute('print')`: the document alone in a hidden frame, with the real paper size and margins and the header, footer and page numbers on every page; Chrome and Edge 131+ draw those through `@page` margin boxes, other browsers print the pages without them), Markdown (`getMarkdown` / `setMarkdown`),

@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { TextSelection } from 'prosemirror-state';
 import { Awareness } from 'y-protocols/awareness';
 import * as Y from 'yjs';
-import { Autosave, BalloonToolbar, Comments, createEndpointSaver, Editor, askDialog, TrackChanges, MergeFields, SlashCommands, SourceEditing, createEditor, defaultPlugins, formatHtml, getMergeFields, renderMergeFields, toEmailHTML, toEmailText } from '../src';
+import { Autosave, BalloonToolbar, Comments, Versions, createEndpointSaver, Editor, askDialog, TrackChanges, MergeFields, SlashCommands, SourceEditing, createEditor, defaultPlugins, formatHtml, getMergeFields, renderMergeFields, toEmailHTML, toEmailText } from '../src';
 import { linkAwareness } from '../src/collab';
 
 const editors: Editor[] = [];
@@ -455,5 +455,24 @@ describe('saving comments to an endpoint', () => {
     status = 200;
     await custom('<p>z</p>', { comments: [] });
     expect(JSON.parse(calls.at(-1)!.init.body as string)).toEqual({ content: '<p>z</p>', threads: [] });
+  });
+});
+
+describe('Versions: compare', () => {
+  it('shows what changed between a saved version and the current document', () => {
+    const versions = Versions({ author: 'Ana' });
+    const el = document.body.appendChild(document.createElement('div'));
+    const ed = createEditor({ element: el, content: '<p>The quick brown fox</p>', plugins: [...defaultPlugins, versions] });
+    ed.execute('saveVersion', 'First draft');
+    ed.setHTML('<p>The quick red fox</p><p>New paragraph</p>');
+    const id = versions.store.list()[0].id;
+    expect(ed.execute('compareVersion', id)).toBe(true);
+    const dlg = ed.root.querySelector('.wy-dialog-wide')!;
+    expect(dlg.querySelector('del.wy-diff-del')!.textContent).toBe('brown');
+    expect(dlg.querySelector('ins.wy-diff-ins')!.textContent).toBe('red');
+    expect(dlg.querySelector('.wy-diff-ins-block')!.textContent).toBe('New paragraph');
+    expect(dlg.querySelector('.wy-diff-legend')!.textContent).toMatch(/\+3 words.*−1 words/);
+    expect(ed.execute('compareVersion', 'nope')).toBe(false);
+    ed.destroy();
   });
 });
