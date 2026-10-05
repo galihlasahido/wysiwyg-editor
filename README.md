@@ -7,7 +7,7 @@ A modular rich-text editor in TypeScript, inspired by [CKEditor 5](https://ckedi
 built on [ProseMirror](https://prosemirror.net/). The long-term goal is a **Google Docs-style editor for the web**:
 paged layout, comments, suggestions, real-time collaboration, `.docx` import/export, and a backend to store and share documents.
 
-Everything is opt-in plugins; the core is small. It is **not published to npm yet** (the package will be named `wysiwygido`): clone, `pnpm install`, `pnpm build`.
+Everything is opt-in plugins; the core is small. Install from npm (the first release is tagged `next`): `pnpm add wysiwygido@next`, then `import { createEditor } from 'wysiwygido'` and `import 'wysiwygido/style.css'`. To work on the repository itself: clone, `pnpm install`, `pnpm dev`.
 
 ```sh
 pnpm install
