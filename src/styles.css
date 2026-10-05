@@ -735,3 +735,11 @@ del.wy-diff-del, .wy-diff-legend .wy-diff-del { background: #fee2e2; color: #7f1
 .wy-caption-list-item:hover { text-decoration: underline; }
 .wy-caption-list-none { color: var(--wy-page-muted); font-style: italic; }
 @media print { .wy-caption-list { border-color: transparent; padding: 0; } }
+
+/* ---- Columns ---- */
+.wy-columns { margin: 12px 0; padding: 4px 6px; border: 1px dashed var(--wy-border); border-radius: 6px; }
+.wy-columns.has-rule { column-rule: 1px solid var(--wy-border-2); }
+.wy-columns > * { break-inside: avoid-column; }
+.wy-columns > :first-child { margin-top: 0; }
+@media print { .wy-columns { border-color: transparent; padding: 0; } }
+@media (max-width: 600px) { .wy-columns { column-count: 1 !important; } }

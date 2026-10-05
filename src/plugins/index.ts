@@ -79,3 +79,4 @@ export { FormFields, listFields, cleanValue, parseOptions, FIELD_META } from './
 export type { FormFieldsOptions, FieldKind, FieldInfo } from './form-fields';
 export { Captions, collectCaptions } from './captions';
 export type { CaptionsOptions, CaptionKind, CaptionEntry } from './captions';
+export { Columns } from './columns';

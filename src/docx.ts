@@ -343,6 +343,11 @@ function blocks(node: PMNode, ctx: Ctx): Block[] {
     }
     case 'code_block':
       return node.textContent.split('\n').map((line) => new D.Paragraph({ children: [new D.TextRun({ text: line, font: 'Courier New', size: 20 })], shading: { type: D.ShadingType.CLEAR, fill: 'F0F0F0', color: 'auto' } }));
+    case 'columns': {
+      const out: Block[] = [];
+      node.forEach((c) => out.push(...blocks(c, ctx)));
+      return out;
+    }
     case 'caption': {
       const label = String(node.attrs.kind).replace(/^./, (c: string) => c.toUpperCase());
       return [new D.Paragraph({ spacing: { before: 60, after: 160 }, children: [new D.TextRun({ text: `${label} ${node.attrs.n}. `, bold: true, italics: true, size: 20 }), ...inlineChildren(node, ctx)] })];

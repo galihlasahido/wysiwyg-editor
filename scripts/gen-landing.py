@@ -41,6 +41,7 @@ GROUPS = [
    ('collab-async', 'Comments, suggestions and history', 'Threaded comments, accept or reject tracked changes, restore versions.', ['Review', 'Track changes']),
  ]),
  ('Documents', 'Getting content in and out.', [
+   ('columns', 'Columns', 'Newspaper-style columns: wrap blocks in two to four columns with an optional rule and gap.', ['Layout']),
    ('captions', 'Captions and cross-references', 'Numbered figure and table captions that renumber themselves, cross-references that follow them, and a list of figures.', ['Captions', 'References']),
    ('export-word-pdf', 'Export to Word and PDF', 'Download .docx with page setup, headers and footers, or print to PDF.', ['.docx', 'PDF']),
    ('import-word', 'Import from Word', 'Open a .docx and get clean, schema-validated content. One undo step.', ['.docx', 'Import']),

@@ -54,6 +54,9 @@ const knownNodes: Record<string, (state: MarkdownSerializerState, node: PMNode, 
       const a = node.attrs;
       state.write(a.kind === 'checkbox' ? `${a.label ? `${state.esc(a.label)} ` : ''}${a.value === 'true' ? '[x]' : '[ ]'}` : `${a.label ? `${state.esc(a.label)}: ` : ''}${state.esc(a.value || '____')}`);
     },
+    columns(state, node) {
+      state.renderContent(node);
+    },
     caption(state, node) {
       state.write(`*${state.esc(String(node.attrs.kind).replace(/^./, (c: string) => c.toUpperCase()))} ${node.attrs.n}. `);
       state.renderInline(node);
