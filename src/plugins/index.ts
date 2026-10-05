@@ -71,3 +71,5 @@ export { Mermaid, MERMAID_TEMPLATES } from './mermaid';
 export type { MermaidOptions, MermaidLike, MermaidApi } from './mermaid';
 export { buildMatcher, isRiskyRegex } from './find-replace';
 export type { FindOptions } from './find-replace';
+export { Offline, MemoryDraftStore, IndexedDBDraftStore } from './offline';
+export type { OfflineOptions, DraftStore, Draft } from './offline';

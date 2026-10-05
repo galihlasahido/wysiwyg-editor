@@ -1,4 +1,4 @@
-import { Autosave, Comments, createEditor, createEndpointSaver, defaultPlugins, type CommentThread } from '../src';
+import { Autosave, Comments, Offline, createEditor, createEndpointSaver, defaultPlugins, type CommentThread } from '../src';
 import { $, button, codePanel, el } from './samples';
 
 // ---- A simulated backend: one "database row", with controllable failures ---------------------------------------------
@@ -44,8 +44,8 @@ const latency = el('select', { 'aria-label': 'Latency' }, ...[0, 300, 1500].map(
 latency.addEventListener('change', () => (state.latency = Number(latency.value)));
 
 $('#app').append(
-  el('div', { class: 'demo-note' }, 'Type, comment, reply or resolve: the badge under the editor shows the save state. Tick ', el('strong', {}, 'Offline'), ' to watch retries, ', el('strong', {}, 'Conflict'), ' to see the 409 state. A reply changes only the comment thread, not the text, and still triggers a save.'),
-  el('div', { class: 'se-controls' }, checks('Offline (network errors)', 'offline'), checks('Conflict (409)', 'conflict'), el('label', {}, 'Latency ', latency), button('Reload from the database', () => mountEditor(), false)),
+  el('div', { class: 'demo-note' }, 'Type, comment, reply or resolve: the badge under the editor shows the save state. Tick ', el('strong', {}, 'Offline'), ' to watch retries, ', el('strong', {}, 'Conflict'), ' to see the 409 state. A reply changes only the comment thread, not the text, and still triggers a save. With Offline ticked, edit and then press ', el('strong', {}, 'Reload the whole page'), ': a draft kept on this device is offered back (and removed once the server has the document).'),
+  el('div', { class: 'se-controls' }, checks('Offline (network errors)', 'offline'), checks('Conflict (409)', 'conflict'), el('label', {}, 'Latency ', latency), button('Reload from the database', () => mountEditor(), false), button('Reload the whole page', () => location.reload(), false)),
   el('div', { class: 'se-grid' },
     el('div', {}, title, el('div', { class: 'panel' }, mount)),
     el('div', {}, el('h2', { style: 'font-size:15px;margin:0 0 6px' }, 'The database row'), rowEl, el('h2', { style: 'font-size:15px;margin:14px 0 6px' }, 'Requests'), el('table', { class: 'se-log' }, el('thead', {}, el('tr', {}, ...['Time', 'Method', 'Status', 'Size', 'What happened'].map((h) => el('th', {}, h)))), logEl)),
@@ -63,6 +63,7 @@ function mountEditor() {
     plugins: [
       ...defaultPlugins,
       Comments({ author: 'You', initial: structuredClone(row.comments) }),
+      Offline({ id: 'demo-post-1' }), // keeps a draft on this device until the server has the document
       Autosave({
         delayMs: 600,
         save: createEndpointSaver({ url: `/api/posts/${row.id}`, method: 'PUT', headers: { Authorization: 'Bearer demo-token' }, title: () => title.value, fetch: fakeFetch }),

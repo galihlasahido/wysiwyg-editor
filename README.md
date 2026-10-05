@@ -188,6 +188,13 @@ createEditor({
 created_at, resolved` and a `replies` table). Validate and sanitise on the server too: the editor's schema cleans HTML on the way in, but a
 server must not trust a client.
 
+## Working offline
+
+`Offline({ id })` keeps a draft (HTML and comment threads) in IndexedDB as you type. If the page is closed or reloaded before the server has the latest version, the
+editor offers to restore it (a banner with Restore / Discard; `confirm: false` restores silently, `shouldRestore(draft)` can refuse a stale one). The draft is removed when `Autosave`
+reports a successful save, or with `editor.execute('discardDraft')`. While `navigator.onLine` is false a notice says changes are kept on this device. Combine it with `Autosave`
+(which retries with backoff) and `createEndpointSaver` for a save path that survives a flaky network.
+
 ## Collaboration
 
 Two browser tabs, no server (`BroadcastChannel`):

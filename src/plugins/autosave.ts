@@ -49,6 +49,7 @@ export function Autosave(options: AutosaveOptions): EditorPlugin {
         badge.textContent = LABEL[s];
         badge.dataset.status = s;
         options.onStatus?.(s, err);
+        editor.emit('save', { status: s, error: err }); // other plugins (Offline) react to it
       };
       setStatus('saved');
 
