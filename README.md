@@ -143,6 +143,10 @@ inside locked sections and in a read-only editor (`fillInReadOnly`, default on),
 and outlines the required fields still empty, `setFieldValue(name, value)` fills from code, and a `field-change` event reports each answer. Values are validated per kind (a drop-down value must be one of its options, a date must be a real
 date), the saved HTML keeps the answer as visible text too, and Word / Markdown export show it (`☒`, `[x]`).
 
+**Captions and cross-references**: `Captions()` adds numbered captions ("Figure 3. …", "Table 2. …", your own kinds and wording), cross-references that follow them (`insertCrossReference`) and a list of
+figures or tables (`insertCaptionList`). Numbers come from the order in the document and renumber when captions are added, deleted or moved; the derived text is saved in the HTML (and written to Word and
+Markdown), so exports show it. A reference to a deleted caption says "Missing reference".
+
 **Restricted editing**: `RestrictedEditing()` adds `locked_section` blocks (a title with the table of contents, legal
 text) that cannot be changed, and `editable_region` blocks that can, while everything else stays ordinary text. It is
 enforced by rejecting transactions, so typing, deleting, pasting, dropping and find & replace are all covered, including

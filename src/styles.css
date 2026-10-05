@@ -722,3 +722,16 @@ del.wy-diff-del, .wy-diff-legend .wy-diff-del { background: #fee2e2; color: #7f1
 .wy-field.is-invalid { outline: 2px solid #dc2626; background: color-mix(in srgb, #dc2626 10%, transparent); }
 .wy-field.ProseMirror-selectednode { outline: 2px solid var(--wy-accent); }
 @media print { .wy-field { background: none; } .wy-field input[type="text"], .wy-field input[type="date"], .wy-field select { border: 0; border-bottom: 1px solid #111; border-radius: 0; background: none; } }
+
+/* ---- Captions, cross-references, lists of figures ---- */
+.wy-caption { margin: 4px 0 14px; font-size: .9em; color: var(--wy-page-muted); }
+.wy-caption-label { font-weight: 700; color: var(--wy-page-fg); user-select: none; }
+.wy-xref { color: var(--wy-link); text-decoration: underline; cursor: pointer; }
+.wy-xref.is-missing { color: #dc2626; text-decoration: wavy underline; }
+.wy-xref.ProseMirror-selectednode { outline: 2px solid var(--wy-accent); }
+.wy-caption-list { margin: 14px 0; padding: 10px 14px; border: 1px solid var(--wy-border); border-radius: 8px; }
+.wy-caption-list-title { font-weight: 700; margin-bottom: 4px; }
+.wy-caption-list-item { display: block; padding: 2px 0; color: var(--wy-link); text-decoration: none; }
+.wy-caption-list-item:hover { text-decoration: underline; }
+.wy-caption-list-none { color: var(--wy-page-muted); font-style: italic; }
+@media print { .wy-caption-list { border-color: transparent; padding: 0; } }

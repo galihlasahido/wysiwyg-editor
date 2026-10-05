@@ -218,6 +218,8 @@ function inlineChildren(node: PMNode, ctx: Ctx): D.ParagraphChild[] {
     } else if (child.type.name === 'math_inline') {
       const eq = latexToDocx(child.attrs.tex); // a native Word equation; the LaTeX text when the formula is outside what we convert
       run = eq ? (new D.Math({ children: eq }) as unknown as D.ParagraphChild) : new D.TextRun({ text: child.attrs.tex, font: 'Cambria Math', italics: true, ...o });
+    } else if (child.type.name === 'xref') {
+      run = new D.TextRun({ text: String(child.attrs.text), ...o });
     } else if (child.type.name === 'form_field') {
       const a = child.attrs;
       run = new D.TextRun({ text: `${a.label ? `${a.label}: ` : ''}${a.kind === 'checkbox' ? (a.value === 'true' ? '☒' : '☐') : a.value || '________'}`, underline: a.kind === 'checkbox' ? undefined : {}, ...o });
@@ -341,6 +343,16 @@ function blocks(node: PMNode, ctx: Ctx): Block[] {
     }
     case 'code_block':
       return node.textContent.split('\n').map((line) => new D.Paragraph({ children: [new D.TextRun({ text: line, font: 'Courier New', size: 20 })], shading: { type: D.ShadingType.CLEAR, fill: 'F0F0F0', color: 'auto' } }));
+    case 'caption': {
+      const label = String(node.attrs.kind).replace(/^./, (c: string) => c.toUpperCase());
+      return [new D.Paragraph({ spacing: { before: 60, after: 160 }, children: [new D.TextRun({ text: `${label} ${node.attrs.n}. `, bold: true, italics: true, size: 20 }), ...inlineChildren(node, ctx)] })];
+    }
+    case 'caption_list': {
+      let items: { n: number; text: string }[] = [];
+      try { items = JSON.parse(node.attrs.items); } catch { /* none */ }
+      const label = String(node.attrs.kind).replace(/^./, (c: string) => c.toUpperCase());
+      return [new D.Paragraph({ children: [new D.TextRun({ text: `List of ${label.toLowerCase()}s`, bold: true })] }), ...items.map((it) => new D.Paragraph({ children: [new D.TextRun({ text: `${label} ${it.n}. ${it.text}` })] }))];
+    }
     case 'embed':
       return [new D.Paragraph({ children: [new D.TextRun({ text: 'Media: ', color: '6B7280' }), new D.ExternalHyperlink({ link: String(node.attrs.url), children: [new D.TextRun({ text: String(node.attrs.url), style: 'Hyperlink', color: '1D4ED8', underline: {} })] })] })];
     case 'math_block': {

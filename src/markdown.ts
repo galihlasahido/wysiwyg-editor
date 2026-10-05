@@ -54,6 +54,19 @@ const knownNodes: Record<string, (state: MarkdownSerializerState, node: PMNode, 
       const a = node.attrs;
       state.write(a.kind === 'checkbox' ? `${a.label ? `${state.esc(a.label)} ` : ''}${a.value === 'true' ? '[x]' : '[ ]'}` : `${a.label ? `${state.esc(a.label)}: ` : ''}${state.esc(a.value || '____')}`);
     },
+    caption(state, node) {
+      state.write(`*${state.esc(String(node.attrs.kind).replace(/^./, (c: string) => c.toUpperCase()))} ${node.attrs.n}. `);
+      state.renderInline(node);
+      state.write('*');
+      state.closeBlock(node);
+    },
+    xref(state, node) {
+      state.text(node.attrs.text);
+    },
+    caption_list(state, node) {
+      try { for (const it of JSON.parse(node.attrs.items)) state.write(`- ${state.esc(String(it.n))}. ${state.esc(String(it.text))}\n`); } catch { /* an unreadable list prints nothing */ }
+      state.closeBlock(node);
+    },
     merge_field(state, node) {
       state.write(`{{${node.attrs.name}}}`);
     },

@@ -77,3 +77,5 @@ export { Embeds, resolveEmbed, DEFAULT_EMBED_PROVIDERS } from './embeds';
 export type { EmbedsOptions, EmbedProvider } from './embeds';
 export { FormFields, listFields, cleanValue, parseOptions, FIELD_META } from './form-fields';
 export type { FormFieldsOptions, FieldKind, FieldInfo } from './form-fields';
+export { Captions, collectCaptions } from './captions';
+export type { CaptionsOptions, CaptionKind, CaptionEntry } from './captions';
