@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { TextSelection } from 'prosemirror-state';
 import { Awareness } from 'y-protocols/awareness';
 import * as Y from 'yjs';
-import { Autosave, BalloonToolbar, Comments, Versions, createEndpointSaver, Editor, askDialog, TrackChanges, MergeFields, SlashCommands, SourceEditing, createEditor, defaultPlugins, formatHtml, getMergeFields, renderMergeFields, toEmailHTML, toEmailText } from '../src';
+import { Autosave, BalloonToolbar, Comments, isRiskyRegex, Versions, createEndpointSaver, Editor, askDialog, TrackChanges, MergeFields, SlashCommands, SourceEditing, createEditor, defaultPlugins, formatHtml, getMergeFields, renderMergeFields, toEmailHTML, toEmailText } from '../src';
 import { linkAwareness } from '../src/collab';
 
 const editors: Editor[] = [];
@@ -473,6 +473,53 @@ describe('Versions: compare', () => {
     expect(dlg.querySelector('.wy-diff-ins-block')!.textContent).toBe('New paragraph');
     expect(dlg.querySelector('.wy-diff-legend')!.textContent).toMatch(/\+3 words.*−1 words/);
     expect(ed.execute('compareVersion', 'nope')).toBe(false);
+    ed.destroy();
+  });
+});
+
+describe('Find & replace: regex and whole words', () => {
+  const make = (html: string) => createEditor({ element: document.body.appendChild(document.createElement('div')), content: html, plugins: defaultPlugins });
+  const count = (ed: ReturnType<typeof make>) => ed.view.dom.ownerDocument.querySelectorAll('.wy-find').length;
+
+  it('whole-word search ignores matches inside other words', () => {
+    const ed = make('<p>cat concatenate cat. Cat!</p>');
+    ed.execute('find', 'cat', false, { wholeWord: true });
+    expect(count(ed)).toBe(3);
+    ed.execute('find', 'cat', true, { wholeWord: true });
+    expect(count(ed)).toBe(2);
+    ed.destroy();
+  });
+  it('regular expressions, with $1 expansion in the replacement', () => {
+    const ed = make('<p>2026-10-05 and 2027-01-31</p>');
+    expect(ed.execute('find', '(\\d{4})-(\\d{2})-(\\d{2})', false, { regex: true })).toBe(true);
+    ed.execute('replaceAll', '$3/$2/$1');
+    expect(ed.getHTML()).toBe('<p>05/10/2026 and 31/01/2027</p>');
+    ed.destroy();
+  });
+  it('shows an invalid pattern as an error instead of throwing, and finds nothing', () => {
+    const ed = make('<p>abc</p>');
+    expect(ed.execute('find', '(', false, { regex: true })).toBe(false);
+    expect(ed.root.querySelector('.wy-find-err')!.textContent).toMatch(/.+/);
+    expect(ed.root.querySelector('.wy-find-q')!.getAttribute('aria-invalid')).toBe('true');
+    ed.destroy();
+  });
+  it('refuses patterns that could take exponential time, and survives empty matches', () => {
+    expect(isRiskyRegex('(a+)+$')).toBe(true);
+    expect(isRiskyRegex('(.*)*x')).toBe(true);
+    expect(isRiskyRegex('\\d+-\\d+')).toBe(false);
+    const ed = make('<p>' + 'a'.repeat(40) + '!</p>');
+    const t = Date.now();
+    expect(ed.execute('find', '(a+)+$', false, { regex: true })).toBe(false);
+    expect(Date.now() - t).toBeLessThan(500);
+    expect(ed.execute('find', 'x*', false, { regex: true })).toBe(false); // empty matches only: nothing to select, no endless loop
+    ed.destroy();
+  });
+  it('plain search is unchanged, and the panel has the new options', () => {
+    const ed = make('<p>Hello hello</p>');
+    ed.execute('find', 'hello');
+    expect(count(ed)).toBe(2);
+    expect(ed.root.querySelector('.wy-find-re input')).not.toBeNull();
+    expect(ed.root.querySelector('.wy-find-word input')).not.toBeNull();
     ed.destroy();
   });
 });

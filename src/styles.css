@@ -692,3 +692,7 @@ del.wy-diff-del, .wy-diff-legend .wy-diff-del { background: #fee2e2; color: #7f1
 .wy-editor[data-page='dark'] .wy-diff-ins-block { background: #052e16; color: #bbf7d0; }
 .wy-editor[data-page='dark'] .wy-diff-del-block { background: #450a0a; color: #fecaca; }
 @media print { .wy-dialog-wide { display: none; } }
+
+.wy-find-q.is-invalid { outline: 2px solid #dc2626; }
+.wy-find-err { color: #dc2626; font-size: 12px; max-width: 24ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wy-find-err:empty { display: none; }
