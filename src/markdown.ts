@@ -66,6 +66,9 @@ const knownNodes: Record<string, (state: MarkdownSerializerState, node: PMNode, 
       } catch { /* an unreadable chart prints nothing */ }
       state.closeBlock(node);
     },
+    column_break(state, node) {
+      state.closeBlock(node);
+    },
     columns(state, node) {
       state.renderContent(node);
     },

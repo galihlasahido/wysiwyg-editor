@@ -355,6 +355,8 @@ function blocks(node: PMNode, ctx: Ctx): Block[] {
       }
       return spec ? [new D.Paragraph({ children: [new D.TextRun({ text: `Chart: ${spec.title || spec.type}`, italics: true, color: '6B7280' })] })] : [];
     }
+    case 'column_break':
+      return [new D.Paragraph({ children: [new D.ColumnBreak()] })];
     case 'columns': {
       const out: Block[] = [];
       node.forEach((c) => out.push(...blocks(c, ctx)));
@@ -471,9 +473,22 @@ export async function buildDocx(editor: Editor, options: ExportOptions = {}): Pr
     referenced: new Set(),
     quote: 0,
   };
-  const children: Block[] = [];
-  doc.forEach((n) => children.push(...blocks(n, ctx)));
-  if (!children.length) children.push(new D.Paragraph(''));
+  // Top-level `columns` blocks become their own continuous Word sections with the right column count; the text around them is single-column.
+  type Segment = { count: number; gap: number; rule: boolean; children: Block[] };
+  const segments: Segment[] = [];
+  doc.forEach((n) => {
+    if (n.type.name === 'columns') {
+      const kids: Block[] = [];
+      n.forEach((c) => kids.push(...blocks(c, ctx)));
+      if (kids.length) segments.push({ count: Number(n.attrs.count) || 2, gap: Number(n.attrs.gap) || 28, rule: n.attrs.rule === 'solid', children: kids });
+      return;
+    }
+    const last = segments[segments.length - 1];
+    const out = blocks(n, ctx);
+    if (last && last.count === 1) last.children.push(...out);
+    else segments.push({ count: 1, gap: 0, rule: false, children: out });
+  });
+  if (!segments.some((s) => s.children.length)) segments.splice(0, segments.length, { count: 1, gap: 0, rule: false, children: [new D.Paragraph('')] });
 
   const w = page?.width ?? 794;
   const h = page?.height ?? 1123;
@@ -496,26 +511,30 @@ export async function buildDocx(editor: Editor, options: ExportOptions = {}): Pr
         children: [t.text, ...t.replies.map((r) => `${r.author}: ${r.text}`)].map((text) => new D.Paragraph(text)),
       })),
     },
-    sections: [
-      {
-        properties: {
-          titlePage: page?.differentFirstPage,
-          page: {
-            size: { width: px(Math.min(w, h)), height: px(Math.max(w, h)), orientation: landscape ? D.PageOrientation.LANDSCAPE : D.PageOrientation.PORTRAIT },
-            margin: { top: px(m.top), right: px(m.right), bottom: px(m.bottom), left: px(m.left) },
-          },
+    sections: segments.map((seg, i) => ({
+      properties: {
+        ...(i === 0 ? { titlePage: page?.differentFirstPage } : { type: D.SectionType.CONTINUOUS }),
+        ...(seg.count > 1 ? { column: { count: seg.count, space: seg.gap * 15, separate: seg.rule, equalWidth: true } } : {}),
+        page: {
+          size: { width: px(Math.min(w, h)), height: px(Math.max(w, h)), orientation: landscape ? D.PageOrientation.LANDSCAPE : D.PageOrientation.PORTRAIT },
+          margin: { top: px(m.top), right: px(m.right), bottom: px(m.bottom), left: px(m.left) },
         },
-        headers: {
-          default: new D.Header({ children: [headerFooterParagraph(headerTpl)] }),
-          ...(page?.differentFirstPage ? { first: new D.Header({ children: [headerFooterParagraph(page.firstHeader)] }) } : {}),
-        },
-        footers: {
-          default: new D.Footer({ children: [headerFooterParagraph(footerTpl)] }),
-          ...(page?.differentFirstPage ? { first: new D.Footer({ children: [headerFooterParagraph(page.firstFooter)] }) } : {}),
-        },
-        children: children as D.Paragraph[],
       },
-    ],
+      // headers and footers belong to the first section; later continuous sections carry on with them
+      ...(i === 0
+        ? {
+            headers: {
+              default: new D.Header({ children: [headerFooterParagraph(headerTpl)] }),
+              ...(page?.differentFirstPage ? { first: new D.Header({ children: [headerFooterParagraph(page.firstHeader)] }) } : {}),
+            },
+            footers: {
+              default: new D.Footer({ children: [headerFooterParagraph(footerTpl)] }),
+              ...(page?.differentFirstPage ? { first: new D.Footer({ children: [headerFooterParagraph(page.firstFooter)] }) } : {}),
+            },
+          }
+        : {}),
+      children: (seg.children.length ? seg.children : [new D.Paragraph('')]) as D.Paragraph[],
+    })),
   });
 }
 

@@ -1,4 +1,4 @@
-import type { Node as PMNode } from 'prosemirror-model';
+import { Fragment, type Node as PMNode } from 'prosemirror-model';
 import { Selection, TextSelection } from 'prosemirror-state';
 import { findWrapping } from 'prosemirror-transform';
 import type { Editor } from '../editor';
@@ -30,8 +30,44 @@ export function Columns(): EditorPlugin {
         }],
         toDOM: (n: PMNode) => ['div', { class: `wy-columns${n.attrs.rule === 'solid' ? ' has-rule' : ''}`, 'data-columns': String(n.attrs.count), 'data-rule': n.attrs.rule, 'data-gap': String(n.attrs.gap), style: `column-count:${n.attrs.count};column-gap:${n.attrs.gap}px` }, 0],
       },
+      column_break: {
+        group: 'block',
+        atom: true,
+        selectable: true,
+        parseDOM: [{ tag: 'div[data-column-break]' }],
+        toDOM: () => ['div', { class: 'wy-column-break', 'data-column-break': '', role: 'separator', 'aria-label': 'Column break' }],
+      },
     },
     setup(editor: Editor) {
+      /** The whole document in `count` columns (1 puts it back). `skipTitle` keeps a leading heading above the columns, like a newspaper masthead. */
+      editor.registerCommand('setDocumentColumns', (e, count = 2, skipTitle = true) => {
+        const { state, dispatch } = e.view;
+        const type = state.schema.nodes.columns;
+        const doc = state.doc;
+        let from = 0;
+        if (skipTitle && doc.firstChild?.type.name === 'heading') from = doc.firstChild.nodeSize;
+        const only = doc.childCount === (from ? 2 : 1) && doc.lastChild?.type === type ? doc.lastChild : null;
+        if (Number(count) <= 1) {
+          if (!only) return false;
+          const start = doc.content.size - only.nodeSize;
+          dispatch(state.tr.replaceWith(start, doc.content.size, only.content));
+          return true;
+        }
+        if (only) { dispatch(state.tr.setNodeMarkup(doc.content.size - only.nodeSize, undefined, { ...only.attrs, count: clampCount(count) })); return true; }
+        if (from >= doc.content.size) return false;
+        // columns that were already there are merged into the page-wide ones (no columns inside columns)
+        const kids: PMNode[] = [];
+        doc.slice(from, doc.content.size).content.forEach((c) => (c.type === type ? c.forEach((x) => kids.push(x)) : kids.push(c)));
+        const body = Fragment.from(kids);
+        dispatch(state.tr.replaceWith(from, doc.content.size, type.create({ count: clampCount(count) }, body)));
+        return true;
+      });
+      editor.registerCommand('insertColumnBreak', (e) => {
+        if (!find()) return false; // only meaningful inside columns
+        const { state, dispatch } = e.view;
+        dispatch(state.tr.replaceSelectionWith(state.schema.nodes.column_break.create(), false).scrollIntoView());
+        return true;
+      });
       const find = (state = editor.view.state) => {
         const { $from } = state.selection;
         for (let d = $from.depth; d > 0; d--) if ($from.node(d).type.name === 'columns') return { node: $from.node(d), pos: $from.before(d) };
@@ -78,6 +114,7 @@ export function Columns(): EditorPlugin {
     toolbar: [
       { name: 'columns2', label: 'Two columns', icon: '▥', command: 'insertColumns', args: [2] },
       { name: 'columns3', label: 'Three columns', icon: '☷', command: 'insertColumns', args: [3] },
+      { name: 'columnBreak', label: 'Column break (start the next column here)', icon: '⇥', command: 'insertColumnBreak' },
       { name: 'columnsRemove', label: 'Remove columns', icon: '▭', command: 'removeColumns' },
     ],
   };

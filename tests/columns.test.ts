@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { TextSelection } from 'prosemirror-state';
+import { Packer } from 'docx';
+import JSZip from 'jszip';
 import { Columns, createEditor, defaultPlugins } from '../src';
+import { buildDocx } from '../src/docx';
 
 const roots: HTMLElement[] = [];
 afterEach(() => roots.splice(0).forEach((r) => r.remove()));
@@ -39,6 +42,58 @@ describe('Columns', () => {
   it('exports Markdown as plain flowing text', () => {
     const ed = make('<div data-columns="2"><p>a</p><p>b</p></div>');
     expect(ed.getMarkdown().trim()).toBe('a\n\nb');
+    ed.destroy();
+  });
+});
+
+describe('Columns in Word', () => {
+  const xml = async (html: string) => {
+    const ed = make(html);
+    const zip = await JSZip.loadAsync(await Packer.toBuffer(await buildDocx(ed)));
+    ed.destroy();
+    return zip.file('word/document.xml')!.async('string');
+  };
+  it('writes each columns block as its own continuous section with the column count, gap and rule', async () => {
+    const doc = await xml('<p>intro</p><div data-columns="3" data-rule="solid" data-gap="40"><p>a</p><p>b</p></div><p>outro</p>');
+    const sects = doc.match(/<w:sectPr[\s\S]*?<\/w:sectPr>/g)!;
+    expect(sects).toHaveLength(3);
+    expect(sects[0]).not.toContain('<w:cols');
+    expect(sects[1]).toMatch(/<w:cols[^>]*w:num="3"/);
+    expect(sects[1]).toMatch(/w:space="600"/);
+    expect(sects[1]).toMatch(/w:sep="(1|true)"/);
+    expect(sects[1]).toContain('w:val="continuous"');
+    expect(sects[2]).toContain('w:val="continuous"');
+    expect(sects[2]).not.toContain('<w:cols');
+    expect(doc.indexOf('intro')).toBeLessThan(doc.indexOf('>a<'));
+    expect(doc.indexOf('>b<')).toBeLessThan(doc.indexOf('outro'));
+  });
+  it('a document without columns stays one section; a column break becomes a Word column break', async () => {
+    expect((await xml('<p>plain</p>')).match(/<w:sectPr/g)).toHaveLength(1);
+    const doc = await xml('<div data-columns="2"><p>left</p><div data-column-break></div><p>right</p></div>');
+    expect(doc).toContain('<w:br w:type="column"');
+  });
+  it('insertColumnBreak only works inside columns and shows in the editor', () => {
+    const ed = make('<p>x</p><div data-columns="2"><p>a</p></div>');
+    ed.view.dispatch(ed.view.state.tr.setSelection(TextSelection.create(ed.view.state.doc, 2)));
+    expect(ed.execute('insertColumnBreak')).toBe(false);
+    ed.view.dispatch(ed.view.state.tr.setSelection(TextSelection.atEnd(ed.view.state.doc)));
+    expect(ed.execute('insertColumnBreak')).toBe(true);
+    expect(ed.view.dom.querySelector('.wy-columns .wy-column-break')).not.toBeNull();
+    ed.destroy();
+  });
+});
+
+describe('setDocumentColumns', () => {
+  it('puts everything below the title in columns, changes the count and restores one column', () => {
+    const ed = make('<h1>Title</h1><p>a</p><p>b</p>');
+    expect(ed.execute('setDocumentColumns', 2)).toBe(true);
+    expect(ed.view.state.doc.child(0).type.name).toBe('heading');
+    expect(ed.view.state.doc.child(1).type.name).toBe('columns');
+    expect(ed.execute('setDocumentColumns', 3)).toBe(true);
+    expect(ed.view.state.doc.child(1).attrs.count).toBe(3);
+    expect(ed.execute('setDocumentColumns', 1)).toBe(true);
+    expect([...Array(ed.view.state.doc.childCount).keys()].map((i) => ed.view.state.doc.child(i).type.name)).toEqual(['heading', 'paragraph', 'paragraph']);
+    expect(ed.execute('setDocumentColumns', 1)).toBe(false);
     ed.destroy();
   });
 });

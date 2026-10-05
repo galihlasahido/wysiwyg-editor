@@ -160,3 +160,23 @@ test('a PDF opens as editable text and the document exports as a valid EPUB', as
   expect(bytes.toString('latin1')).toContain('application/epub+zip');
   expect(problems).toEqual([]);
 });
+
+test('columns lay out side by side and the .docx has real Word columns', async ({ page }) => {
+  const problems = await openDemo(page, 'columns');
+  await editorReady(page);
+  const box = page.locator('.ProseMirror .wy-columns');
+  const ps = box.locator('p');
+  const a = await ps.nth(0).boundingBox();
+  const b = await ps.nth(1).boundingBox();
+  expect(b!.x).toBeGreaterThan(a!.x + a!.width / 2); // the second paragraph starts in the second column
+  await page.getByRole('button', { name: '3 columns' }).click(); // the cursor is outside: nothing changes, no error
+  await page.locator('.ProseMirror p', { hasText: 'Select blocks' }).click();
+  await page.getByRole('button', { name: 'Whole page in 2 columns' }).click();
+  await expect(page.locator('.ProseMirror .wy-columns')).toHaveCount(1);
+  const ok = await page.evaluate(async () => {
+    const blob: Blob = await (window as any).editor.exportDocx();
+    return blob.size > 1000;
+  });
+  expect(ok).toBe(true); // the section XML itself is checked in the unit tests
+  expect(problems).toEqual([]);
+});

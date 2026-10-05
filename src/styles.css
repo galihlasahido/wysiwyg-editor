@@ -760,3 +760,7 @@ del.wy-diff-del, .wy-diff-legend .wy-diff-del { background: #fee2e2; color: #7f1
 @keyframes wy-rec-pulse { 50% { opacity: .25; } }
 @media (prefers-reduced-motion: reduce) { .wy-rec-dot { animation: none; } }
 @media print { .wy-rec-bar { display: none; } .wy-clip audio, .wy-clip video { display: none; } .wy-clip::after { content: attr(data-name); font-size: 12px; } }
+.wy-column-break { break-after: column; height: 0; margin: 0; border-top: 1px dashed var(--wy-border-2); position: relative; }
+.wy-column-break::after { content: 'column break'; position: absolute; right: 0; top: -9px; font-size: 10px; padding: 0 4px; background: var(--wy-page-bg); color: var(--wy-page-muted); }
+.wy-column-break.ProseMirror-selectednode { border-top-color: var(--wy-accent); }
+@media print { .wy-column-break { border: 0; } .wy-column-break::after { content: none; } }
