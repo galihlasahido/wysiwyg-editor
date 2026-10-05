@@ -1,0 +1,41 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": [
+    "src/index.ts",
+    "src/collab.ts",
+    "src/docx.ts",
+    "src/pdf.ts",
+    "src/epub.ts",
+    "src/adapter.ts",
+    "src/svelte.ts",
+    "src/react.ts",
+    "src/vue.ts"
+  ],
+  "entryPointStrategy": "resolve",
+  "out": "api-docs",
+  "name": "wysiwyg-editor API",
+  "tsconfig": "tsconfig.json",
+  "readme": "README.md",
+  "excludePrivate": true,
+  "excludeInternal": true,
+  "skipErrorChecking": false,
+  "treatWarningsAsErrors": false,
+  "validation": {
+    "notExported": false,
+    "invalidLink": true,
+    "notDocumented": false
+  },
+  "navigationLinks": {
+    "Demos": "https://galihlasahido.github.io/wysiwyg-editor/",
+    "GitHub": "https://github.com/galihlasahido/wysiwyg-editor"
+  },
+  "highlightLanguages": [
+    "typescript",
+    "javascript",
+    "svelte",
+    "json",
+    "bash",
+    "css",
+    "html"
+  ]
+}

@@ -47,29 +47,44 @@
     "./style.css": "./dist/style.css"
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "dev": "vite",
-    "build": "vite build && tsc -p tsconfig.build.json",
+    "build": "vite build && tsc -p tsconfig.build.json && node scripts/fix-dts.mjs dist",
     "build:demo": "vite build --config vite.demo.config.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "server": "tsx server/index.ts",
     "prepack": "pnpm build",
     "e2e": "playwright test",
-    "e2e:ui": "playwright test --ui"
+    "e2e:ui": "playwright test --ui",
+    "docs:api": "npx --yes -p typedoc@0.28.20 -p typescript@5.9.3 typedoc",
+    "prepublishOnly": "pnpm typecheck && pnpm test && pnpm build",
+    "check:package": "pnpm build && pnpm dlx publint && pnpm dlx @arethetypeswrong/cli --pack . --profile esm-only --ignore-rules cjs-resolves-to-esm no-resolution"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/galihlasahido/wysiwyg-editor.git"
   },
   "keywords": [
-    "wysiwyg",
-    "rich-text-editor",
+    "ckeditor-alternative",
+    "collaboration",
+    "docx",
+    "editor",
+    "epub",
+    "markdown",
+    "pdf",
     "prosemirror",
+    "rich-text",
+    "rich-text-editor",
+    "track-changes",
     "typescript",
-    "ckeditor-alternative"
+    "wysiwyg",
+    "yjs"
   ],
   "dependencies": {
     "markdown-it": "^15.0.2",
@@ -117,9 +132,9 @@
   },
   "peerDependencies": {
     "docx": "*",
+    "jszip": "*",
     "katex": "*",
     "lib0": "*",
-    "jszip": "*",
     "mammoth": "*",
     "mermaid": "*",
     "pdfjs-dist": "*",
@@ -166,5 +181,16 @@
     "mermaid": {
       "optional": true
     }
-  }
+  },
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "homepage": "https://galihlasahido.github.io/wysiwyg-editor/",
+  "bugs": {
+    "url": "https://github.com/galihlasahido/wysiwyg-editor/issues"
+  },
+  "author": "Galih Lasahido"
 }
