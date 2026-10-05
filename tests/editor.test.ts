@@ -413,3 +413,37 @@ describe('Paragraph indents and spacing', () => {
     expect((e.getHTML().match(/margin-left: 24px/g) ?? []).length).toBe(2);
   });
 });
+
+describe('word count on a big document', () => {
+  it('counts at once on load, then waits for a pause while typing', async () => {
+    const el = document.body.appendChild(document.createElement('div'));
+    const big = '<p>word </p>'.repeat(8000);
+    const e = createEditor({ element: el, content: big });
+    const bar = e.root.querySelector('.wy-statusbar')!;
+    expect(bar.textContent).toContain('8000 words');
+    e.view.dispatch(e.view.state.tr.insertText('extra ', 1));
+    expect(bar.textContent).toContain('8000 words'); // not recounted on every key
+    await new Promise((r) => setTimeout(r, 320));
+    expect(bar.textContent).toContain('8001 words');
+    e.destroy();
+    el.remove();
+  });
+});
+
+describe('Markdown of long documents', () => {
+  it('is identical when serialised in batches', async () => {
+    const { docToMarkdown } = await import('../src/markdown');
+    const html = '<h1>Title</h1><p>one <strong>b</strong> <a href="https://x.test/a_b">l</a></p><p></p><ul><li><p>a</p></li><li><p>b</p></li></ul><ol><li><p>x</p></li></ol><ul><li><p>again</p></li></ul><blockquote><p>q</p></blockquote><pre><code>code\n  here</code></pre><hr><p>after<br>break</p><p></p><p></p><table><tr><th>A</th><th>B</th></tr><tr><td>1</td><td>2</td></tr></table><p>end</p>';
+    const el = document.body.appendChild(document.createElement('div'));
+    const e = createEditor({ element: el, content: html });
+    const whole = docToMarkdown(e.view.state.doc, 10_000);
+    for (const chunk of [1, 2, 3, 5]) expect(docToMarkdown(e.view.state.doc, chunk), `chunk ${chunk}`).toBe(whole);
+    e.setHTML('<table><tr><td>last</td></tr></table>');
+    const tail = docToMarkdown(e.view.state.doc, 10_000);
+    e.setHTML(`<p>x</p>${'<p>y</p>'.repeat(4)}<table><tr><td>last</td></tr></table>`);
+    expect(docToMarkdown(e.view.state.doc, 2)).toBe(docToMarkdown(e.view.state.doc, 10_000));
+    void tail;
+    e.destroy();
+    el.remove();
+  });
+});

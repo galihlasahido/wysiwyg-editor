@@ -196,6 +196,18 @@ export class EditorComponent implements ControlValueAccessor, AfterViewInit, OnD
 }
 ```
 
+**Large documents**: measured in Chromium on an Apple-silicon laptop with the defaults plus comments, track changes, captions, columns, charts, form fields and embeds (one "block" is a paragraph of about 300 characters, so 10,000 blocks is roughly 3 MB of HTML, well over a thousand printed pages):
+
+| blocks | open | typing (median / p95) | getHTML | getMarkdown | setHTML |
+| --- | --- | --- | --- | --- | --- |
+| 500 | 29 ms | 0.5 / 1 ms | 3 ms | 5 ms | 32 ms |
+| 2,000 | 72 ms | 1.5 / 3 ms | 10 ms | 13 ms | 0.16 s |
+| 5,000 | 151 ms | 3.3 / 4 ms | 25 ms | 28 ms | 0.6 s |
+| 10,000 | 291 ms | 6.7 / 8 ms | 49 ms | 49 ms | 1.8 s |
+| 20,000 | 555 ms | 13.9 / 19 ms | 93 ms | 95 ms | 6 s |
+
+Typing stays inside one 60 Hz frame up to about 15,000 blocks; the paged view adds roughly a millisecond per key at 2,000 blocks. Replacing a very large document (`setHTML`, opening a file) is bound by ProseMirror creating the DOM; there is no virtualisation, so past about 20,000 blocks split the content. The measurement came with fixes: the word count no longer re-reads the whole text on every key in big documents (it waits for a pause), and Markdown export is linear instead of quadratic (20,000 blocks took 10 s). Reproduce with `PERF=1 pnpm e2e e2e/perf.spec.ts --project=chromium --workers=1` (`e2e/perf-plugins.spec.ts` shows which plugins cost the most per keystroke); other browsers and slower machines will differ. Other plugins still scan the whole document on each change (captions, table of contents, footnotes, comments): about 8 ms of the 10 ms per key at 10,000 blocks is these, a candidate for incremental updates.
+
 **Restricted editing**: `RestrictedEditing()` adds `locked_section` blocks (a title with the table of contents, legal
 text) that cannot be changed, and `editable_region` blocks that can, while everything else stays ordinary text. It is
 enforced by rejecting transactions, so typing, deleting, pasting, dropping and find & replace are all covered, including

@@ -2,6 +2,9 @@ import type { Node as PMNode } from 'prosemirror-model';
 import { Plugin } from 'prosemirror-state';
 import type { EditorPlugin } from '../types';
 
+/** Documents up to this size (in positions, about 30 pages) are counted synchronously on every change. */
+const SYNC_LIMIT = 30_000;
+
 export interface Stats { words: number; characters: number; charactersNoSpaces: number }
 
 export function getStats(doc: PMNode): Stats {
@@ -28,17 +31,24 @@ export const WordCount: EditorPlugin = {
           editor.root.append(bar);
           let last: PMNode | null = null;
           let base = '';
+          let timer = 0;
+          const recount = () => {
+            timer = 0;
+            last = view.state.doc;
+            const s = getStats(last);
+            base = `${s.words} word${s.words === 1 ? '' : 's'} · ${s.characters} characters`;
+          };
           const render = () => {
             if (view.state.doc !== last) {
-              last = view.state.doc;
-              const s = getStats(last);
-              base = `${s.words} word${s.words === 1 ? '' : 's'} · ${s.characters} characters`;
+              // Counting reads the whole text, so on a big document it waits for a pause in typing instead of running on every key.
+              if (last === null || view.state.doc.content.size <= SYNC_LIMIT) recount(); // the first count is always immediate
+              else if (!timer) timer = window.setTimeout(() => { recount(); render(); }, 250);
             }
             const pages = editor.root.dataset.pages;
             bar.textContent = pages ? `${base} · ${pages} page${pages === '1' ? '' : 's'}` : base;
           };
           render();
-          return { update: render, destroy: () => bar.remove() };
+          return { update: render, destroy: () => { window.clearTimeout(timer); bar.remove(); } };
         },
       }),
     ];

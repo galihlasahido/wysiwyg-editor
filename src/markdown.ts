@@ -180,8 +180,24 @@ const serializer = new MarkdownSerializer(
   },
 );
 
-export function docToMarkdown(doc: PMNode): string {
-  return serializer.serialize(doc);
+/** Top-level blocks serialised together; see `docToMarkdown`. */
+export const MARKDOWN_CHUNK = 150;
+
+/**
+ * prosemirror-markdown re-scans its whole output string for every block, which makes long documents take quadratic time
+ * (20,000 paragraphs took ten seconds). Top-level blocks are independent and are joined by a blank line anyway, so a long document
+ * is serialised in batches and the batches are joined the same way: the text is identical and the cost is linear.
+ */
+export function docToMarkdown(doc: PMNode, chunk = MARKDOWN_CHUNK): string {
+  if (doc.childCount <= chunk) return serializer.serialize(doc);
+  const parts: string[] = [];
+  for (let i = 0; i < doc.childCount; i += chunk) {
+    const kids: PMNode[] = [];
+    for (let j = i; j < Math.min(doc.childCount, i + chunk); j++) kids.push(doc.child(j));
+    parts.push(serializer.serialize(doc.copy(Fragment.from(kids))));
+  }
+  // a block can end in its own newline (tables do); the blank line between blocks is added once, as in the single pass
+  return parts.map((p, i) => (i > 0 ? p.replace(/^\n+/, '') : p)).map((p, i, all) => (i < all.length - 1 ? p.replace(/\n+$/, '') : p)).filter((p) => p !== '').join('\n\n');
 }
 
 export function markdownToDoc(schema: Schema, md: string): PMNode {

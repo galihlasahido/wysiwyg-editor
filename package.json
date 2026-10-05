@@ -183,7 +183,8 @@
     }
   },
   "sideEffects": [
-    "**/*.css"
+    "**/*.css",
+    "./src/**"
   ],
   "engines": {
     "node": ">=18"
