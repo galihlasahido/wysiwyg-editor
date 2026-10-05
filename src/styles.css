@@ -525,8 +525,12 @@ textarea.wy-ask-input { min-height: 84px; max-height: 40vh; }
 .wy-ie-tool:hover { background: color-mix(in srgb, var(--wy-accent) 10%, transparent); }
 .wy-ie-tool[aria-pressed="true"] { background: color-mix(in srgb, var(--wy-accent) 18%, transparent); border-color: var(--wy-accent); }
 .wy-ie-ico { font-size: 18px; line-height: 1; }
-.wy-ie-stage { position: relative; display: flex; align-items: center; justify-content: center; min-width: 0; min-height: 0; overflow: auto; padding: 16px; background: repeating-conic-gradient(color-mix(in srgb, var(--wy-fg) 7%, transparent) 0 25%, transparent 0 50%) 0 0 / 18px 18px; }
-.wy-ie-holder { position: relative; display: inline-block; max-width: 100%; max-height: 100%; line-height: 0; }
+.wy-ie-stage { position: relative; display: flex; min-width: 0; min-height: 0; overflow: auto; padding: 16px; background: repeating-conic-gradient(color-mix(in srgb, var(--wy-fg) 7%, transparent) 0 25%, transparent 0 50%) 0 0 / 18px 18px; }
+.wy-ie-holder { position: relative; display: inline-block; margin: auto; max-width: 100%; max-height: 100%; line-height: 0; flex: none; }
+.wy-ie-stage.is-zoomed .wy-ie-holder { max-width: none; max-height: none; }
+.wy-ie-stage.is-zoomed .wy-ie-canvas { max-width: none; max-height: none; }
+.wy-ie-stage.can-pan { cursor: grab; } .wy-ie-stage.is-panning { cursor: grabbing; }
+.wy-ie-stage.can-pan .wy-ie-overlay { pointer-events: none; }
 .wy-ie-canvas { display: block; max-width: 100%; max-height: calc(min(760px, 100vh) - 190px); width: auto; height: auto; box-shadow: 0 2px 12px rgba(0, 0, 0, .35); background: #fff0; }
 .wy-ie-overlay { position: absolute; inset: 0; touch-action: none; }
 .wy-ie-overlay.is-draw { cursor: crosshair; }
@@ -652,3 +656,8 @@ textarea.wy-ask-input { min-height: 84px; max-height: 40vh; }
 .wy-tb-pop { position: absolute; inset-inline-end: 6px; top: calc(100% + 2px); z-index: 30; display: flex; flex-wrap: wrap; gap: 2px; max-width: min(380px, 92vw); padding: 6px; border: 1px solid var(--wy-border-2); border-radius: 8px; background: var(--wy-bg); box-shadow: var(--wy-pop-shadow); }
 .wy-toolbar.is-bottom .wy-tb-pop { top: auto; bottom: calc(100% + 2px); }
 @media print { .wy-tb-pop { display: none; } }
+
+.wy-ie-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.wy-ie-zoom { display: inline-flex; align-items: center; gap: 4px; }
+.wy-ie-zoom .wy-btn { height: 26px; padding: 0 9px; border-radius: 6px; }
+.wy-ie-zoomval { min-width: 56px; font-variant-numeric: tabular-nums; }

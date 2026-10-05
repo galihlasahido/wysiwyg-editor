@@ -154,3 +154,20 @@ describe('FileManager plugin', () => {
     expect((await fm.store.list()).map((f) => f.name)).toEqual(['p.png']);
   });
 });
+
+describe('image editor loading', () => {
+  it('explains a CORS refusal in plain words, and honours a custom fetchSource', async () => {
+    const { openImageEditor } = await import('../src');
+    const original = globalThis.fetch;
+    globalThis.fetch = (async () => { throw new TypeError('Failed to fetch'); }) as typeof fetch;
+    await expect(openImageEditor(document.body, { source: 'https://other.example/a.png' })).rejects.toThrow(/CORS/);
+    globalThis.fetch = original;
+    let asked = '';
+    await expect(openImageEditor(document.body, { source: 'https://other.example/b.png', fetchSource: async (u) => { asked = u; return new Blob(['x'], { type: 'text/plain' }); } })).rejects.toThrow(/cannot be edited as a picture/);
+    expect(asked).toBe('https://other.example/b.png'); // the proxy was used instead of fetch
+  });
+  it('refuses SVG and non-image data', async () => {
+    const { openImageEditor } = await import('../src');
+    await expect(openImageEditor(document.body, { source: new Blob(['<svg/>'], { type: 'image/svg+xml' }) })).rejects.toThrow(/cannot be edited/);
+  });
+});

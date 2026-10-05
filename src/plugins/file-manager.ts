@@ -20,6 +20,8 @@ export interface FileManagerPluginOptions {
    * (it returns an https URL) to make attachments work for every reader.
    */
   resolveUrl?: (file: StoredFile, blob: Blob) => Promise<string>;
+  /** Get the bytes of a remote picture for "Edit image" (a picture from another site needs CORS, or your own proxy here). */
+  fetchImage?: (url: string) => Promise<Blob>;
   /** Also keep images that are dropped, pasted or uploaded in the library. Default true. */
   captureImages?: boolean;
   /** Accept non-image files dropped or pasted into the document. Default true. */
@@ -122,7 +124,7 @@ export function FileManager(options: FileManagerPluginOptions = {}): EditorPlugi
         const { from, node } = sel;
         void (async () => {
           try {
-            const result = await openImageEditor(e.root, { source: node.attrs.src, name: node.attrs.alt ?? undefined, saveLabel: 'Apply to document' });
+            const result = await openImageEditor(e.root, { source: node.attrs.src, name: node.attrs.alt ?? undefined, saveLabel: 'Apply to document', fetchSource: options.fetchImage });
             if (!result) return;
             const ext = result.type === 'image/jpeg' ? 'jpg' : result.type === 'image/webp' ? 'webp' : 'png';
             const base = cleanFileName(node.attrs.alt || 'image', 'image');

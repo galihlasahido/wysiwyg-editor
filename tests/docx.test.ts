@@ -2,7 +2,7 @@ import JSZip from 'jszip';
 import { Packer } from 'docx';
 import { describe, expect, it } from 'vitest';
 import { TextSelection } from 'prosemirror-state';
-import { type EditorPlugin, Comments, Editor, TrackChanges, defaultPlugins, Pages } from '../src';
+import { type EditorPlugin, Comments, Editor, Equations, Mermaid, TrackChanges, defaultPlugins, Pages } from '../src';
 import { buildDocx, imageInfo, importDocx } from '../src/docx';
 
 // 1x1 transparent PNG
@@ -194,5 +194,23 @@ describe('docx limits', () => {
     const editor = { replaceHTML() { throw new Error('should not be reached'); } } as never;
     const big = { size: 60 * 1024 * 1024 } as Blob;
     await expect(importDocx(editor, big)).rejects.toThrow(/too large/);
+  });
+});
+
+describe('equations and diagrams in Word', () => {
+  it('writes LaTeX as native Word equations, falling back to text for what it cannot convert', async () => {
+    const e = make('<p>Area <span data-math="\\pi r^2"></span> and <span data-math="\\begin{pmatrix}a\\end{pmatrix}"></span></p><div data-math-block="\\frac{a}{b}"></div>', [Equations()]);
+    const { doc } = await parts(e);
+    expect(doc).toContain('<m:oMath>');
+    expect(doc).toContain('<m:f>'); // the display equation
+    expect(doc).toContain('<m:sSup>'); // r^2
+    expect(doc).toContain('\\begin{pmatrix}a\\end{pmatrix}'); // unsupported: kept as text, never silently dropped
+  });
+  it('keeps a diagram as labelled source when it cannot be drawn (no canvas), without failing the export', async () => {
+    const fake = { initialize() {}, render: async () => ({ svg: '<svg viewBox="0 0 10 10"><text>x</text></svg>' }) };
+    const e = make('<p>x</p><figure data-mermaid="graph TD\n A-->B"></figure>', [Mermaid({ mermaid: fake })]);
+    const { doc } = await parts(e);
+    expect(doc).toContain('Diagram (Mermaid source)');
+    expect(doc).toContain('graph TD');
   });
 });

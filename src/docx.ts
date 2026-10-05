@@ -5,6 +5,8 @@
 import * as D from 'docx';
 import type { Mark, Node as PMNode } from 'prosemirror-model';
 import { cropBytes, cropToString, type Crop } from './crop';
+import { latexToDocx } from './latex-docx';
+import { rasterizeSVG } from './svg-raster';
 import type { Editor } from './editor';
 import type { PageSettings } from './plugins/pages';
 import type { CommentsPlugin, CommentThread } from './plugins/comments';
@@ -118,6 +120,8 @@ function collectImages(doc: PMNode): { key: string; src: string; crop: Crop | nu
 
 interface Ctx {
   images: Map<string, ImageData | null>;
+  /** Mermaid diagrams drawn to PNG, by source. */
+  diagrams: Map<string, ImageData | null>;
   footnotes: Record<number, { children: D.Paragraph[] }>;
   numbering: D.ILevelsOptions[][];
   numberingRefs: string[];
@@ -207,7 +211,8 @@ function inlineChildren(node: PMNode, ctx: Ctx): D.ParagraphChild[] {
     } else if (child.type.name === 'mention') {
       run = new D.TextRun({ text: `@${child.attrs.label}`, color: '1D4ED8', ...o });
     } else if (child.type.name === 'math_inline') {
-      run = new D.TextRun({ text: child.attrs.tex, font: 'Cambria Math', italics: true, ...o }); // the LaTeX source: Word's own equation format is not produced
+      const eq = latexToDocx(child.attrs.tex); // a native Word equation; the LaTeX text when the formula is outside what we convert
+      run = eq ? (new D.Math({ children: eq }) as unknown as D.ParagraphChild) : new D.TextRun({ text: child.attrs.tex, font: 'Cambria Math', italics: true, ...o });
     } else if (child.type.name === 'attachment') {
       run = new D.TextRun({ text: `[${child.attrs.name}]`, color: '1D4ED8', ...o });
     } else if (child.type.name === 'hard_break') {
@@ -328,14 +333,22 @@ function blocks(node: PMNode, ctx: Ctx): Block[] {
     }
     case 'code_block':
       return node.textContent.split('\n').map((line) => new D.Paragraph({ children: [new D.TextRun({ text: line, font: 'Courier New', size: 20 })], shading: { type: D.ShadingType.CLEAR, fill: 'F0F0F0', color: 'auto' } }));
-    case 'math_block':
-      return [new D.Paragraph({ alignment: D.AlignmentType.CENTER, spacing: { before: 120, after: 120 }, children: [new D.TextRun({ text: node.attrs.tex, font: 'Cambria Math', italics: true })] })];
-    case 'mermaid_diagram':
-      // a picture of the diagram would need a rasteriser: keep the source, clearly labelled
+    case 'math_block': {
+      const eq = latexToDocx(node.attrs.tex);
+      return [new D.Paragraph({ alignment: D.AlignmentType.CENTER, spacing: { before: 120, after: 120 }, children: eq ? [new D.Math({ children: eq }) as unknown as D.ParagraphChild] : [new D.TextRun({ text: node.attrs.tex, font: 'Cambria Math', italics: true })] })];
+    }
+    case 'mermaid_diagram': {
+      const png = ctx.diagrams.get(node.attrs.code);
+      if (png) {
+        const w = Math.min(png.width / 2, 600); // drawn at 2x for sharpness
+        return [new D.Paragraph({ alignment: D.AlignmentType.CENTER, spacing: { before: 120, after: 120 }, children: [new D.ImageRun({ type: 'png', data: png.data, transformation: { width: w, height: Math.max(1, Math.round((w * png.height) / png.width)) }, altText: { name: 'diagram', title: 'Diagram', description: String(node.attrs.code).slice(0, 200) } })] })];
+      }
+      // no canvas (or an invalid diagram): keep the source, clearly labelled
       return [
         new D.Paragraph({ children: [new D.TextRun({ text: 'Diagram (Mermaid source)', italics: true, color: '6B7280', size: 18 })] }),
         ...String(node.attrs.code).split('\n').map((line) => new D.Paragraph({ children: [new D.TextRun({ text: line, font: 'Courier New', size: 20 })], shading: { type: D.ShadingType.CLEAR, fill: 'F0F0F0', color: 'auto' } })),
       ];
+    }
     case 'horizontal_rule':
       return [new D.Paragraph({ border: { bottom: { style: D.BorderStyle.SINGLE, size: 6, color: '999999', space: 1 } } })];
     case 'page_break':
@@ -380,8 +393,25 @@ export async function buildDocx(editor: Editor, options: ExportOptions = {}): Pr
     }),
   );
 
+  // Diagrams: render each Mermaid source to SVG with the editor's plugin, then to PNG (needs a browser canvas).
+  const diagrams = new Map<string, ImageData | null>();
+  const renderSVG = (editor.extensions.mermaid as { renderSVG?: (code: string, dark?: boolean) => Promise<string> } | undefined)?.renderSVG;
+  const codes = new Set<string>();
+  doc.descendants((n) => void (n.type.name === 'mermaid_diagram' && codes.add(n.attrs.code)));
+  if (renderSVG) {
+    await Promise.all([...codes].map(async (code) => {
+      try {
+        const png = await rasterizeSVG(await renderSVG(code, false));
+        diagrams.set(code, png ? { data: png.data, type: 'png', width: png.width, height: png.height } : null);
+      } catch {
+        diagrams.set(code, null); // an invalid diagram: its source is written instead
+      }
+    }));
+  }
+
   const ctx: Ctx = {
     images,
+    diagrams,
     footnotes: {},
     numbering: [],
     numberingRefs: [],

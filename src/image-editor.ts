@@ -13,6 +13,11 @@ export interface ImageEditorOptions {
   /** 0.1..1 for JPEG / WebP. Default 0.92. */
   quality?: number;
   saveLabel?: string;
+  /**
+   * How to get the bytes of a remote address. A picture from another site can only be edited if that site allows CORS;
+   * give this (for example a call to your own server that fetches it) when it does not.
+   */
+  fetchSource?: (url: string) => Promise<Blob>;
 }
 
 export interface ImageEditResult {
@@ -81,23 +86,31 @@ function scaled(src: HTMLCanvasElement, w: number, h: number): HTMLCanvasElement
   return out;
 }
 
-async function load(source: Blob | string): Promise<HTMLImageElement> {
+async function load(source: Blob | string, fetchSource?: (url: string) => Promise<Blob>): Promise<HTMLImageElement> {
   let blob: Blob;
   if (typeof source === 'string') {
     if (/^data:/i.test(source)) blob = await (await fetch(source)).blob();
     else if (/^https?:|^\//i.test(source)) {
-      const res = await fetch(source, { credentials: 'omit', referrerPolicy: 'no-referrer' });
-      if (!res.ok) throw new Error(`Could not load the image (${res.status}).`);
-      blob = await res.blob();
+      if (fetchSource) blob = await fetchSource(source);
+      else {
+        let res: Response;
+        try {
+          res = await fetch(source, { credentials: 'omit', referrerPolicy: 'no-referrer' });
+        } catch {
+          // a TypeError from fetch is how browsers report a CORS refusal or no network
+          throw new Error('This picture cannot be opened here: its server does not allow it (CORS). Save it, add it to the file library, and edit it from there.');
+        }
+        if (!res.ok) throw new Error(`Could not load the image (${res.status}).`);
+        blob = await res.blob();
+      }
     } else throw new Error('Unsupported image address.');
   } else blob = source;
   if (!blob.type.startsWith('image/') || blob.type === 'image/svg+xml') throw new Error('This file type cannot be edited as a picture.');
   const url = URL.createObjectURL(blob);
   try {
     const img = new Image();
-    img.decoding = 'async';
-    img.src = url;
-    await img.decode();
+    // onload, not img.decode(): decode() never settles while the tab is in the background
+    await new Promise<void>((ok, fail) => { const t = setTimeout(() => fail(new Error('timeout')), 30000); img.onload = () => (clearTimeout(t), ok()); img.onerror = () => (clearTimeout(t), fail(new Error('decode'))); img.src = url; });
     return img;
   } catch {
     throw new Error('The image could not be read.');
@@ -113,7 +126,7 @@ async function load(source: Blob | string): Promise<HTMLImageElement> {
  * (an unsupported type, or a remote address that does not allow CORS).
  */
 export async function openImageEditor(root: HTMLElement, options: ImageEditorOptions): Promise<ImageEditResult | null> {
-  const img = await load(options.source);
+  const img = await load(options.source, options.fetchSource);
   const maxPixels = options.maxPixels ?? 24_000_000;
   const k = Math.min(1, Math.sqrt(maxPixels / (img.naturalWidth * img.naturalHeight)));
   let work = canvasOf(img.naturalWidth * k, img.naturalHeight * k);
@@ -164,6 +177,9 @@ export async function openImageEditor(root: HTMLElement, options: ImageEditorOpt
     const panel = el('div', 'wy-ie-panel');
     body.append(rail, stage, panel);
     const foot = el('div', 'wy-ie-foot');
+    const info = el('span', 'wy-ie-footinfo');
+    const zoomBar = el('div', 'wy-ie-zoom');
+    foot.append(info, zoomBar);
     dlg.append(head, body, foot);
     backdrop.append(dlg);
 
@@ -172,7 +188,61 @@ export async function openImageEditor(root: HTMLElement, options: ImageEditorOpt
       shown = c;
       c.className = 'wy-ie-canvas';
       holder.replaceChildren(c, overlay);
+      applyZoom();
     };
+
+    // ---- zoom and pan: null = fit the picture to the stage
+    let zoom: number | null = null;
+    const zoomLabel = el('button', 'wy-btn wy-ie-zoomval', 'Fit');
+    zoomLabel.type = 'button';
+    zoomLabel.title = 'Click: 100% / Fit  ·  Ctrl/Cmd + wheel zooms  ·  hold Space and drag to pan';
+    function applyZoom() {
+      stage.classList.toggle('is-zoomed', zoom !== null);
+      // size by the working image, whatever bitmap is shown (an adjust preview is a smaller copy)
+      shown.style.width = zoom === null ? '' : `${work.width * zoom}px`;
+      shown.style.height = zoom === null ? '' : `${work.height * zoom}px`;
+      zoomLabel.textContent = zoom === null ? 'Fit' : `${Math.round(zoom * 100)}%`;
+      positionCrop();
+    }
+    const fitScale = () => { const r = stage.getBoundingClientRect(); return Math.min(1, Math.max(0.01, Math.min((r.width - 32) / work.width, (r.height - 32) / work.height))); };
+    /** Change the zoom, keeping the point under (cx, cy) in place. */
+    function setZoom(next: number | null, cx?: number, cy?: number) {
+      const before = shown.getBoundingClientRect();
+      const relX = cx !== undefined && before.width ? (cx - before.left) / before.width : 0.5;
+      const relY = cy !== undefined && before.height ? (cy - before.top) / before.height : 0.5;
+      zoom = next === null ? null : limit(next, 0.05, 8);
+      applyZoom();
+      const after = shown.getBoundingClientRect();
+      const ax = cx ?? before.left + before.width / 2;
+      const ay = cy ?? before.top + before.height / 2;
+      stage.scrollLeft += after.left + relX * after.width - ax;
+      stage.scrollTop += after.top + relY * after.height - ay;
+      positionCrop();
+    }
+    const zoomBy = (f: number, cx?: number, cy?: number) => setZoom((zoom ?? fitScale()) * f, cx, cy);
+    for (const [label, title, fn] of [['−', 'Zoom out', () => zoomBy(1 / 1.25)], ['+', 'Zoom in', () => zoomBy(1.25)]] as [string, string, () => void][]) {
+      const b = button(label, fn, 'wy-btn wy-ie-zoombtn');
+      b.title = title; b.setAttribute('aria-label', title);
+      zoomBar.append(b);
+    }
+    zoomLabel.addEventListener('click', () => (zoom === null || Math.abs(zoom - 1) > 0.001 ? setZoom(1) : setZoom(null)));
+    zoomBar.insertBefore(zoomLabel, zoomBar.lastElementChild);
+    stage.addEventListener('wheel', (e) => { if (e.ctrlKey || e.metaKey) { e.preventDefault(); zoomBy(e.deltaY < 0 ? 1.12 : 1 / 1.12, e.clientX, e.clientY); } }, { passive: false });
+    // Pan: hold Space and drag, or drag with the middle button. Captured on the stage so tools never see these presses.
+    let spaceDown = false;
+    let pan: { x: number; y: number; sl: number; st: number } | null = null;
+    stage.addEventListener('pointerdown', (e) => {
+      if (!(spaceDown || e.button === 1)) return;
+      e.preventDefault(); e.stopPropagation();
+      stage.setPointerCapture(e.pointerId);
+      pan = { x: e.clientX, y: e.clientY, sl: stage.scrollLeft, st: stage.scrollTop };
+      stage.classList.add('is-panning');
+    }, true);
+    stage.addEventListener('pointermove', (e) => { if (pan) { stage.scrollLeft = pan.sl - (e.clientX - pan.x); stage.scrollTop = pan.st - (e.clientY - pan.y); } });
+    const endPan = () => { pan = null; stage.classList.remove('is-panning'); };
+    stage.addEventListener('pointerup', endPan);
+    stage.addEventListener('pointercancel', endPan);
+    stage.addEventListener('scroll', () => positionCrop(), { passive: true });
     function showWork() { showCanvas(work); refresh(); positionCrop(); }
     const toImage = (e: PointerEvent): [number, number] => {
       const r = shown.getBoundingClientRect();
@@ -479,7 +549,7 @@ export async function openImageEditor(root: HTMLElement, options: ImageEditorOpt
       undoBtn.disabled = !undo.length;
       redoBtn.disabled = !redo.length;
       resetBtn.disabled = !undo.length;
-      foot.textContent = `${work.width} × ${work.height} px`;
+      info.textContent = `${work.width} × ${work.height} px`;
     }
     formatSel.addEventListener('change', () => { outType = formatSel.value as typeof outType; qLabel.hidden = outType === 'image/png'; });
     qInput.addEventListener('input', () => (quality = Number(qInput.value) / 100));
@@ -513,12 +583,12 @@ export async function openImageEditor(root: HTMLElement, options: ImageEditorOpt
         }
         const blob = await new Promise<Blob | null>((ok) => out.toBlob(ok, outType, quality));
         if (!blob) throw new Error('The browser could not encode the picture.');
-        foot.textContent = `${work.width} × ${work.height} px · ${formatBytes(blob.size)}`;
+        info.textContent = `${work.width} × ${work.height} px · ${formatBytes(blob.size)}`;
         finish({ blob, width: work.width, height: work.height, type: blob.type || outType });
       } catch (err) {
         saveBtn.disabled = false;
         saveBtn.textContent = options.saveLabel ?? 'Save';
-        foot.textContent = err instanceof Error ? err.message : 'Could not save.';
+        info.textContent = err instanceof Error ? err.message : 'Could not save.';
       }
     }
 
@@ -526,6 +596,11 @@ export async function openImageEditor(root: HTMLElement, options: ImageEditorOpt
       const t = e.target as HTMLElement;
       const typing = t.tagName === 'TEXTAREA' || (t.tagName === 'INPUT' && (t as HTMLInputElement).type === 'number');
       if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); requestClose(); }
+      else if (!typing && t.tagName !== 'BUTTON' && e.key === ' ') { e.preventDefault(); spaceDown = true; stage.classList.add('can-pan'); }
+      else if (!typing && !e.metaKey && !e.ctrlKey && (e.key === '+' || e.key === '=')) { e.preventDefault(); zoomBy(1.25); }
+      else if (!typing && !e.metaKey && !e.ctrlKey && (e.key === '-' || e.key === '_')) { e.preventDefault(); zoomBy(1 / 1.25); }
+      else if (!typing && !e.metaKey && !e.ctrlKey && e.key === '0') { e.preventDefault(); setZoom(null); }
+      else if (!typing && !e.metaKey && !e.ctrlKey && e.key === '1') { e.preventDefault(); setZoom(1); }
       else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z' && !typing) { e.preventDefault(); e.shiftKey ? doRedo() : doUndo(); }
       else if (e.key === 'Tab') {
         const f = [...dlg.querySelectorAll<HTMLElement>('button, input, select, textarea')].filter((x) => !(x as HTMLButtonElement).disabled && !x.hidden && x.offsetParent !== null);
@@ -534,6 +609,7 @@ export async function openImageEditor(root: HTMLElement, options: ImageEditorOpt
         else if (!e.shiftKey && document.activeElement === f[f.length - 1]) { e.preventDefault(); f[0].focus(); }
       }
     });
+    backdrop.addEventListener('keyup', (e) => { if (e.key === ' ') { spaceDown = false; stage.classList.remove('can-pan'); } });
     for (const t of ['keypress', 'keyup', 'beforeinput', 'paste', 'cut', 'copy']) backdrop.addEventListener(t, (e) => e.stopPropagation());
     window.addEventListener('resize', positionCrop);
     root.append(backdrop);

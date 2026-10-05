@@ -101,14 +101,14 @@ stored as validated JSON and rendered as SVG) and `splitSlides` (turn a document
 preview, rename, download, delete, multi-select) and `attachment` chips for non-image files; pictures go in as images. Files live in IndexedDB by default
 (`IndexedDBFileStore`, or implement `FileStore` for a server) and are checked on the way in (size, accepted types, programs and scripts refused,
 unique clean names). `editImage` / `openImageEditor` edit a picture on a canvas: crop (free or fixed ratio), rotate, flip and straighten, resize, brightness, contrast,
-saturation, warmth, blur, nine filters, freehand pen and highlighter, text, undo and redo, PNG / JPEG / WebP output. Give `resolveUrl` your upload function to make attachments work for every reader.
+saturation, warmth, blur, nine filters, freehand pen and highlighter, text, undo and redo, zoom (buttons, Ctrl/Cmd + wheel, 100% / Fit) and pan (Space + drag), PNG / JPEG / WebP output. A picture from another site needs CORS; pass `fetchImage` (your own proxy) to edit it anyway. Give `resolveUrl` your upload function to make attachments work for every reader.
 
 **Equations and diagrams** (optional peers `katex` and `mermaid`, loaded only when used): `Equations()` adds inline `$…$` and display
 LaTeX equations drawn by KaTeX with MathML for screen readers; type `$x^2$`, use the ∑ / ∫ buttons or double-click to edit in a dialog with templates
 (fraction, sum, integral, matrix …) and a live preview; invalid LaTeX shows the error in place. `Mermaid()` adds text-written diagrams (flowchart, sequence,
 class, state, ER, Gantt, pie, mind map) with starter templates and a live preview; it forces `securityLevel: 'strict'`, draws labels as SVG text, strips scripts from the
 SVG, follows the light or dark page colours, renders one diagram at a time, and shows Mermaid's message instead of throwing. Import KaTeX's CSS in your page
-(`katex/dist/katex.min.css`). Markdown round-trips as `$x$`, `$$ … $$` and ```` ```mermaid ```` fences; Word export writes the LaTeX and the Mermaid source as text.
+(`katex/dist/katex.min.css`). Markdown round-trips as `$x$`, `$$ … $$` and ```` ```mermaid ```` fences. Word export writes equations as **native Word equations** (fractions, roots, scripts, sums, integrals, limits, brackets, Greek letters; a formula outside that subset is kept as its LaTeX text) and diagrams as **PNG pictures** (drawn on a canvas; without one the Mermaid source is written, labelled).
 
 **Restricted editing**: `RestrictedEditing()` adds `locked_section` blocks (a title with the table of contents, legal
 text) that cannot be changed, and `editable_region` blocks that can, while everything else stays ordinary text. It is
