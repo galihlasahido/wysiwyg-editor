@@ -10,6 +10,7 @@ GROUPS = [
    ('feature-rich', 'Feature-rich editor', 'Ribbon, pages and ruler, comments, suggestions, versions and collaboration in one.', ['Ribbon', 'Pages', 'Ruler']),
    ('restricted-editing', 'Locked sections and fill-in areas', 'A feature-rich document where parts (title, table of contents, legal text) cannot be edited and the rest is filled in like normal text.', ['Template', 'Locked', 'Forms']),
    ('editor-types', 'Different user interfaces', 'Classic, inline with a balloon toolbar, and a document editor with ribbon and pages.', ['Classic', 'Inline', 'Document']),
+   ('web-component', 'Web component', 'One HTML tag, <wysiwyg-editor>: attributes, events and normal form submission, in any framework or none.', ['Custom element', 'Forms']),
    ('custom-plugin', 'Custom plugins and toolbar layout', 'Write your own plugin (node, command, buttons, shortcut, ribbon tab, events) and arrange the toolbar: groups, rows, spacer, position, overflow menu.', ['Plugins', 'Toolbar']),
    ('headless', 'Headless editor', 'No built-in UI: drive the engine from your own buttons through commands and state.', ['API', 'Custom UI']),
    ('mobile', 'Mobile friendly', 'A wrapping compact toolbar with touch-sized controls in a 375px frame.', ['Responsive', 'Touch']),

@@ -59,3 +59,5 @@ export { cleanPastedHTML, isWordHTML, isGoogleDocsHTML, hasPasteableText } from 
 export { markerStyle } from './paste';
 export { printDocument, buildPrintHTML, marginContent } from './print';
 export type { PrintOptions } from './print';
+export { defineEditorElement } from './element';
+export type { WysiwygElement } from './element';

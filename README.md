@@ -22,6 +22,23 @@ document editors, a headless editor, developer docs with runnable code blocks, a
 real-time and asynchronous collaboration, Word import/export, email, merge fields, source editing, Markdown, AI, images, mobile).
 Each has a "Show the code" section.
 
+## Without a framework: `<wysiwyg-editor>`
+
+```html
+<link rel="stylesheet" href="wysiwyg-editor/style.css">
+<wysiwyg-editor name="body" value="<p>Hello</p>" ribbon paged theme="dark"></wysiwyg-editor>
+<script type="module">
+  import { defineEditorElement } from 'wysiwyg-editor';
+  defineEditorElement();                       // registers the tag once (or pass your own name)
+  const el = document.querySelector('wysiwyg-editor');
+  el.addEventListener('editor-change', (e) => console.log(e.detail.html));
+</script>
+```
+
+Attributes: `value`, `readonly`, `theme`, `placeholder`, `locale`, `ribbon`, `paged`, `outline`, `name`. Properties: `value`, `readOnly`, `plugins`, `config` (any `createEditor`
+option, set before it is connected), `editor`. Events: `editor-ready`, `editor-change`. With `name` it is a form control: the HTML is submitted with the form and `reset` restores it.
+It renders in the light DOM (no shadow root), so load the stylesheet in the page.
+
 ## Quick start
 
 ```ts

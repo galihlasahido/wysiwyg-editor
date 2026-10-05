@@ -88,3 +88,18 @@ test('the image editor crops, rotates and saves', async ({ page }) => {
   await expect(page.locator('.ie-result figure')).toHaveCount(2);
   await expect(page.locator('.ie-result figcaption').last()).toContainText('px');
 });
+
+test('<wysiwyg-editor> is a form control', async ({ page }) => {
+  const problems = await openDemo(page, 'web-component', 'wysiwyg-editor .ProseMirror');
+  await page.locator('wysiwyg-editor .ProseMirror').click();
+  await page.keyboard.press('ControlOrMeta+End');
+  await page.keyboard.type(' TYPED-IN-ELEMENT');
+  await page.getByRole('button', { name: 'Submit' }).click();
+  const sent = await page.locator('#sent').innerText();
+  expect(JSON.parse(sent)).toMatchObject({ title: 'Hello from a form' });
+  expect(JSON.parse(sent).body).toContain('TYPED-IN-ELEMENT');
+  await page.getByRole('button', { name: 'Reset' }).click();
+  await page.getByRole('button', { name: 'Submit' }).click();
+  expect(JSON.parse(await page.locator('#sent').innerText()).body).not.toContain('TYPED-IN-ELEMENT');
+  expect(problems).toEqual([]);
+});

@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Web component · wysiwyg-editor</title>
+  <link rel="stylesheet" href="./demo.css" />
+</head>
+<body>
+  <header class="demo-head">
+    <a class="back" href="../index.html">← All demos</a>
+    <h1>Web component</h1>
+    <p>One HTML tag, no framework: <code>&lt;wysiwyg-editor&gt;</code>. It reads attributes, fires events and takes part in a normal form.</p>
+  </header>
+  <main class="demo-main" id="app">
+    <form id="post" class="panel">
+      <label for="title" class="status">Title</label>
+      <input id="title" name="title" value="Hello from a form" style="width:100%;padding:8px 10px;margin:4px 0 12px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:inherit;font:inherit" />
+      <wysiwyg-editor name="body" value="&lt;h2&gt;Plain HTML&lt;/h2&gt;&lt;p&gt;This editor is a custom element. Type here, then press &lt;strong&gt;Submit&lt;/strong&gt;: the HTML is part of the form data.&lt;/p&gt;" placeholder="Write something…"></wysiwyg-editor>
+      <div class="actions"><button class="btn primary" type="submit">Submit</button><button class="btn" type="reset">Reset</button><button class="btn" type="button" id="dark">Toggle dark</button><button class="btn" type="button" id="ro">Toggle read-only</button></div>
+    </form>
+    <h2 style="font-size:15px;margin:16px 0 6px">What the form would send</h2>
+    <pre class="out" id="sent">(press Submit)</pre>
+    <h2 style="font-size:15px;margin:16px 0 6px">Events</h2>
+    <pre class="out" id="events" style="max-height:140px">editor-ready and editor-change appear here</pre>
+  </main>
+  <script type="module" src="./web-component.ts"></script>
+</body>
+</html>
