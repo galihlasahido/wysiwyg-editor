@@ -42,6 +42,7 @@ GROUPS = [
  ]),
  ('Documents', 'Getting content in and out.', [
    ('pdf-epub', 'PDF import and EPUB export', 'Open a PDF as editable text (headings, paragraphs, lists) and save the document as an EPUB e-book.', ['PDF', 'EPUB']),
+   ('proofreading', 'Spelling and grammar', 'Plug in a LanguageTool-style service: underlines for spelling, grammar and style, with suggestions and Ignore.', ['Proofreading']),
    ('recording', 'Voice, screen and dictation', 'Record audio or the screen into the document and dictate text, with a visible recording bar and a cancel key.', ['Audio', 'Dictation']),
    ('charts', 'Charts from tables', 'Bar, line and pie charts built from a table, stored as data and written to Word as pictures.', ['Charts']),
    ('columns', 'Columns', 'Newspaper-style columns: wrap blocks in two to four columns with an optional rule and gap.', ['Layout']),

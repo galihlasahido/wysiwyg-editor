@@ -203,3 +203,15 @@ test('AI: ghost text with Tab, review as tracked changes, chat', async ({ page }
   await expect(page.locator('.wy-aic-msg.is-assistant .wy-aic-text')).toContainText('short update', { timeout: 8000 });
   expect(problems).toEqual([]);
 });
+
+test('proofreading: underlines, a click offers suggestions, applying one fixes the word', async ({ page }) => {
+  const problems = await openDemo(page, 'proofreading');
+  await editorReady(page);
+  await expect(page.locator('.wy-proof-spelling').first()).toBeVisible({ timeout: 8000 });
+  await page.locator('.wy-proof-spelling', { hasText: 'recieve' }).click();
+  await expect(page.locator('.wy-proof-menu .wy-proof-msg')).toContainText('recieve');
+  await page.locator('.wy-proof-suggest', { hasText: 'receive' }).click();
+  await expect(page.locator('.ProseMirror')).toContainText('definately receive teh');
+  await expect(page.locator('.wy-proof-spelling', { hasText: 'recieve' })).toHaveCount(0);
+  expect(problems).toEqual([]);
+});

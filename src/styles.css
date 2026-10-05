@@ -781,3 +781,14 @@ del.wy-diff-del, .wy-diff-legend .wy-diff-del { background: #fee2e2; color: #7f1
 .wy-aic-form { display: flex; gap: 6px; padding: 8px; border-top: 1px solid var(--wy-border); }
 .wy-aic-form textarea { flex: 1; resize: none; font: inherit; padding: 6px; border: 1px solid var(--wy-border-2); border-radius: 6px; background: var(--wy-page-bg); color: var(--wy-page-fg); }
 @media print { .wy-aic-chat, .wy-aic-bar, .wy-ghost { display: none !important; } }
+
+/* ---- Proofreading ---- */
+.wy-proof { text-decoration-line: underline; text-decoration-thickness: 2px; text-underline-offset: 2px; cursor: pointer; }
+.wy-proof-spelling { text-decoration-style: wavy; text-decoration-color: #dc2626; }
+.wy-proof-grammar { text-decoration-style: wavy; text-decoration-color: #2563eb; }
+.wy-proof-style { text-decoration-style: dotted; text-decoration-color: #9333ea; }
+.wy-proof-menu { position: absolute; z-index: 50; min-width: 180px; max-width: 320px; padding: 6px; display: flex; flex-direction: column; gap: 2px; background: var(--wy-bg); border: 1px solid var(--wy-border); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.25); font-size: 13px; }
+.wy-proof-msg { padding: 4px 8px 6px; color: var(--wy-page-muted); border-bottom: 1px solid var(--wy-border); margin-bottom: 2px; }
+.wy-proof-suggest { font-weight: 600; }
+.wy-proof-none { padding: 4px 8px; color: var(--wy-page-muted); font-style: italic; }
+@media print { .wy-proof { text-decoration: none; } .wy-proof-menu { display: none; } }
