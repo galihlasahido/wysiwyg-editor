@@ -220,6 +220,29 @@ AIAssistant({ provider: createFetchProvider('/api/ai') }) // your server calls t
 A provider is any `(req) => Promise<string> | AsyncIterable<string>`; stream chunks and the preview updates live.
 Model output is parsed as Markdown with raw HTML disabled, so it cannot inject markup.
 
+## Creating a .docx from your code
+
+`editor.exportDocx(options?)` builds the Word file and resolves with a `Blob`; call it from a button, a shortcut, an editor event or before an upload.
+It needs the optional `docx` package, which is loaded only when you call it.
+
+```ts
+const blob = await editor.exportDocx();                           // just the file
+await editor.exportDocx({ download: 'report.docx' });             // and save it in the browser (true = named after the title)
+await editor.exportDocx({ title: 'Q3', comments: threads, fetchImages: false });
+
+editor.execute('exportDocx', { download: true });                 // the same as a command: toolbar items, keymap, ribbon
+editor.on('export', ({ format, blob }) => upload(blob));          // fired after every export
+editor.on('exportError', (err) => report(err));                   // missing "docx" package, a failed image, ...
+editor.on('change', debounce(() => editor.exportDocx(), 3000));   // from an event
+
+const form = new FormData(); form.append('file', await editor.exportDocx(), 'report.docx');   // to a server
+await editor.importDocx(file);                                    // the other direction (needs "mammoth"); editor.on('import', ...)
+```
+
+Equations become native Word equations and diagrams become pictures (see below). The File tab of the ribbon uses the same commands, so
+`ribbon: true` works without any `onExportDocx` / `onOpenDocx`. The lower-level `buildDocx(editor)` / `exportDocx(editor)` from `wysiwyg-editor/docx` remain.
+Generation needs a DOM (it reads the editor's document and uses a canvas for crops and diagrams), so run it in the browser or in a DOM environment such as jsdom, not in plain Node.
+
 ## Arranging the toolbar
 
 `toolbar` takes a list of names, or an options object. Entries can be a plugin item name, `'|'` (separator), `'-'` (new row),

@@ -6,9 +6,19 @@ import { isRtlLocale, translate } from './i18n';
 import { Toolbar, resolveLayout } from './toolbar';
 import { Ribbon, type RibbonOptions } from './ribbon';
 import { getStats, type Stats } from './plugins/word-count';
+import { openDialog } from './dialog';
+import { download } from './export';
+import { cleanFileName } from './files';
 import { inertElement } from './inert';
+import type { ExportOptions } from './docx';
 import { markdownToDoc, docToMarkdown } from './markdown';
 import type { Command, EditorEvent, EditorPlugin, ToolbarEntry, ToolbarItem, ToolbarOptions } from './types';
+
+/** Options for `editor.exportDocx`. */
+export type DocxExportOptions = ExportOptions & {
+  /** Also save the file in the browser: `true` (named after the title) or a file name. */
+  download?: boolean | string;
+};
 
 export interface EditorConfig {
   /** Element the editor is mounted into. */
@@ -152,6 +162,20 @@ export class Editor {
       },
     });
 
+    // Built-in commands, so they work from your own code, shortcuts and events with or without the ribbon.
+    // (A ribbon given onExportDocx / onOpenDocx replaces them with the app's own action.)
+    this.registerCommand('exportDocx', (e, options?: DocxExportOptions) => {
+      void e.exportDocx({ download: true, ...options }).catch((err) => this.reportDocxError(err));
+      return true;
+    }, { readOnlySafe: true });
+    this.registerCommand('openDocx', (e) => {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      input.addEventListener('change', () => { const f = input.files?.[0]; if (f) void e.importDocx(f).catch((err) => this.reportDocxError(err)); });
+      input.click();
+      return true;
+    });
     this.toolbar = this.buildToolbar(config.toolbar);
     this.mountToolbar(config.toolbar);
     this.toolbar.update(this.view.state);
@@ -161,6 +185,49 @@ export class Editor {
     this.ready = true;
     for (const p of config.plugins) p.onReady?.(this);
     this.emit('ready', {});
+  }
+
+  // ---- Word documents
+
+  private reportDocxError(err: unknown) {
+    this.emit('exportError', err);
+    openDialog(this.root, { title: 'Word document', body: err instanceof Error ? err.message : 'The .docx could not be processed.' });
+  }
+
+  /**
+   * Create a .docx from the document: headings, formatting, lists, tables, images, footnotes, comments, tracked changes, page setup,
+   * header and footer, equations and diagrams. Resolves with the file as a Blob, so you can download it, upload it or attach it.
+   * Pass `download: true` (or a file name) to also save it in the browser. Emits `export` with `{ format: 'docx', blob }`.
+   * Needs the optional `docx` package (loaded only when you call this).
+   */
+  async exportDocx(options: DocxExportOptions = {}): Promise<Blob> {
+    let mod: typeof import('./docx');
+    try {
+      mod = await import('./docx');
+    } catch {
+      throw new Error('Creating a .docx needs the "docx" package. Install it with: pnpm add docx');
+    }
+    const { download: save, ...rest } = options;
+    const blob = await mod.exportDocx(this, rest);
+    if (save) {
+      const name = typeof save === 'string' ? save : `${rest.title ?? 'document'}.docx`;
+      download(blob, cleanFileName(name.endsWith('.docx') ? name : `${name}.docx`, 'document.docx'), blob.type);
+    }
+    this.emit('export', { format: 'docx', blob });
+    return blob;
+  }
+
+  /** Replace the document with the content of a .docx file (one undo step). Resolves with the converter's warnings. Needs the optional `mammoth` package. */
+  async importDocx(source: Blob | ArrayBuffer): Promise<string[]> {
+    let mod: typeof import('./docx');
+    try {
+      mod = await import('./docx');
+    } catch {
+      throw new Error('Opening a .docx needs the "mammoth" package. Install it with: pnpm add mammoth');
+    }
+    const warnings = await mod.importDocx(this, source);
+    this.emit('import', { format: 'docx', warnings });
+    return warnings;
   }
 
   // ---- toolbar

@@ -225,3 +225,52 @@ describe('numbered list styles in Word', () => {
     expect(numbering).toMatch(/w:start w:val="3"/);
   });
 });
+
+describe('editor.exportDocx() API', () => {
+  const bytes = (blob: Blob) => new Promise<ArrayBuffer>((ok, fail) => { const r = new FileReader(); r.onload = () => ok(r.result as ArrayBuffer); r.onerror = () => fail(r.error); r.readAsArrayBuffer(blob); }); // jsdom's Blob has no arrayBuffer()
+  const unzip = async (blob: Blob) => (await JSZip.loadAsync(await bytes(blob))).file('word/document.xml')!.async('string');
+
+  it('returns the .docx as a Blob and emits an export event', async () => {
+    const e = make('<h1>Report</h1><p>Hello <strong>world</strong></p>');
+    const seen: { format: string; size: number }[] = [];
+    e.on('export', (p: { format: string; blob: Blob }) => seen.push({ format: p.format, size: p.blob.size }));
+    const blob = await e.exportDocx();
+    expect(blob.size).toBeGreaterThan(1000);
+    expect(await unzip(blob)).toContain('Hello');
+    expect(seen).toHaveLength(1);
+    expect(seen[0]).toMatchObject({ format: 'docx' });
+  });
+
+  it('download saves it under a clean file name', async () => {
+    const e = make('<p>x</p>');
+    const clicks: string[] = [];
+    const orig = HTMLAnchorElement.prototype.click;
+    HTMLAnchorElement.prototype.click = function () { clicks.push(this.download); };
+    (URL as unknown as { createObjectURL: () => string }).createObjectURL = () => 'blob:x';
+    (URL as unknown as { revokeObjectURL: () => void }).revokeObjectURL = () => {};
+    try {
+      await e.exportDocx({ download: '../../my report' });
+      await e.exportDocx({ download: true, title: 'Q3' });
+      await e.exportDocx(); // no download unless asked
+    } finally { HTMLAnchorElement.prototype.click = orig; }
+    expect(clicks).toEqual(['my report.docx', 'Q3.docx']);
+  });
+
+  it('the exportDocx command is always available, works read-only, and can be called from any event', async () => {
+    const e = make('<p>hello</p>');
+    expect(e.hasCommand('exportDocx')).toBe(true);
+    e.setReadOnly(true);
+    const done = new Promise<Blob>((res) => e.on('export', (p: { blob: Blob }) => res(p.blob)));
+    expect(e.execute('exportDocx', { download: false })).toBe(true); // no ribbon, no app-supplied handler
+    expect((await done).size).toBeGreaterThan(1000);
+  });
+
+  it('importDocx round-trips what exportDocx wrote', async () => {
+    const e = make('<h2>Title</h2><p>Body text</p>');
+    const blob = await e.exportDocx();
+    const e2 = make('<p></p>');
+    await e2.importDocx(blob);
+    expect(e2.getHTML()).toContain('Title');
+    expect(e2.getHTML()).toContain('Body text');
+  });
+});

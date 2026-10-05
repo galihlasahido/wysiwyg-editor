@@ -226,8 +226,11 @@ describe('Ribbon controls', () => {
     expect(e.root.classList.contains('wy-paged')).toBe(true);
   });
 
-  it('shows File tab .docx actions only when the app provides them', () => {
-    expect(control(make(), 'Open .docx')).toBeUndefined();
+  it('shows the File tab .docx actions by default, and lets the app replace them with its own', () => {
+    const plain = make();
+    tab(plain, 'file').click();
+    expect(control(plain, 'Open .docx')).toBeDefined(); // built-in commands: editor.exportDocx() / importDocx()
+    expect(control(plain, 'Export .docx')).toBeDefined();
     let opened = 0;
     const e = make('<p>x</p>', [], { ribbon: { onOpenDocx: () => opened++, onExportDocx: () => undefined } });
     tab(e, 'file').click();

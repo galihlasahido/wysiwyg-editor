@@ -4,7 +4,7 @@ import { Pages, Outline, type PageOptions } from './plugins';
 import { Office, ParagraphFormat, Direction, TableOfContents, Footnotes, SpellCheck, SpecialCharacters, FormatPainter, WordCount, FindReplace, Alignment, Autoformat, Colors, Fonts, TaskList, BasicStyles, Blocks, Essentials, Heading, Image, Link, List, Table } from './plugins';
 
 export { Editor } from './editor';
-export type { EditorConfig } from './editor';
+export type { EditorConfig, DocxExportOptions } from './editor';
 export type { EditorPlugin, ToolbarItem, ToolbarEntry, ToolbarGroup, ToolbarOptions, Command, RibbonContribution, EditorEvent } from './types';
 export { definePlugin } from './types';
 export * from './plugins';
