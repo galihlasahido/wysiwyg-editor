@@ -18,6 +18,7 @@ const CSP = [
   "script-src 'self'",
   "style-src 'self' 'unsafe-inline'", // ProseMirror positions things with inline styles
   "img-src 'self' data: blob: https:",
+  "media-src 'self' data: blob: https:", // recordings (the Recording plugin)
   "font-src 'self' data:",
   "connect-src 'self'",
   "frame-src 'self' blob: data: https://www.youtube-nocookie.com https://player.vimeo.com https://www.openstreetmap.org", // embedded media (the Embeds plugin)

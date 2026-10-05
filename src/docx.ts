@@ -344,6 +344,8 @@ function blocks(node: PMNode, ctx: Ctx): Block[] {
     }
     case 'code_block':
       return node.textContent.split('\n').map((line) => new D.Paragraph({ children: [new D.TextRun({ text: line, font: 'Courier New', size: 20 })], shading: { type: D.ShadingType.CLEAR, fill: 'F0F0F0', color: 'auto' } }));
+    case 'clip':
+      return [new D.Paragraph({ children: [new D.TextRun({ text: `${node.attrs.kind === 'video' ? 'Screen' : 'Audio'} recording: `, color: '6B7280' }), ...(/^https?:/i.test(String(node.attrs.src)) ? [new D.ExternalHyperlink({ link: String(node.attrs.src), children: [new D.TextRun({ text: String(node.attrs.name || node.attrs.src), style: 'Hyperlink', color: '1D4ED8', underline: {} })] })] : [new D.TextRun({ text: String(node.attrs.name || '(embedded in the online document)') })])] })];
     case 'chart': {
       const png = ctx.diagrams.get(`chart:${node.attrs.spec}`);
       const spec = cleanChart(node.attrs.spec);

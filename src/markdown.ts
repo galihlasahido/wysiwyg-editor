@@ -54,6 +54,10 @@ const knownNodes: Record<string, (state: MarkdownSerializerState, node: PMNode, 
       const a = node.attrs;
       state.write(a.kind === 'checkbox' ? `${a.label ? `${state.esc(a.label)} ` : ''}${a.value === 'true' ? '[x]' : '[ ]'}` : `${a.label ? `${state.esc(a.label)}: ` : ''}${state.esc(a.value || '____')}`);
     },
+    clip(state, node) {
+      state.write(`[${state.esc(node.attrs.name || `${node.attrs.kind} recording`)}](${node.attrs.src.startsWith('data:') ? '#' : markdownUrl(node.attrs.src)})`);
+      state.closeBlock(node);
+    },
     chart(state, node) {
       try {
         const s = JSON.parse(node.attrs.spec);

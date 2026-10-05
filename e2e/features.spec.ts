@@ -134,3 +134,12 @@ test('a chart is drawn from a table and exported to Word as a picture', async ({
   expect(media).toBe(true);
   expect(problems).toEqual([]);
 });
+
+test('ribbon menus do not offer commands whose plugin is not installed', async ({ page }) => {
+  const problems = await openDemo(page, 'feature-rich');
+  await page.getByRole('tab', { name: 'Insert' }).click();
+  await page.getByRole('button', { name: /^Picture/ }).first().click();
+  await expect(page.locator('.wy-menu .wy-menu-item').first()).toBeVisible();
+  await expect(page.locator('.wy-menu .wy-menu-item', { hasText: 'Diagram (Mermaid)' })).toHaveCount(0);
+  expect(problems).toEqual([]);
+});

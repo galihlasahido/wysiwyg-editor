@@ -151,6 +151,8 @@ Markdown), so exports show it. A reference to a deleted caption says "Missing re
 
 **Charts**: `Charts()` draws bar, line and pie charts as SVG. With the cursor in a table, `insertChart('bar' | 'line' | 'pie')` uses the first row as series and the first column as labels (numbers like `1,200`, `$40` or `12%` are understood); `insertChart(type, { labels, series })` takes data directly and `setChart` changes the selected chart. The chart is saved as validated data (never markup) and redrawn on load; Word export writes it as a picture (needs a browser canvas) and Markdown as a table.
 
+**Recording and dictation**: `Recording()` adds `recordAudio`, `recordScreen`, `stopRecording`, `cancelRecording` and `toggleDictation`. The browser asks permission each time, a bar shows the time while recording, Esc cancels and the tracks are always released. A recording becomes a player in the text, embedded as a data URL (capped by `maxBytes`) or stored by your `upload(blob, kind)` function (recommended for anything long); `maxSeconds` stops it automatically. Dictation uses the browser's speech recognition (Chrome, Edge, Safari; not Firefox), types only text at the cursor, and can be set to a language with `dictationLang`. Word and Markdown export keep a link or label, not the media.
+
 **Restricted editing**: `RestrictedEditing()` adds `locked_section` blocks (a title with the table of contents, legal
 text) that cannot be changed, and `editable_region` blocks that can, while everything else stays ordinary text. It is
 enforced by rejecting transactions, so typing, deleting, pasting, dropping and find & replace are all covered, including

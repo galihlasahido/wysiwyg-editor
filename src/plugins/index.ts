@@ -82,3 +82,5 @@ export type { CaptionsOptions, CaptionKind, CaptionEntry } from './captions';
 export { Columns } from './columns';
 export { Charts, chartSVG, cleanChart, specFromRows } from './charts';
 export type { ChartSpec, ChartType } from './charts';
+export { Recording, isSafeClip } from './recording';
+export type { RecordingOptions } from './recording';
