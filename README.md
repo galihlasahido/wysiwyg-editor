@@ -317,7 +317,54 @@ AIAssistant({ provider: createFetchProvider('/api/ai') }) // your server calls t
 ```
 
 A provider is any `(req) => Promise<string> | AsyncIterable<string>`; stream chunks and the preview updates live.
-Model output is parsed as Markdown with raw HTML disabled, so it cannot inject markup.
+Model output is parsed as Markdown with raw HTML disabled, so it cannot inject markup. What the endpoint must return is described in
+[Endpoints your app provides](#endpoints-your-app-provides).
+
+## Endpoints your app provides
+
+The editor calls your code at a few points. Each contract below is exercised by `server/examples/api.ts` (`pnpm server:examples`, port 8788),
+a dependency-free Node server with a test (`tests/example-api.test.ts`) that uses the editor's own helpers against it.
+Try it with the AI demo: `…/demo/ai.html?endpoint=http://127.0.0.1:8788/api/ai`.
+
+| Callback | Sends | Must return |
+| --- | --- | --- |
+| `AIAssistant({ provider: createFetchProvider(url) })` | `POST` JSON `{ action, instruction, text }` | **plain text** (not JSON), `200`, may be streamed. See the table below. |
+| `createEndpointSaver({ url })` for `Autosave` | `PUT`/`POST` JSON `{ title, html, comments }` | any `2xx` (`204` is fine); JSON in the reply goes to `onSaved(json)`; `409` = conflict (stops retrying), other errors are retried with backoff |
+| `uploadImage: (file) => Promise<string>` | whatever you send (the example takes the raw bytes) | the image **URL** as a string: `https`, `http`, a same-site path (`/uploads/a.png`) or a `data:image/…` URL; anything else is refused |
+| `Recording({ upload: (blob, kind) => Promise<string> })` | the recording | the file's URL as a string (`https`, a same-site path, or `data:audio|video/…`) |
+| `SpellCheck({ provider: createLanguageToolProvider(url) })` | `POST` form `text=…&language=…` | LanguageTool's JSON: `{ matches: [{ offset, length, message, replacements: [{ value }], rule: { id, issueType } }] }` |
+| `SpellCheck({ provider })` (your own) | `{ text, lang, signal }` | `[{ offset, length, message, replacements?: string[], rule?, kind?: 'spelling' \| 'grammar' \| 'style' }]`, offsets in characters of the text sent |
+| `Mentions({ search })` | the typed text | `[{ id, label }]` (may be a Promise) |
+| `PdfEpub`, `Embeds`, `Offline` | nothing to your server | they run in the browser |
+
+**What an AI endpoint returns per `action`** (the full instruction is in `instruction`, pass it to the model as the system prompt and `text` as the user message). The reply is the text itself: no "Here is…", no quotes, no JSON wrapper.
+
+| `action` | `text` is | return |
+| --- | --- | --- |
+| `improve`, `grammar`, `shorten`, `expand`, `translate`, `custom` | the selection (or the whole document) | the revised text only; Accept replaces the selection with it |
+| `summarize` | the selection | the summary only; inserted below the selection |
+| `complete` (suggestions while typing) | up to 1,200 characters before the cursor | only the continuation, **one line**, not repeating the given text (cut to `maxChars`) |
+| `review` | one paragraph | the corrected paragraph as **one line**; a multi-line reply or an identical text means "no change" |
+| `chat` | the document text as context (the question and earlier turns are in `instruction`) | the answer; Markdown is fine, raw HTML is not rendered |
+
+```ts
+// An endpoint that streams a model's answer (Express shown; any server works)
+app.post('/api/ai', express.json(), async (req, res) => {
+  const { instruction, text } = req.body;
+  res.type('text/plain');
+  for await (const chunk of model.stream({ system: instruction, user: text })) res.write(chunk.text);
+  res.end();
+});
+
+// If your API replies with JSON, write the provider yourself and return a string (or an async iterable of strings)
+AIAssistant({ provider: async ({ action, instruction, text, signal }) => {
+  const r = await fetch('/api/ai', { method: 'POST', signal, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action, instruction, text }) });
+  if (!r.ok) throw new Error(`AI failed (${r.status})`);
+  return (await r.json()).text;
+} })
+```
+
+Errors: throw (or return a non-2xx status from `createFetchProvider`) and the panel shows "AI request failed" with the message; an empty reply is treated as an error. Validate and limit everything on the server (size, rate, authentication): the editor's checks are for safety in the page, not for your API.
 
 ## Creating a .docx from your code
 

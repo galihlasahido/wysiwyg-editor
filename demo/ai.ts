@@ -1,9 +1,12 @@
-import { AIAssistant, TrackChanges, createEditor, defaultPlugins, type AIProvider } from '../src';
+import { AIAssistant, TrackChanges, createEditor, createFetchProvider, defaultPlugins, type AIProvider } from '../src';
 import { $, el, codePanel } from './samples';
 
 const app = $('#app');
+// ?endpoint=http://127.0.0.1:8788/api/ai uses a real server (`pnpm server:examples`) instead of the offline mock; only http(s) addresses are accepted
+const endpoint = new URLSearchParams(location.search).get('endpoint');
+const endpointUrl = endpoint && /^https?:\/\//i.test(endpoint) ? endpoint : null;
 app.append(
-  el('div', { class: 'demo-note' }, el('strong', {}, 'This demo uses a mock provider'), ' that rewrites text with simple rules so it works offline. ', 'In your app, point ', el('code', {}, 'AIAssistant({ provider })'), ' at your own endpoint (never put API keys in the browser): ', el('code', {}, "createFetchProvider('/api/ai')"), '.'),
+  el('div', { class: 'demo-note' }, el('strong', {}, endpointUrl ? `Using your endpoint ${endpointUrl}. ` : 'This demo uses a mock provider'), endpointUrl ? '' : ' that rewrites text with simple rules so it works offline (or start `pnpm server:examples` and add ?endpoint=http://127.0.0.1:8788/api/ai to the address). ', 'In your app, point ', el('code', {}, 'AIAssistant({ provider })'), ' at your own endpoint (never put API keys in the browser): ', el('code', {}, "createFetchProvider('/api/ai')"), '.'),
   el('div', { class: 'panel' }, el('div', { id: 'editor' })),
   el('ul', { class: 'tips' }, el('li', {}, 'Select a sentence, then choose an action from the ✨ AI dropdown.'), el('li', {}, 'The result streams into a preview. Nothing changes until you press Accept; Cancel aborts the request.'), el('li', {}, 'With nothing selected, an action works on the whole document.'), el('li', {}, el('strong', {}, 'Suggestions while typing: '), 'finish a sentence at the end of a paragraph and pause. Grey text appears; Tab accepts it, Esc or typing dismisses it. The ✨ button turns it on or off.'), el('li', {}, el('strong', {}, 'Review (✍): '), 'the whole document is checked paragraph by paragraph and the fixes arrive as tracked changes you accept or reject. Undo takes the whole review back.'), el('li', {}, el('strong', {}, 'Chat (💬): '), 'ask about the document; a reply can be inserted below the cursor.')),
 );
@@ -36,7 +39,7 @@ const mock: AIProvider = async function* ({ action, instruction, text, signal })
 
 const editor = createEditor({
   element: $('#editor'),
-  plugins: [...defaultPlugins, TrackChanges({ author: 'You' }), AIAssistant({ provider: mock, inline: { delayMs: 700, minChars: 15 }, chat: true, review: { author: 'AI' } })],
+  plugins: [...defaultPlugins, TrackChanges({ author: 'You' }), AIAssistant({ provider: endpointUrl ? createFetchProvider(endpointUrl) : mock, inline: { delayMs: 700, minChars: 15 }, chat: true, review: { author: 'AI' } })],
   content: `<h1>Quarterly update</h1><p>i recieve teh report yesterday and dont know wich numbers to trust. there is alot of data, and it is very good in some places but really unclear in others.</p><p>The team shipped three features this quarter. Two of them were requested by customers. The third was an internal tool that saves about an hour a week for every engineer. Next quarter we plan to focus on reliability.</p>`,
 });
 

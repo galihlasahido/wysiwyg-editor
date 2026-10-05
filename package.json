@@ -64,7 +64,8 @@
     "e2e:ui": "playwright test --ui",
     "docs:api": "npx --yes -p typedoc@0.28.20 -p typescript@5.9.3 typedoc",
     "prepublishOnly": "pnpm typecheck && pnpm test && pnpm build",
-    "check:package": "pnpm build && pnpm dlx publint && pnpm dlx @arethetypeswrong/cli --pack . --profile esm-only --ignore-rules cjs-resolves-to-esm no-resolution"
+    "check:package": "pnpm build && pnpm dlx publint && pnpm dlx @arethetypeswrong/cli --pack . --profile esm-only --ignore-rules cjs-resolves-to-esm no-resolution",
+    "server:examples": "tsx server/examples/api.ts"
   },
   "repository": {
     "type": "git",
