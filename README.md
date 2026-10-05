@@ -72,6 +72,18 @@ new Editor({
 });
 ```
 
+**Optional packages are passed in, not imported by the editor.** `docx`, `mammoth`, `katex`, `mermaid`, `pdfjs-dist`, `jszip` and `yjs` are optional. The main entry never imports them (a check in `pnpm check:optional` enforces it), so Angular, webpack, Next.js and esbuild builds work without them installed. When you want a feature, install its package and hand the editor a loader:
+
+```ts
+createEditor({ element, docx: () => import('wysiwygido/docx'),                        // pnpm add docx mammoth
+  plugins: [...defaultPlugins,
+    Equations({ katex: () => import('katex') }),                                      // pnpm add katex
+    Mermaid({ mermaid: () => import('mermaid') }),                                    // pnpm add mermaid
+    PdfEpub({ loadPdf: () => import('wysiwygido/pdf'), loadEpub: () => import('wysiwygido/epub') })] }); // pdfjs-dist, jszip
+```
+
+Without a loader the feature says what to add (`exportDocx()` rejects with the exact line to write). Collaboration is its own entry, `wysiwygido/collab`.
+
 Entry points (optional peer dependencies are only needed for the ones you import):
 
 | Import | Contents | Needs |
@@ -120,7 +132,7 @@ preview, rename, download, delete, multi-select) and `attachment` chips for non-
 unique clean names). `editImage` / `openImageEditor` edit a picture on a canvas: crop (free or fixed ratio), rotate, flip and straighten, resize, brightness, contrast,
 saturation, warmth, blur, nine filters, freehand pen and highlighter, text, undo and redo, zoom (buttons, Ctrl/Cmd + wheel, 100% / Fit) and pan (Space + drag), PNG / JPEG / WebP output. A picture from another site needs CORS; pass `fetchImage` (your own proxy) to edit it anyway. Give `resolveUrl` your upload function to make attachments work for every reader.
 
-**Equations and diagrams** (optional peers `katex` and `mermaid`, loaded only when used): `Equations()` adds inline `$…$` and display
+**Equations and diagrams** (optional peers `katex` and `mermaid`, passed in as shown above and loaded only when used): `Equations({ katex: () => import('katex') })` adds inline `$…$` and display
 LaTeX equations drawn by KaTeX with MathML for screen readers; type `$x^2$`, use the ∑ / ∫ buttons or double-click to edit in a dialog with templates
 (fraction, sum, integral, matrix …) and a live preview; invalid LaTeX shows the error in place. `Mermaid()` adds text-written diagrams (flowchart, sequence,
 class, state, ER, Gantt, pie, mind map) with starter templates and a live preview; it forces `securityLevel: 'strict'`, draws labels as SVG text, strips scripts from the
@@ -153,7 +165,7 @@ Markdown), so exports show it. A reference to a deleted caption says "Missing re
 
 **Recording and dictation**: `Recording()` adds `recordAudio`, `recordScreen`, `stopRecording`, `cancelRecording` and `toggleDictation`. The browser asks permission each time, a bar shows the time while recording, Esc cancels and the tracks are always released. A recording becomes a player in the text, embedded as a data URL (capped by `maxBytes`) or stored by your `upload(blob, kind)` function (recommended for anything long); `maxSeconds` stops it automatically. Dictation uses the browser's speech recognition (Chrome, Edge, Safari; not Firefox), types only text at the cursor, and can be set to a language with `dictationLang`. Word and Markdown export keep a link or label, not the media.
 
-**PDF import and EPUB export**: `PdfEpub()` adds `openPdf` / `importPdf(blob)` and `exportEpub(name?)`; without the plugin use `importPdf` from `wysiwygido/pdf` and `exportEpub` from `wysiwygido/epub`. They need the optional packages `pdfjs-dist` and `jszip` (PDF import also needs `pdf: { workerSrc }`, the URL where you serve pdf.js's worker; with Vite `import workerSrc from 'pdfjs-dist/build/pdf.worker.min.mjs?url'`). PDF import reads **text only**: paragraphs (joined across line ends, hyphenation repaired), headings from larger type and bullet or numbered lists; pictures, tables, multi-column layouts and scanned pages are not recovered (a scan is reported as having no text). The EPUB 3 file starts a chapter at each top-level heading, packs embedded pictures, writes a navigation document, and reduces anything scripted (players, forms) to text; remote pictures are not packed.
+**PDF import and EPUB export**: `PdfEpub({ loadPdf: () => import('wysiwygido/pdf'), loadEpub: () => import('wysiwygido/epub') })` adds `openPdf` / `importPdf(blob)` and `exportEpub(name?)`; without the plugin use `importPdf` from `wysiwygido/pdf` and `exportEpub` from `wysiwygido/epub`. They need the optional packages `pdfjs-dist` and `jszip` (PDF import also needs `pdf: { workerSrc }`, the URL where you serve pdf.js's worker; with Vite `import workerSrc from 'pdfjs-dist/build/pdf.worker.min.mjs?url'`). PDF import reads **text only**: paragraphs (joined across line ends, hyphenation repaired), headings from larger type and bullet or numbered lists; pictures, tables, multi-column layouts and scanned pages are not recovered (a scan is reported as having no text). The EPUB 3 file starts a chapter at each top-level heading, packs embedded pictures, writes a navigation document, and reduces anything scripted (players, forms) to text; remote pictures are not packed.
 
 **AI suggestions, review and chat** (options of `AIAssistant`, all through your own `provider`; the request carries `action: 'complete' | 'review' | 'chat'`):
 `inline: true` (or `{ delayMs, minChars, maxChars }`) shows a grey continuation at the end of a paragraph after you pause: Tab accepts, Esc or any typing dismisses it (one line, plain text, never markup). `aiReview` sends each plain paragraph to the provider and applies the answers as **tracked changes** (needs `TrackChanges`); paragraphs edited meanwhile are skipped, a reply of several lines is ignored, and one Undo takes the whole review back. `chat: true` adds an `aiChat` panel that sends your question, the selection and the document text (up to `contextChars`) and shows replies as text, with "Insert into document" (parsed as Markdown, raw HTML disabled). Document text is sent to your provider: put API keys and any filtering on your server.
@@ -369,7 +381,7 @@ Errors: throw (or return a non-2xx status from `createFetchProvider`) and the pa
 ## Creating a .docx from your code
 
 `editor.exportDocx(options?)` builds the Word file and resolves with a `Blob`; call it from a button, a shortcut, an editor event or before an upload.
-It needs the optional `docx` package, which is loaded only when you call it.
+It needs the optional `docx` package, which is loaded only when you call it: pass `docx: () => import('wysiwygido/docx')` to `createEditor` (see above).
 
 ```ts
 const blob = await editor.exportDocx();                           // just the file

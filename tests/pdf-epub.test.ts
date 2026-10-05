@@ -9,7 +9,7 @@ afterEach(() => roots.splice(0).forEach((r) => r.remove()));
 const make = (content: string) => {
   const el = document.body.appendChild(document.createElement('div'));
   roots.push(el);
-  return createEditor({ element: el, content, plugins: [...defaultPlugins, PdfEpub()] });
+  return createEditor({ element: el, content, plugins: [...defaultPlugins, PdfEpub({ loadPdf: () => import('../src/pdf'), loadEpub: () => import('../src/epub') })] });
 };
 const line = (str: string, y: number, size = 12, x = 72): PdfTextItem => ({ str, x, y, size });
 

@@ -37,6 +37,12 @@ export interface EditorConfig {
   onChange?: (html: string) => void;
   /** Uploads an image file and resolves to its URL. Defaults to embedding as a Base64 data URL. */
   uploadImage?: (file: File) => Promise<string>;
+  /**
+   * How to load the optional `.docx` support: `docx: () => import('wysiwygido/docx')` (and `pnpm add docx mammoth`). It is a function you pass
+   * rather than something the editor imports itself, so bundlers (Angular, webpack, esbuild) never have to resolve the optional packages.
+   * Without it `exportDocx()` and `importDocx()` throw an error that says what to add.
+   */
+  docx?: () => Promise<typeof import('./docx')>;
   /** Start in read-only mode. */
   readOnly?: boolean;
   /** Text direction of the document. Default 'ltr'. */
@@ -204,12 +210,7 @@ export class Editor {
    * Needs the optional `docx` package (loaded only when you call this).
    */
   async exportDocx(options: DocxExportOptions = {}): Promise<Blob> {
-    let mod: typeof import('./docx');
-    try {
-      mod = await import('./docx');
-    } catch {
-      throw new Error('Creating a .docx needs the "docx" package. Install it with: pnpm add docx');
-    }
+    const mod = await this.loadDocx('Creating a .docx', 'docx');
     const { download: save, ...rest } = options;
     const blob = await mod.exportDocx(this, rest);
     if (save) {
@@ -220,14 +221,19 @@ export class Editor {
     return blob;
   }
 
+  private async loadDocx(what: string, pkg: string): Promise<typeof import('./docx')> {
+    const load = this.config.docx;
+    if (!load) throw new Error(`${what} needs the docx module. Pass it when you create the editor: createEditor({ docx: () => import('wysiwygido/docx') }) and install the "${pkg}" package (pnpm add docx mammoth).`);
+    try {
+      return await load();
+    } catch {
+      throw new Error(`${what} needs the "${pkg}" package. Install it with: pnpm add docx mammoth`);
+    }
+  }
+
   /** Replace the document with the content of a .docx file (one undo step). Resolves with the converter's warnings. Needs the optional `mammoth` package. */
   async importDocx(source: Blob | ArrayBuffer): Promise<string[]> {
-    let mod: typeof import('./docx');
-    try {
-      mod = await import('./docx');
-    } catch {
-      throw new Error('Opening a .docx needs the "mammoth" package. Install it with: pnpm add mammoth');
-    }
+    const mod = await this.loadDocx('Opening a .docx', 'mammoth');
     const warnings = await mod.importDocx(this, source);
     this.emit('import', { format: 'docx', warnings });
     return warnings;

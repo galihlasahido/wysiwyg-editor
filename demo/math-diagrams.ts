@@ -20,7 +20,7 @@ $('#app').append(
   el('div', { class: 'panel' }, el('div', { id: 'editor' })),
   out,
 );
-const editor = createEditor({ element: $('#editor'), content, plugins: [...defaultPlugins, Equations(), Mermaid()], ribbon: true, outline: false });
+const editor = createEditor({ element: $('#editor'), content, docx: () => import('../src/docx'), plugins: [...defaultPlugins, Equations({ katex: () => import('katex') }), Mermaid({ mermaid: () => import('mermaid') })], ribbon: true, outline: false });
 (window as unknown as { editor: typeof editor }).editor = editor;
 $('#actions').append(
   button('Dark', () => editor.setTheme(editor.root.dataset.theme === 'dark' ? 'light' : 'dark')),

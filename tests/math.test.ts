@@ -7,7 +7,7 @@ afterEach(() => roots.splice(0).forEach((r) => r.remove()));
 const make = (content = '<p>hello</p>', opts = {}) => {
   const el = document.body.appendChild(document.createElement('div'));
   roots.push(el);
-  return createEditor({ element: el, content, plugins: [...defaultPlugins, Equations(opts)] });
+  return createEditor({ element: el, content, plugins: [...defaultPlugins, Equations({ katex: () => import('katex'), ...opts })] });
 };
 const flush = (ms = 30) => new Promise((r) => setTimeout(r, ms));
 

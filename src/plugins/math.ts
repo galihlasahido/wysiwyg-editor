@@ -13,8 +13,8 @@ export interface KatexLike {
 }
 
 export interface EquationsOptions {
-  /** KaTeX, or a function that loads it. Default: `import('katex')` (an optional peer dependency). */
-  katex?: KatexLike | (() => Promise<KatexLike>);
+  /** KaTeX, or a function that loads it: `() => import('katex')` (an optional peer dependency you install). A module with a `default` export is accepted too. */
+  katex?: KatexLike | (() => Promise<KatexLike | { default: KatexLike }>);
   /** Replace the renderer entirely. Return HTML (scripts are removed from it). Throw to show an error. */
   render?: (tex: string, display: boolean) => string | Promise<string>;
   /** Extra KaTeX macros, e.g. `{ '\\RR': '\\mathbb{R}' }`. */
@@ -58,10 +58,12 @@ export function Equations(options: EquationsOptions = {}): EditorPlugin & MathAp
   const loadKatex = (): Promise<KatexLike> => {
     katexPromise ??= (async () => {
       const k = options.katex;
-      if (typeof k === 'function') return k();
+      if (typeof k === 'function') {
+        const m = await k();
+        return 'default' in m && m.default ? m.default : (m as KatexLike); // `import('katex')` gives a module with a default export
+      }
       if (k) return k;
-      const mod = (await import('katex')) as unknown as { default?: KatexLike } & KatexLike;
-      return mod.default ?? mod;
+      throw new Error("KaTeX is not set up. Pass it when you add the plugin: Equations({ katex: () => import('katex') }) and install the \"katex\" package.");
     })();
     return katexPromise;
   };

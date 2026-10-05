@@ -1,6 +1,6 @@
 {
   "name": "wysiwygido",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "A modular, TypeScript WYSIWYG rich-text editor inspired by CKEditor 5, built on ProseMirror.",
   "license": "MIT",
   "type": "module",
@@ -64,9 +64,10 @@
     "e2e": "playwright test",
     "e2e:ui": "playwright test --ui",
     "docs:api": "npx --yes -p typedoc@0.28.20 -p typescript@5.9.3 typedoc",
-    "prepublishOnly": "pnpm typecheck && pnpm test && pnpm build",
-    "check:package": "pnpm build && pnpm dlx publint && pnpm dlx @arethetypeswrong/cli --pack . --profile esm-only --ignore-rules cjs-resolves-to-esm no-resolution",
-    "server:examples": "tsx server/examples/api.ts"
+    "prepublishOnly": "pnpm typecheck && pnpm test && pnpm build && pnpm check:optional",
+    "check:package": "pnpm build && pnpm check:optional && pnpm dlx publint && pnpm dlx @arethetypeswrong/cli --pack . --profile esm-only --ignore-rules cjs-resolves-to-esm no-resolution",
+    "server:examples": "tsx server/examples/api.ts",
+    "check:optional": "node scripts/check-optional-peers.mjs dist"
   },
   "repository": {
     "type": "git",

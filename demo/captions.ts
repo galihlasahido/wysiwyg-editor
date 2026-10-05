@@ -15,7 +15,7 @@ $('#app').append(
   el('div', { class: 'actions' }, button('Download .docx', async () => download(await editor.exportDocx(), 'captions.docx'), true)),
   el('div', { class: 'panel' }, el('div', { id: 'editor' })),
 );
-const editor = createEditor({ element: $('#editor'), content, plugins: [...defaultPlugins, Captions()], ribbon: false });
+const editor = createEditor({ element: $('#editor'), content, docx: () => import('../src/docx'), plugins: [...defaultPlugins, Captions()], ribbon: false });
 (window as unknown as { editor: typeof editor }).editor = editor;
 $('#app').append(codePanel(`
 plugins: [...defaultPlugins, Captions({ kinds: [{ id: 'figure', label: 'Gambar' }, { id: 'table', label: 'Tabel' }], separator: ': ' })],

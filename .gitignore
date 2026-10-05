@@ -8,3 +8,6 @@ test-results/
 playwright-report/
 blob-report/
 api-docs
+
+# presentation deck: screenshots and the design canvas sources (local only)
+presentation/

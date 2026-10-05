@@ -4,6 +4,12 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-06
+
+### Changed (breaking)
+- Optional packages are no longer imported by the editor itself. Angular's esbuild builder (and webpack-based builds) failed with `Could not resolve "katex"` (also `mermaid`, `docx`, `mammoth`, `jszip`, `pdfjs-dist`) when those packages were not installed, even though the code only loaded them lazily. Now you pass a loader: `createEditor({ docx: () => import('wysiwygido/docx') })`, `Equations({ katex: () => import('katex') })`, `Mermaid({ mermaid: () => import('mermaid') })`, `PdfEpub({ loadPdf, loadEpub })`. Without one, the feature explains what to add. `pnpm check:optional` fails the build if the main entry ever imports an optional package again.
+- Verified in real apps: React, Vue, Svelte (Vite) and Angular 20 builds, plus a no-build page loading the package from a CDN.
+
 ### Changed
 - Large documents: plugins that derive data from the whole document (captions, table of contents, outline, footnotes, comment anchors) update incrementally instead of rescanning on every keystroke; the word count waits for a pause on big documents; Markdown export is linear. Typing at 10,000 blocks: 33 ms to 1.3 ms per key.
 
@@ -46,6 +52,7 @@ A modular rich-text editor on ProseMirror with a plugin architecture. Everything
 ### Known limitations
 See the README section "Known limitations".
 
-[Unreleased]: https://github.com/galihlasahido/wysiwyg-editor/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/galihlasahido/wysiwyg-editor/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/galihlasahido/wysiwyg-editor/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/galihlasahido/wysiwyg-editor/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/galihlasahido/wysiwyg-editor/releases/tag/v0.1.0

@@ -5,6 +5,10 @@ import type { EpubOptions } from '../epub';
 import type { PdfImportOptions } from '../pdf';
 
 export interface PdfEpubOptions {
+  /** How to load PDF support: `() => import('wysiwygido/pdf')` (and `pnpm add pdfjs-dist`). */
+  loadPdf?: () => Promise<typeof import('../pdf')>;
+  /** How to load EPUB support: `() => import('wysiwygido/epub')` (and `pnpm add jszip`). */
+  loadEpub?: () => Promise<typeof import('../epub')>;
   pdf?: PdfImportOptions;
   epub?: EpubOptions;
 }
@@ -17,7 +21,7 @@ export function PdfEpub(options: PdfEpubOptions = {}): EditorPlugin {
     name: 'pdf-epub',
     setup(editor: Editor) {
       editor.registerCommand('importPdf', (e, source: Blob | ArrayBuffer) => {
-        void import('../pdf').then((m) => m.importPdf(e, source, options.pdf)).then((warnings) => e.emit('import', { format: 'pdf', warnings })).catch((err) => fail(e, err));
+        void (options.loadPdf ? options.loadPdf() : Promise.reject(new Error("PDF support is not set up. Pass loadPdf: () => import('wysiwygido/pdf') and install pdfjs-dist."))).then((m) => m.importPdf(e, source, options.pdf)).then((warnings) => e.emit('import', { format: 'pdf', warnings })).catch((err) => fail(e, err));
         return true;
       });
       editor.registerCommand('openPdf', (e) => {
@@ -29,7 +33,7 @@ export function PdfEpub(options: PdfEpubOptions = {}): EditorPlugin {
         return true;
       });
       editor.registerCommand('exportEpub', (e, name?: string) => {
-        void import('../epub').then(async (m) => {
+        void (options.loadEpub ? options.loadEpub() : Promise.reject(new Error("EPUB support is not set up. Pass loadEpub: () => import('wysiwygido/epub') and install jszip."))).then(async (m) => {
           const blob = await m.exportEpub(e, options.epub);
           if (name !== '') download(blob, `${(name ?? options.epub?.title ?? 'document').replace(/[^\w .-]/g, '_')}.epub`, 'application/epub+zip');
           e.emit('export', { format: 'epub', blob });

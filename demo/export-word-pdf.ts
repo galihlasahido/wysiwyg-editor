@@ -13,7 +13,7 @@ $('#app').append(
   el('div', { class: 'panel' }, el('div', { id: 'editor' })),
 );
 
-const editor = createEditor({ element: $('#editor'), content, plugins: [...defaultPlugins, Comments({ author: 'You' }), { name: 'quick-docx', keymap: { 'Mod-Shift-s': 'exportDocx' } }], ribbon: true, pages: { header: 'Annual report', footer: 'Page {page} of {pages}', height: '65vh' }, outline: true });
+const editor = createEditor({ element: $('#editor'), content, docx: () => import('../src/docx'), plugins: [...defaultPlugins, Comments({ author: 'You' }), { name: 'quick-docx', keymap: { 'Mod-Shift-s': 'exportDocx' } }], ribbon: true, pages: { header: 'Annual report', footer: 'Page {page} of {pages}', height: '65vh' }, outline: true });
 
 (window as unknown as { editor: typeof editor }).editor = editor; // handy for experimenting in the console
 $('#actions').append(

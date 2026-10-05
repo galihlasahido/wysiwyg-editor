@@ -18,7 +18,7 @@ $('#app').append(
   ),
   el('div', { class: 'panel' }, el('div', { id: 'editor' })),
 );
-const editor = createEditor({ element: $('#editor'), content, plugins: [...defaultPlugins, Columns()] });
+const editor = createEditor({ element: $('#editor'), content, docx: () => import('../src/docx'), plugins: [...defaultPlugins, Columns()] });
 (window as unknown as { editor: typeof editor }).editor = editor;
 $('#app').append(codePanel(`
 plugins: [...defaultPlugins, Columns()],

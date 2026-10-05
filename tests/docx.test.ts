@@ -12,7 +12,7 @@ function make(html: string, extra: EditorPlugin[] = []) {
   document.body.innerHTML = '';
   const el = document.createElement('div');
   document.body.append(el);
-  return new Editor({ element: el, content: html, plugins: [...defaultPlugins, ...extra] });
+  return new Editor({ element: el, content: html, docx: () => import('../src/docx'), plugins: [...defaultPlugins, ...extra] });
 }
 
 async function parts(editor: Editor, options = {}) {

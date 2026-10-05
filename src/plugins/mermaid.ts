@@ -13,8 +13,8 @@ export interface MermaidLike {
 }
 
 export interface MermaidOptions {
-  /** Mermaid, or a function that loads it. Default: `import('mermaid')` (an optional peer dependency). */
-  mermaid?: MermaidLike | (() => Promise<MermaidLike>);
+  /** Mermaid, or a function that loads it: `() => import('mermaid')` (an optional peer dependency you install). A module with a `default` export is accepted too. */
+  mermaid?: MermaidLike | (() => Promise<MermaidLike | { default: MermaidLike }>);
   /** Extra Mermaid configuration. `securityLevel` stays 'strict' whatever you pass. */
   config?: Record<string, unknown>;
   /** Longest diagram source accepted, in characters. Default 20000. */
@@ -51,10 +51,12 @@ export function Mermaid(options: MermaidOptions = {}): EditorPlugin & MermaidApi
   const load = (): Promise<MermaidLike> => {
     mermaidPromise ??= (async () => {
       const m = options.mermaid;
-      if (typeof m === 'function') return m();
+      if (typeof m === 'function') {
+        const mod = await m();
+        return 'default' in mod && mod.default ? mod.default : (mod as MermaidLike); // `import('mermaid')` gives a module with a default export
+      }
       if (m) return m;
-      const mod = (await import('mermaid')) as unknown as { default?: MermaidLike } & MermaidLike;
-      return mod.default ?? mod;
+      throw new Error("Mermaid is not set up. Pass it when you add the plugin: Mermaid({ mermaid: () => import('mermaid') }) and install the \"mermaid\" package.");
     })();
     return mermaidPromise;
   };

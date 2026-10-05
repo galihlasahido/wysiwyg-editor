@@ -15,7 +15,7 @@ $('#app').append(
   status,
   el('div', { class: 'panel' }, el('div', { id: 'editor' })),
 );
-const editor = createEditor({ element: $('#editor'), content: '<h1>Nothing yet</h1><p>Press “Load the sample PDF”.</p>', plugins: [...defaultPlugins, PdfEpub({ pdf: { workerSrc }, epub: { title: 'My book', author: 'Me' } })] });
+const editor = createEditor({ element: $('#editor'), content: '<h1>Nothing yet</h1><p>Press “Load the sample PDF”.</p>', plugins: [...defaultPlugins, PdfEpub({ loadPdf: () => import('../src/pdf'), loadEpub: () => import('../src/epub'), pdf: { workerSrc }, epub: { title: 'My book', author: 'Me' } })] });
 (window as unknown as { editor: typeof editor }).editor = editor;
 editor.on('import', (e) => { const w = (e as { warnings: string[] }).warnings; status.textContent = w.length ? w.join(' ') : 'PDF imported.'; });
 editor.on('export', (e) => { status.textContent = `EPUB ready (${Math.round((e as { blob: Blob }).blob.size / 1024)} KB).`; });
@@ -23,7 +23,7 @@ editor.on('error', (e) => { status.textContent = (e as { message: string }).mess
 $('#app').append(codePanel(`
 // pnpm add pdfjs-dist jszip   (both optional)
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
-plugins: [...defaultPlugins, PdfEpub({ pdf: { workerSrc: workerUrl }, epub: { title, author, language: 'id' } })],
+plugins: [...defaultPlugins, PdfEpub({ loadPdf: () => import('wysiwygido/pdf'), loadEpub: () => import('wysiwygido/epub'), pdf: { workerSrc: workerUrl }, epub: { title, author, language: 'id' } })],
 editor.execute('openPdf');            // file picker; or editor.execute('importPdf', blob)
 editor.execute('exportEpub');         // download; editor.execute('exportEpub', '') only emits the 'export' event
 // or without the plugin: import { importPdf } from 'wysiwygido/pdf'; import { exportEpub } from 'wysiwygido/epub';
