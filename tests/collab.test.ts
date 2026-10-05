@@ -412,3 +412,85 @@ describe('Mentions', () => {
     expect(e.getHTML()).toContain('data-mention-id="u3">@Bob</span>');
   });
 });
+
+describe('Comments shared through collaboration', () => {
+  const peer = (ydoc: Y.Doc, seed?: string, author = 'u', initial: any[] = []) => {
+    const el = document.createElement('div');
+    document.body.append(el);
+    const comments = Comments({ author, initial });
+    const editor = new Editor({ element: el, plugins: [...defaultPlugins, Collaboration({ ydoc, seed, user: { name: author, color: '#f00' } }), comments] });
+    return { editor, comments };
+  };
+  const flush = () => new Promise((r) => setTimeout(r, 15));
+  const setup = async () => {
+    document.body.innerHTML = '';
+    const a = new Y.Doc();
+    const b = new Y.Doc();
+    const unlink = linkDocs(a, b);
+    const A = peer(a, '<p>hello world</p>', 'Ana');
+    await flush();
+    const B = peer(b, undefined, 'Budi');
+    await flush();
+    return { A, B, a, b, unlink };
+  };
+
+  it('a comment added by one editor appears in the other (thread and highlight)', async () => {
+    const { A, B } = await setup();
+    A.editor.view.dispatch(A.editor.view.state.tr.setSelection(TextSelection.create(A.editor.view.state.doc, 1, 6)));
+    A.editor.execute('addComment', 'Please check this');
+    await flush();
+    expect(B.comments.store.list()).toHaveLength(1);
+    expect(B.comments.store.list()[0]).toMatchObject({ author: 'Ana', text: 'Please check this' });
+    expect(B.editor.getHTML()).toContain('data-comment-id');
+    expect(B.editor.root.querySelectorAll('.wy-comment-card')).toHaveLength(1);
+  });
+
+  it('replies, resolve and delete travel both ways', async () => {
+    const { A, B } = await setup();
+    A.editor.view.dispatch(A.editor.view.state.tr.setSelection(TextSelection.create(A.editor.view.state.doc, 1, 6)));
+    A.editor.execute('addComment', 'q');
+    await flush();
+    const id = A.comments.store.list()[0].id;
+    B.editor.execute('replyComment', id, 'answer from Budi');
+    await flush();
+    expect(A.comments.store.get(id)!.replies.map((r) => r.text)).toEqual(['answer from Budi']);
+    A.editor.execute('resolveComment', id, true);
+    await flush();
+    expect(B.comments.store.get(id)!.resolved).toBe(true);
+    A.editor.execute('deleteComment', id);
+    await flush();
+    expect(B.comments.store.list()).toHaveLength(0);
+  });
+
+  it('two replies written at the same moment are both kept', async () => {
+    const { A, B, unlink, a, b } = await setup();
+    A.editor.view.dispatch(A.editor.view.state.tr.setSelection(TextSelection.create(A.editor.view.state.doc, 1, 6)));
+    A.editor.execute('addComment', 'q');
+    await flush();
+    const id = A.comments.store.list()[0].id;
+    unlink(); // both offline
+    A.editor.execute('replyComment', id, 'reply A');
+    B.editor.execute('replyComment', id, 'reply B');
+    linkDocs(a, b);
+    await flush();
+    const texts = (s: typeof A) => s.comments.store.get(id)!.replies.map((r) => r.text).sort();
+    expect(texts(A)).toEqual(['reply A', 'reply B']);
+    expect(texts(B)).toEqual(['reply A', 'reply B']);
+  });
+
+  it('threads loaded from a database are shared once, not duplicated by a second editor', async () => {
+    document.body.innerHTML = '';
+    const a = new Y.Doc();
+    const b = new Y.Doc();
+    linkDocs(a, b);
+    const saved = [{ id: 'c1', author: 'Ana', text: 'saved', createdAt: 1, resolved: false, replies: [{ author: 'B', text: 'r', createdAt: 2 }] }];
+    const A = peer(a, '<p>x</p>', 'Ana', structuredClone(saved));
+    await flush();
+    const B = peer(b, undefined, 'Budi', structuredClone(saved)); // the same threads, loaded from the same database row
+    await flush();
+    expect(A.comments.store.list()).toHaveLength(1);
+    expect(B.comments.store.list()).toHaveLength(1);
+    expect(B.comments.store.list()[0].replies).toHaveLength(1);
+    expect(new Set(A.comments.store.list()[0].replies.map((r) => r.id)).size).toBe(1);
+  });
+});

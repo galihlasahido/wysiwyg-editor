@@ -139,7 +139,7 @@ read-only mode (`readOnly` / `setReadOnly`).
 `.docx` (`exportDocx`, `importDocx`; keeps headings, formatting, lists, tables, images, footnotes, comments, tracked
 changes, page size/margins/orientation, header/footer, TOC field).
 
-**Collaboration & backend**: real-time co-editing with remote cursors and per-user undo (Yjs); a reference server with
+**Collaboration & backend**: real-time co-editing with remote cursors and per-user undo (Yjs); comment threads, replies and resolve are shared through the same Yjs document (one entry per thread and per reply, so simultaneous replies are all kept); a reference server with
 REST API, owner/share-link permissions (view / comment / edit), optimistic concurrency, and a WebSocket relay;
 `Autosave` with retry and conflict handling.
 

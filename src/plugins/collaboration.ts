@@ -20,10 +20,11 @@ export interface CollaborationOptions {
 }
 
 /** Real-time co-editing over Yjs. Undo/redo become per-user (they only undo your own changes). */
-export function Collaboration(options: CollaborationOptions): EditorPlugin {
+export function Collaboration(options: CollaborationOptions): EditorPlugin & { ydoc: Y.Doc } {
   const fragment = options.ydoc.getXmlFragment(options.field ?? 'prosemirror');
   return {
     name: 'collaboration',
+    ydoc: options.ydoc, // lets the Comments plugin share its threads through the same document
     setup(editor) {
       options.awareness?.setLocalStateField('user', options.user ?? { name: 'Anonymous', color: '#2563eb' });
       editor.registerCommand('undo', (e) => undoCommand(e.view.state, e.view.dispatch) !== false);

@@ -4,7 +4,7 @@ import { askDialog, avatar } from '../dialog';
 import type { Editor } from '../editor';
 import type { EditorPlugin } from '../types';
 
-export interface CommentReply { author: string; text: string; createdAt: number }
+export interface CommentReply { /** Identifies the reply when comments are shared between editors. Added automatically. */ id?: string; author: string; text: string; createdAt: number }
 export interface CommentThread {
   id: string;
   author: string;
@@ -16,13 +16,28 @@ export interface CommentThread {
 
 const newId = () => (globalThis.crypto?.randomUUID?.() ?? `c${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`);
 
+/** The part of a Yjs `Y.Map` the store uses, so this file needs no Yjs import. */
+export interface SharedMap<T> {
+  get(key: string): T | undefined;
+  set(key: string, value: T): unknown;
+  delete(key: string): void;
+  forEach(fn: (value: T, key: string) => void): void;
+  observe(fn: (event: { transaction: { local: boolean } }) => void): void;
+  unobserve?(fn: (event: { transaction: { local: boolean } }) => void): void;
+  doc?: { transact(fn: () => void, origin?: unknown): void } | null;
+}
+
+type ThreadBase = Omit<CommentThread, 'replies'>;
+type SharedReply = CommentReply & { id: string; threadId: string };
+
 /** Comment threads live outside the document (the document only carries `comment` marks with an id). */
 export class CommentStore {
   private threads = new Map<string, CommentThread>();
   private listeners = new Set<() => void>();
+  private shared: { threads: SharedMap<ThreadBase>; replies: SharedMap<SharedReply>; off: () => void } | null = null;
 
   constructor(initial: CommentThread[] = [], private onChange?: (threads: CommentThread[]) => void) {
-    for (const t of initial) this.threads.set(t.id, t);
+    for (const t of initial) this.threads.set(t.id, this.withReplyIds(t));
   }
   list(): CommentThread[] { return [...this.threads.values()]; }
   get(id: string): CommentThread | undefined { return this.threads.get(id); }
@@ -31,26 +46,106 @@ export class CommentStore {
     return () => this.listeners.delete(fn);
   }
   load(threads: CommentThread[]): void {
-    this.threads = new Map(threads.map((t) => [t.id, t]));
+    const before = this.threads;
+    this.threads = new Map(threads.map((t) => [t.id, this.withReplyIds(t)]));
+    this.pushShared(before);
     this.emit();
   }
   toJSON(): CommentThread[] { return this.list(); }
-  add(t: CommentThread): void { this.threads.set(t.id, t); this.emit(); }
+  add(t: CommentThread): void {
+    const before = this.threads;
+    this.threads = new Map(before).set(t.id, this.withReplyIds(t));
+    this.pushShared(before);
+    this.emit();
+  }
   update(id: string, patch: Partial<CommentThread>): boolean {
     const t = this.threads.get(id);
     if (!t) return false;
-    this.threads.set(id, { ...t, ...patch });
+    const before = this.threads;
+    this.threads = new Map(before).set(id, this.withReplyIds({ ...t, ...patch }));
+    this.pushShared(before);
     this.emit();
     return true;
   }
   remove(id: string): boolean {
-    const ok = this.threads.delete(id);
-    if (ok) this.emit();
-    return ok;
+    if (!this.threads.has(id)) return false;
+    const before = this.threads;
+    this.threads = new Map(before);
+    this.threads.delete(id);
+    this.pushShared(before);
+    this.emit();
+    return true;
   }
   private emit() {
     this.onChange?.(this.list());
     for (const l of this.listeners) l();
+  }
+
+  private withReplyIds(t: CommentThread): CommentThread {
+    // A reply saved before replies had ids gets one made from its content, so two editors that load the same saved thread agree on it.
+    const stable = (r: CommentReply) => { let h = 5381; for (const ch of `${r.author}|${r.createdAt}|${r.text}`) h = ((h * 33) ^ ch.charCodeAt(0)) >>> 0; return `r${h.toString(36)}`; };
+    return t.replies.every((r) => r.id) ? t : { ...t, replies: t.replies.map((r) => (r.id ? r : { ...r, id: stable(r) })) };
+  }
+
+  // ---- sharing between editors (real-time collaboration)
+
+  /**
+   * Keep the threads in two shared maps (a Yjs `Y.Map` each): one entry per thread and one per reply, so two people replying at the
+   * same moment both keep their reply. Threads already in the store are added to the maps, those already there are loaded.
+   * Changes from other editors arrive through the maps and update the panel. Returns a function that stops sharing.
+   */
+  bindShared(threads: SharedMap<ThreadBase>, replies: SharedMap<SharedReply>): () => void {
+    this.shared?.off();
+    const pull = () => {
+      const next = new Map<string, CommentThread>();
+      threads.forEach((base, id) => next.set(id, { ...base, replies: [] }));
+      const all: SharedReply[] = [];
+      replies.forEach((r) => all.push(r));
+      for (const r of all.sort((a, b) => a.createdAt - b.createdAt || a.id.localeCompare(b.id))) {
+        const t = next.get(r.threadId);
+        if (t) t.replies.push({ id: r.id, author: r.author, text: r.text, createdAt: r.createdAt });
+      }
+      this.threads = next;
+      this.emit();
+    };
+    const onChange = (e: { transaction: { local: boolean } }) => { if (!e.transaction.local) pull(); };
+    // what this editor already has goes in (without overwriting what others wrote), then everything comes back out
+    const write = () => {
+      for (const t of this.threads.values()) {
+        const { replies: rs, ...base } = t;
+        if (!threads.get(t.id)) threads.set(t.id, base);
+        for (const r of rs) if (!replies.get(`${t.id}/${r.id}`)) replies.set(`${t.id}/${r.id}`, { ...r, id: r.id!, threadId: t.id });
+      }
+    };
+    threads.doc ? threads.doc.transact(write, 'comments-bind') : write();
+    threads.observe(onChange);
+    replies.observe(onChange);
+    this.shared = { threads, replies, off: () => { threads.unobserve?.(onChange); replies.unobserve?.(onChange); this.shared = null; } };
+    pull();
+    return this.shared.off;
+  }
+
+  /** Write the difference between two states of the store into the shared maps. */
+  private pushShared(before: Map<string, CommentThread>) {
+    const s = this.shared;
+    if (!s) return;
+    const run = () => {
+      for (const [id, t] of this.threads) {
+        const { replies: rs, ...base } = t;
+        const old = before.get(id);
+        const { replies: _o, ...oldBase } = old ?? ({} as CommentThread);
+        if (!old || JSON.stringify(oldBase) !== JSON.stringify(base)) s.threads.set(id, base);
+        const had = new Set((old?.replies ?? []).map((r) => r.id));
+        for (const r of rs) if (!had.has(r.id)) s.replies.set(`${id}/${r.id}`, { ...r, id: r.id!, threadId: id });
+        for (const r of old?.replies ?? []) if (!rs.some((x) => x.id === r.id)) s.replies.delete(`${id}/${r.id}`);
+      }
+      for (const [id, old] of before) {
+        if (this.threads.has(id)) continue;
+        s.threads.delete(id);
+        for (const r of old.replies) s.replies.delete(`${id}/${r.id}`);
+      }
+    };
+    s.threads.doc ? s.threads.doc.transact(run, 'comments-local') : run();
   }
 }
 
@@ -96,6 +191,9 @@ export function Comments(options: CommentsOptions = {}): CommentsPlugin {
     setup(editor: Editor) {
       const safe = { readOnlySafe: true };
       editor.extensions.comments = store; // lets Autosave include the threads and notice reply/resolve changes
+      // With real-time collaboration the threads are shared too (read from the plugin object: no Yjs import needed here)
+      const collab = editor.config.plugins.find((p) => p.name === 'collaboration') as (EditorPlugin & { ydoc?: { getMap(name: string): SharedMap<any> } }) | undefined;
+      if (collab?.ydoc) store.bindShared(collab.ydoc.getMap('wy-comments'), collab.ydoc.getMap('wy-comment-replies'));
       let hiddenByUser = false;
       let rerender = () => {};
       const sortedAnchors = () => [...findAnchors(editor.view.state.doc).values()].filter((a) => store.get(a.id)).sort((a, b) => a.from - b.from);
@@ -154,7 +252,7 @@ export function Comments(options: CommentsOptions = {}): CommentsPlugin {
       editor.registerCommand('replyComment', (_e, id: string, text: string) => {
         const t = store.get(id);
         if (!t || !text?.trim()) return false;
-        return store.update(id, { replies: [...t.replies, { author, text: text.trim(), createdAt: Date.now() }] });
+        return store.update(id, { replies: [...t.replies, { id: newId(), author, text: text.trim(), createdAt: Date.now() }] });
       }, safe);
       editor.registerCommand('resolveComment', (_e, id: string, resolved = true) => store.update(id, { resolved }), safe);
       editor.registerCommand('deleteComment', (e, id: string) => {

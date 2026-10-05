@@ -119,8 +119,8 @@ function cleanComments(v: unknown): unknown[] | null {
     if (!t || typeof t !== 'object' || !str((t as any).id, 100) || !str((t as any).author, 200) || !str((t as any).text, 20000) || typeof (t as any).createdAt !== 'number' || typeof (t as any).resolved !== 'boolean' || !Array.isArray((t as any).replies) || (t as any).replies.length > 1000) return null;
     const replies: unknown[] = [];
     for (const r of (t as any).replies) {
-      if (!r || typeof r !== 'object' || !str(r.id, 100) || !str(r.author, 200) || !str(r.text, 20000) || typeof r.createdAt !== 'number') return null;
-      replies.push({ id: r.id, author: r.author, text: r.text, createdAt: r.createdAt });
+      if (!r || typeof r !== 'object' || (r.id !== undefined && !str(r.id, 100)) || !str(r.author, 200) || !str(r.text, 20000) || typeof r.createdAt !== 'number') return null;
+      replies.push({ id: r.id ?? `r${replies.length}`, author: r.author, text: r.text, createdAt: r.createdAt });
     }
     out.push({ id: (t as any).id, author: (t as any).author, text: (t as any).text, createdAt: (t as any).createdAt, resolved: (t as any).resolved, replies });
   }
