@@ -57,3 +57,5 @@ export { applyAdjustments, boxBlur, FILTER_PRESETS, NEUTRAL as NEUTRAL_ADJUSTMEN
 export type { Adjustments } from './image-ops';
 export { cleanPastedHTML, isWordHTML, isGoogleDocsHTML, hasPasteableText } from './paste';
 export { markerStyle } from './paste';
+export { printDocument, buildPrintHTML, marginContent } from './print';
+export type { PrintOptions } from './print';

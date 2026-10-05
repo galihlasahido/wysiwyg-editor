@@ -262,17 +262,6 @@ export function Pages(options: PageOptions = {}): EditorPlugin {
         firstHeader: options.firstHeader ?? '',
         firstFooter: options.firstFooter ?? '',
       });
-      // Browser print / "Save as PDF": the page margins become real @page margins.
-      editor.registerCommand('print', () => {
-        const { width, height } = dims();
-        const m = settings.margins;
-        const style = document.createElement('style');
-        style.textContent = `@page{size:${width}px ${height}px;margin:${m.top}px ${m.right}px ${m.bottom}px ${m.left}px}@media print{.wy-paged .wy-content .ProseMirror{padding:0}}`;
-        document.head.append(style);
-        window.addEventListener('afterprint', () => style.remove(), { once: true });
-        window.print();
-        return true;
-      });
       // ---- Office-style page commands
       const PRESETS: Record<string, Partial<Margins>> = {
         normal: { top: 96, bottom: 96, left: 96, right: 96 },

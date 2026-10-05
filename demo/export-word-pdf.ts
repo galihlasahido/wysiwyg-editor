@@ -15,6 +15,7 @@ $('#app').append(
 
 const editor = createEditor({ element: $('#editor'), content, plugins: [...defaultPlugins, Comments({ author: 'You' }), { name: 'quick-docx', keymap: { 'Mod-Shift-s': 'exportDocx' } }], ribbon: true, pages: { header: 'Annual report', footer: 'Page {page} of {pages}', height: '65vh' }, outline: true });
 
+(window as unknown as { editor: typeof editor }).editor = editor; // handy for experimenting in the console
 $('#actions').append(
   button('Download .docx', () => void editor.exportDocx({ download: 'report.docx' }), true),
   button('Print / Save as PDF', () => editor.execute('print')),

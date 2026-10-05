@@ -135,7 +135,7 @@ lists between items.
 accept/reject), `Versions` (named snapshots, restore is undoable, optional autosave and `localStorage` persistence),
 read-only mode (`readOnly` / `setReadOnly`).
 
-**Import / export**: HTML (`exportHTML`), print / save as PDF (`execute('print')`), Markdown (`getMarkdown` / `setMarkdown`),
+**Import / export**: HTML (`exportHTML`), print / save as PDF (`editor.execute('print')`: the document alone in a hidden frame, with the real paper size and margins and the header, footer and page numbers on every page; Chrome and Edge 131+ draw those through `@page` margin boxes, other browsers print the pages without them), Markdown (`getMarkdown` / `setMarkdown`),
 `.docx` (`exportDocx`, `importDocx`; keeps headings, formatting, lists, tables, images, footnotes, comments, tracked
 changes, page size/margins/orientation, header/footer, TOC field).
 
@@ -312,7 +312,7 @@ Plugins are fixed when the editor is created (the schema cannot change afterward
 - **Server hardening knobs:** `createServer({ createKey, createLimitPerMinute, maxDocs })` protect document creation (a key, a per-address rate and a total cap; the defaults are 60 per minute and 10,000 documents). Put the server behind a reverse proxy with TLS and your own rate limiting for public use; tokens in a URL are accepted for reads and WebSocket only.
 - **Restricted editing** is enforced in the browser only: it protects against accidental edits, not against someone who edits the stored HTML or talks to the server directly.
 - **Track changes** tracks inline edits inside one paragraph; structural edits (splitting/joining blocks, tables) apply untracked.
-- **PDF** is the browser's print dialog (Save as PDF), not a generated file.
+- **PDF** is the browser's print dialog (Save as PDF), not a generated file. Running headers and footers use `@page` margin boxes (Chrome / Edge 131+); Firefox and Safari print the document without them. Page breaks are the browser's own, so they can differ slightly from the on-screen pagination.
 - **.docx import** goes through mammoth: alignment, colors, page setup and comments are not imported. Export embeds
   `data:` images and fetches remote ones when CORS allows; otherwise it writes the alt text.
 - Image cropping, resize, captions and alt text are supported; the .docx export crops with canvas in browsers and exports the full image where canvas is unavailable.

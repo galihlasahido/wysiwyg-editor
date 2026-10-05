@@ -9,6 +9,7 @@ import { getStats, type Stats } from './plugins/word-count';
 import { openDialog } from './dialog';
 import { download } from './export';
 import { cleanFileName } from './files';
+import { printDocument, type PrintOptions } from './print';
 import { inertElement } from './inert';
 import type { ExportOptions } from './docx';
 import { markdownToDoc, docToMarkdown } from './markdown';
@@ -168,6 +169,8 @@ export class Editor {
       void e.exportDocx({ download: true, ...options }).catch((err) => this.reportDocxError(err));
       return true;
     }, { readOnlySafe: true });
+    // Print / Save as PDF: the document alone, with the page's real size, margins, header and footer.
+    this.registerCommand('print', (e, options?: PrintOptions) => (void printDocument(e, options).catch((err) => console.error('Print failed', err)), true), { readOnlySafe: true });
     this.registerCommand('openDocx', (e) => {
       const input = document.createElement('input');
       input.type = 'file';
