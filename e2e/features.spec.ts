@@ -180,3 +180,26 @@ test('columns lay out side by side and the .docx has real Word columns', async (
   expect(ok).toBe(true); // the section XML itself is checked in the unit tests
   expect(problems).toEqual([]);
 });
+
+test('AI: ghost text with Tab, review as tracked changes, chat', async ({ page }) => {
+  const problems = await openDemo(page, 'ai');
+  await editorReady(page);
+  // ghost text appears after a pause at the end of a paragraph and Tab accepts it
+  const last = page.locator('.ProseMirror p').last();
+  await page.evaluate(() => { const v = (window as any).editor.view; v.focus(); const sel = v.state.selection; v.dispatch(v.state.tr.setSelection(sel.constructor.atEnd(v.state.doc))); });
+  await page.keyboard.type(' We are ready for the next quarter.', { delay: 5 });
+  await expect(page.locator('.wy-ghost')).toBeVisible({ timeout: 5000 });
+  await page.keyboard.press('Tab');
+  await expect(page.locator('.wy-ghost')).toHaveCount(0);
+  await expect(last).toContainText('next update');
+  // review
+  await page.getByRole('button', { name: 'AI review as tracked changes' }).click();
+  await expect(page.locator('.ProseMirror ins').first()).toBeVisible({ timeout: 8000 });
+  expect(await page.locator('.ProseMirror del').count()).toBeGreaterThan(0);
+  // chat
+  await page.getByRole('button', { name: 'AI chat' }).click();
+  await page.getByLabel('Your message').fill('What is this about?');
+  await page.getByLabel('Your message').press('Enter');
+  await expect(page.locator('.wy-aic-msg.is-assistant .wy-aic-text')).toContainText('short update', { timeout: 8000 });
+  expect(problems).toEqual([]);
+});

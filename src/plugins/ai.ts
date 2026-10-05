@@ -3,6 +3,9 @@ import type { Editor } from '../editor';
 import { askDialog } from '../dialog';
 import { markdownToDoc } from '../markdown';
 import type { EditorPlugin } from '../types';
+import { aiExtras, type ChatOptions, type InlineSuggestOptions, type ReviewOptions } from './ai-extras';
+
+export type { ChatOptions, InlineSuggestOptions, ReviewOptions };
 
 export interface AIRequest {
   action: string;
@@ -39,6 +42,12 @@ export const DEFAULT_AI_ACTIONS: AIAction[] = [
 export interface AIOptions {
   provider: AIProvider;
   actions?: AIAction[];
+  /** Grey "ghost" continuation while you type; Tab accepts it, Esc or typing dismisses it. Pass `true` or settings. Off by default. */
+  inline?: boolean | InlineSuggestOptions;
+  /** A chat panel about the document (`aiChat` command). Off by default. */
+  chat?: boolean | ChatOptions;
+  /** Settings for `aiReview`, which proposes fixes for the whole document as tracked changes (needs the TrackChanges plugin). */
+  review?: ReviewOptions;
 }
 
 interface Target { from: number; to: number }
@@ -165,7 +174,9 @@ export function AIAssistant(options: AIOptions): EditorPlugin {
       });
       editor.registerCommand('aiDiscard', () => (close(), true));
 
+      const extras = aiExtras(editor, options.provider, { inline: options.inline, chat: options.chat, review: options.review });
       return [
+        ...extras,
         new Plugin<Target | null>({
           key,
           state: {
@@ -192,6 +203,9 @@ export function AIAssistant(options: AIOptions): EditorPlugin {
       ];
     },
     toolbar: [
+      ...(options.chat ? [{ name: 'aiChat', label: 'AI chat', icon: '💬', command: 'aiChat' }] : []),
+      { name: 'aiReview', label: 'AI review as tracked changes', icon: '✍', command: 'aiReview' },
+      ...(options.inline ? [{ name: 'aiSuggestions', label: 'Toggle AI suggestions while typing', icon: '✨', command: 'toggleAISuggestions' }] : []),
       {
         type: 'select',
         name: 'ai',
