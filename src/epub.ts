@@ -1,5 +1,5 @@
 /**
- * EPUB 3 export. Lives in its own entry point (`wysiwyg-editor/epub`) so `jszip` stays optional. Chapters start at each top-level heading,
+ * EPUB 3 export. Lives in its own entry point (`wysiwygido/epub`) so `jszip` stays optional. Chapters start at each top-level heading,
  * embedded pictures become files in the book, and anything that needs scripts (players, forms) is reduced to text.
  */
 import type { Editor } from './editor';

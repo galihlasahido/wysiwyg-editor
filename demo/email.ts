@@ -43,7 +43,7 @@ subject.addEventListener('input', render);
 render();
 
 $('#app').append(codePanel(`
-import { toEmailHTML, toEmailText } from 'wysiwyg-editor';
+import { toEmailHTML, toEmailText } from 'wysiwygido';
 
 const html = toEmailHTML(editor.getHTML(), { width: 600 });   // tables + inline styles
 const text = toEmailText(editor.getHTML());                   // plain-text alternative

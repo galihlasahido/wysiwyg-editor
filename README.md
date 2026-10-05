@@ -1,4 +1,4 @@
-# wysiwyg-editor
+# wysiwygido
 
 [![Support via PayPal](https://img.shields.io/badge/PayPal-Support-00457C?style=for-the-badge&logo=paypal&logoColor=white)](https://paypal.me/abahido)
 [![Support via Lynk.id](https://img.shields.io/badge/Lynk.id-Support-FB6B35?style=for-the-badge&logo=kofi&logoColor=white)](https://lynk.id/abahido/s/z52m3ekew032)
@@ -7,7 +7,7 @@ A modular rich-text editor in TypeScript, inspired by [CKEditor 5](https://ckedi
 built on [ProseMirror](https://prosemirror.net/). The long-term goal is a **Google Docs-style editor for the web**:
 paged layout, comments, suggestions, real-time collaboration, `.docx` import/export, and a backend to store and share documents.
 
-Everything is opt-in plugins; the core is small. It is **not published to npm yet**: clone, `pnpm install`, `pnpm build`.
+Everything is opt-in plugins; the core is small. It is **not published to npm yet** (the package will be named `wysiwygido`): clone, `pnpm install`, `pnpm build`.
 
 ```sh
 pnpm install
@@ -25,10 +25,10 @@ Each has a "Show the code" section.
 ## Without a framework: `<wysiwyg-editor>`
 
 ```html
-<link rel="stylesheet" href="wysiwyg-editor/style.css">
+<link rel="stylesheet" href="wysiwygido/style.css">
 <wysiwyg-editor name="body" value="<p>Hello</p>" ribbon paged theme="dark"></wysiwyg-editor>
 <script type="module">
-  import { defineEditorElement } from 'wysiwyg-editor';
+  import { defineEditorElement } from 'wysiwygido';
   defineEditorElement();                       // registers the tag once (or pass your own name)
   const el = document.querySelector('wysiwyg-editor');
   el.addEventListener('editor-change', (e) => console.log(e.detail.html));
@@ -42,8 +42,8 @@ It renders in the light DOM (no shadow root), so load the stylesheet in the page
 ## Quick start
 
 ```ts
-import { createEditor } from 'wysiwyg-editor';
-import 'wysiwyg-editor/style.css';
+import { createEditor } from 'wysiwygido';
+import 'wysiwygido/style.css';
 
 const editor = createEditor({
   element: document.getElementById('editor')!,
@@ -63,7 +63,7 @@ editor.setHTML('<p>…</p>');   editor.replaceHTML('<p>…</p>') // the latter i
 Choose your own features and toolbar:
 
 ```ts
-import { Editor, Essentials, BasicStyles, Heading, Comments, TrackChanges } from 'wysiwyg-editor';
+import { Editor, Essentials, BasicStyles, Heading, Comments, TrackChanges } from 'wysiwygido';
 
 new Editor({
   element,
@@ -76,12 +76,12 @@ Entry points (optional peer dependencies are only needed for the ones you import
 
 | Import | Contents | Needs |
 |---|---|---|
-| `wysiwyg-editor` | editor, all plugins, HTML export, `DocumentClient` | – |
-| `wysiwyg-editor/style.css` | styles | – |
-| `wysiwyg-editor/docx` | `.docx` import/export | `docx`, `mammoth` |
-| `wysiwyg-editor/collab` | Yjs collaboration + providers | `yjs`, `y-prosemirror`, `y-protocols` |
-| `wysiwyg-editor/react` | `<WysiwygEditor value onChange />` | `react` |
-| `wysiwyg-editor/vue` | `<WysiwygEditor v-model />` | `vue` |
+| `wysiwygido` | editor, all plugins, HTML export, `DocumentClient` | – |
+| `wysiwygido/style.css` | styles | – |
+| `wysiwygido/docx` | `.docx` import/export | `docx`, `mammoth` |
+| `wysiwygido/collab` | Yjs collaboration + providers | `yjs`, `y-prosemirror`, `y-protocols` |
+| `wysiwygido/react` | `<WysiwygEditor value onChange />` | `react` |
+| `wysiwygido/vue` | `<WysiwygEditor v-model />` | `vue` |
 
 ## Features
 
@@ -153,7 +153,7 @@ Markdown), so exports show it. A reference to a deleted caption says "Missing re
 
 **Recording and dictation**: `Recording()` adds `recordAudio`, `recordScreen`, `stopRecording`, `cancelRecording` and `toggleDictation`. The browser asks permission each time, a bar shows the time while recording, Esc cancels and the tracks are always released. A recording becomes a player in the text, embedded as a data URL (capped by `maxBytes`) or stored by your `upload(blob, kind)` function (recommended for anything long); `maxSeconds` stops it automatically. Dictation uses the browser's speech recognition (Chrome, Edge, Safari; not Firefox), types only text at the cursor, and can be set to a language with `dictationLang`. Word and Markdown export keep a link or label, not the media.
 
-**PDF import and EPUB export**: `PdfEpub()` adds `openPdf` / `importPdf(blob)` and `exportEpub(name?)`; without the plugin use `importPdf` from `wysiwyg-editor/pdf` and `exportEpub` from `wysiwyg-editor/epub`. They need the optional packages `pdfjs-dist` and `jszip` (PDF import also needs `pdf: { workerSrc }`, the URL where you serve pdf.js's worker; with Vite `import workerSrc from 'pdfjs-dist/build/pdf.worker.min.mjs?url'`). PDF import reads **text only**: paragraphs (joined across line ends, hyphenation repaired), headings from larger type and bullet or numbered lists; pictures, tables, multi-column layouts and scanned pages are not recovered (a scan is reported as having no text). The EPUB 3 file starts a chapter at each top-level heading, packs embedded pictures, writes a navigation document, and reduces anything scripted (players, forms) to text; remote pictures are not packed.
+**PDF import and EPUB export**: `PdfEpub()` adds `openPdf` / `importPdf(blob)` and `exportEpub(name?)`; without the plugin use `importPdf` from `wysiwygido/pdf` and `exportEpub` from `wysiwygido/epub`. They need the optional packages `pdfjs-dist` and `jszip` (PDF import also needs `pdf: { workerSrc }`, the URL where you serve pdf.js's worker; with Vite `import workerSrc from 'pdfjs-dist/build/pdf.worker.min.mjs?url'`). PDF import reads **text only**: paragraphs (joined across line ends, hyphenation repaired), headings from larger type and bullet or numbered lists; pictures, tables, multi-column layouts and scanned pages are not recovered (a scan is reported as having no text). The EPUB 3 file starts a chapter at each top-level heading, packs embedded pictures, writes a navigation document, and reduces anything scripted (players, forms) to text; remote pictures are not packed.
 
 **AI suggestions, review and chat** (options of `AIAssistant`, all through your own `provider`; the request carries `action: 'complete' | 'review' | 'chat'`):
 `inline: true` (or `{ delayMs, minChars, maxChars }`) shows a grey continuation at the end of a paragraph after you pause: Tab accepts, Esc or any typing dismisses it (one line, plain text, never markup). `aiReview` sends each plain paragraph to the provider and applies the answers as **tracked changes** (needs `TrackChanges`); paragraphs edited meanwhile are skipped, a reply of several lines is ignored, and one Undo takes the whole review back. `chat: true` adds an `aiChat` panel that sends your question, the selection and the document text (up to `contextChars`) and shows replies as text, with "Insert into document" (parsed as Markdown, raw HTML disabled). Document text is sent to your provider: put API keys and any filtering on your server.
@@ -162,17 +162,17 @@ Markdown), so exports show it. A reference to a deleted caption says "Missing re
 
 Remember to leave the default `SpellCheck` out of the plugin list when you add this one (`defaultPlugins.filter((p) => p.name !== 'spellcheck')`).
 
-**Frameworks**: React (`wysiwyg-editor/react`), Vue (`wysiwyg-editor/vue`), a Svelte action and a framework-neutral binding for Angular and the rest. Plain `<wysiwyg-editor>` (web component) works everywhere too.
+**Frameworks**: React (`wysiwygido/react`), Vue (`wysiwygido/vue`), a Svelte action and a framework-neutral binding for Angular and the rest. Plain `<wysiwyg-editor>` (web component) works everywhere too.
 
 ```svelte
 <script>
-  import { wysiwyg } from 'wysiwyg-editor/svelte';
+  import { wysiwyg } from 'wysiwygido/svelte';
   let html = '<p>Hello</p>';
 </script>
 <div use:wysiwyg={{ value: html, onChange: (h) => (html = h), readOnly: false }}></div>
 ```
 
-`wysiwyg-editor/adapter` exports `bindEditor(element, config)` returning `{ editor, writeValue, onChange, onTouched, setDisabled, destroy }`, which is exactly the shape of Angular's `ControlValueAccessor`. A component for reactive and template-driven forms is a few lines (not compiled against Angular in this repo's tests; the binding itself is tested):
+`wysiwygido/adapter` exports `bindEditor(element, config)` returning `{ editor, writeValue, onChange, onTouched, setDisabled, destroy }`, which is exactly the shape of Angular's `ControlValueAccessor`. A component for reactive and template-driven forms is a few lines (not compiled against Angular in this repo's tests; the binding itself is tested):
 
 ```ts
 @Component({
@@ -276,7 +276,7 @@ Two browser tabs, no server (`BroadcastChannel`):
 
 ```ts
 import * as Y from 'yjs';
-import { Collaboration, createBroadcastProvider } from 'wysiwyg-editor/collab';
+import { Collaboration, createBroadcastProvider } from 'wysiwygido/collab';
 
 const ydoc = new Y.Doc();
 const { awareness } = createBroadcastProvider('room-1', ydoc);
@@ -386,7 +386,7 @@ await editor.importDocx(file);                                    // the other d
 ```
 
 Equations become native Word equations and diagrams become pictures (see below). The File tab of the ribbon uses the same commands, so
-`ribbon: true` works without any `onExportDocx` / `onOpenDocx`. The lower-level `buildDocx(editor)` / `exportDocx(editor)` from `wysiwyg-editor/docx` remain.
+`ribbon: true` works without any `onExportDocx` / `onOpenDocx`. The lower-level `buildDocx(editor)` / `exportDocx(editor)` from `wysiwygido/docx` remain.
 Generation needs a DOM (it reads the editor's document and uses a canvas for crops and diagrams), so run it in the browser or in a DOM environment such as jsdom, not in plain Node.
 
 ## Arranging the toolbar
@@ -422,7 +422,7 @@ reorder or rename tabs, groups and controls.
 A plugin is a plain object. Everything is optional except `name`; `definePlugin` just gives you type checking:
 
 ```ts
-import { definePlugin, registerIcon } from 'wysiwyg-editor';
+import { definePlugin, registerIcon } from 'wysiwygido';
 
 const Callout = definePlugin({
   name: 'callout',

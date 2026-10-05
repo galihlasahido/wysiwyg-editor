@@ -44,7 +44,7 @@ const editor = createEditor({
 });
 
 $('#app').append(codePanel(`
-import { AIAssistant, createFetchProvider } from 'wysiwyg-editor';
+import { AIAssistant, createFetchProvider } from 'wysiwygido';
 
 createEditor({
   element,

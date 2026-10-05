@@ -39,7 +39,7 @@ toggle.addEventListener('click', () => {
 
 $('#app').append(codePanel(`
 import * as Y from 'yjs';
-import { Collaboration, createWebSocketProvider } from 'wysiwyg-editor/collab';
+import { Collaboration, createWebSocketProvider } from 'wysiwygido/collab';
 
 const ydoc = new Y.Doc();
 const provider = createWebSocketProvider('wss://host/collab/<id>?token=<token>', ydoc);

@@ -45,7 +45,7 @@ $('#actions').append(
 );
 
 $('#app').append(codePanel(`
-import { importDocx } from 'wysiwyg-editor/docx';
+import { importDocx } from 'wysiwygido/docx';
 
 const warnings = await importDocx(editor, file);   // one undoable step; returns conversion warnings
 `));

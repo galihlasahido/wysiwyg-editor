@@ -18,10 +18,10 @@ $('#dark').addEventListener('click', () => editor.editor?.setTheme(editor.editor
 $('#ro').addEventListener('click', () => (editor.readOnly = !editor.readOnly));
 
 $('#app').append(codePanel(`
-<link rel="stylesheet" href="wysiwyg-editor/style.css">
+<link rel="stylesheet" href="wysiwygido/style.css">
 <wysiwyg-editor name="body" value="<p>Hello</p>" ribbon paged theme="dark"></wysiwyg-editor>
 <script type="module">
-  import { defineEditorElement } from 'wysiwyg-editor';
+  import { defineEditorElement } from 'wysiwygido';
   defineEditorElement();                              // or defineEditorElement('my-editor')
   const el = document.querySelector('wysiwyg-editor');
   el.addEventListener('editor-change', (e) => save(e.detail.html));

@@ -5,7 +5,7 @@ export default defineConfig({
   build: {
     lib: {
       entry: {
-        'wysiwyg-editor': resolve(import.meta.dirname, 'src/index.ts'),
+        wysiwygido: resolve(import.meta.dirname, 'src/index.ts'),
         docx: resolve(import.meta.dirname, 'src/docx.ts'),
         pdf: resolve(import.meta.dirname, 'src/pdf.ts'),
         epub: resolve(import.meta.dirname, 'src/epub.ts'),
@@ -19,6 +19,9 @@ export default defineConfig({
       formats: ['es'],
       cssFileName: 'style',
     },
+    // a library ships readable code with source maps: the app's bundler minifies once, and stack traces stay useful
+    minify: false,
+    sourcemap: true,
     rollupOptions: { external: [/^prosemirror-/, /^markdown-it/, /^y-/, /^yjs/, /^lib0/, /^docx$/, /^mammoth/, /^pdfjs-dist/, /^jszip/, /^katex/, /^mermaid/, /^react/, /^vue/] },
   },
   // Pre-bundle the lazily imported optional packages so the dev server does not reload the page when it first meets them.

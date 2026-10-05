@@ -9,6 +9,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [0.1.0] - first public release
 
+The package is named `wysiwygido` (the `wysiwyg-editor` name on npm belongs to another project). Builds are not minified and ship with source maps; your bundler minifies.
+
 A modular rich-text editor on ProseMirror with a plugin architecture. Everything below ships in this release.
 
 ### Editing

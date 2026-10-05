@@ -13,7 +13,7 @@
   ],
   "entryPointStrategy": "resolve",
   "out": "api-docs",
-  "name": "wysiwyg-editor API",
+  "name": "wysiwygido API",
   "tsconfig": "tsconfig.json",
   "readme": "README.md",
   "excludePrivate": true,

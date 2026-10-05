@@ -429,7 +429,7 @@ renderTabs();
 
 $('#app').append(
   codePanel(`
-import { createCodeEditor, languageForFilename } from 'wysiwyg-editor';
+import { createCodeEditor, languageForFilename } from 'wysiwygido';
 
 const ide = createCodeEditor({
   element, theme: 'dark', tabSize: 2, wordWrap: true,

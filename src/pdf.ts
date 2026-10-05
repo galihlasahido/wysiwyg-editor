@@ -1,5 +1,5 @@
 /**
- * PDF import. Lives in its own entry point (`wysiwyg-editor/pdf`) so `pdfjs-dist` stays optional. It reads the text of a PDF and rebuilds
+ * PDF import. Lives in its own entry point (`wysiwygido/pdf`) so `pdfjs-dist` stays optional. It reads the text of a PDF and rebuilds
  * paragraphs, headings (from larger type) and lists. Pictures, tables, columns and scanned pages are not recovered.
  */
 import type { TextItem } from 'pdfjs-dist/types/src/display/api';

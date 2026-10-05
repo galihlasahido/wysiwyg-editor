@@ -167,6 +167,6 @@ export const Office: EditorPlugin = {
       openDialog(e.root, { title: e.t('wordCount', 'Word count'), body: table });
       return true;
     }, safe);
-    editor.registerCommand('showAbout', (e) => (openDialog(e.root, { title: 'About', body: 'wysiwyg-editor: a modular rich-text editor built on ProseMirror.' }), true), safe);
+    editor.registerCommand('showAbout', (e) => (openDialog(e.root, { title: 'About', body: 'wysiwygido: a modular rich-text editor built on ProseMirror.' }), true), safe);
   },
 };

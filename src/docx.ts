@@ -1,5 +1,5 @@
 /**
- * .docx import/export. Lives in its own entry point (`wysiwyg-editor/docx`) so the `docx` and `mammoth`
+ * .docx import/export. Lives in its own entry point (`wysiwygido/docx`) so the `docx` and `mammoth`
  * libraries are only loaded by apps that need them.
  */
 import * as D from 'docx';
@@ -498,7 +498,7 @@ export async function buildDocx(editor: Editor, options: ExportOptions = {}): Pr
   const footerTpl = page ? page.footer : '';
 
   return new D.Document({
-    creator: 'wysiwyg-editor',
+    creator: 'wysiwygido',
     title: options.title,
     features: { updateFields: doc.content.content.some((n) => n.type.name === 'toc') },
     numbering: { config: ctx.numbering.map((lv, i) => ({ reference: ctx.numberingRefs[i], levels: lv })) },

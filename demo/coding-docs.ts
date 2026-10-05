@@ -77,7 +77,7 @@ def retry_get(url, retries=3):
 
 $('#app').append(
   codePanel(`
-import { CodeBlocks, createEditor, defaultPlugins } from 'wysiwyg-editor';
+import { CodeBlocks, createEditor, defaultPlugins } from 'wysiwygido';
 
 createEditor({
   element,

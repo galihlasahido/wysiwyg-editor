@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>wysiwyg-editor: a modular rich-text editor in TypeScript</title>
+  <title>wysiwygido: a modular rich-text editor in TypeScript</title>
   <meta name="description" content="A modular rich-text editor in TypeScript built on ProseMirror, inspired by CKEditor 5: ribbon, pages, comments, collaboration, .docx, code blocks and more." />
   <link rel="stylesheet" href="./demo/demo.css" />
 </head>
@@ -11,7 +11,7 @@
   <header class="hero">
     <div class="wrap">
       <p class="eyebrow">TypeScript · ProseMirror · MIT</p>
-      <h1>wysiwyg-editor</h1>
+      <h1>wysiwygido</h1>
       <p class="tagline">A modular rich-text editor inspired by CKEditor 5, aiming at a Google Docs-style editor for the web. Small core, everything is a plugin.</p>
       <div class="cta">
         <a class="btn primary" href="#demos">Try the demos</a>
@@ -38,8 +38,8 @@ pnpm install
 pnpm dev        # these demos, locally
 pnpm test       # unit, accessibility and server tests
 pnpm build      # the library in dist/</pre>
-<pre class="out">import { createEditor } from 'wysiwyg-editor';
-import 'wysiwyg-editor/style.css';
+<pre class="out">import { createEditor } from 'wysiwygido';
+import 'wysiwygido/style.css';
 
 const editor = createEditor({
   element: document.getElementById('editor'),
@@ -55,10 +55,10 @@ editor.getHTML();  editor.getMarkdown();</pre>
       <table class="spec">
         <thead><tr><th>Import</th><th>What you get</th><th>Needs</th></tr></thead>
         <tbody>
-          <tr><td><code>wysiwyg-editor</code></td><td>Editor, all plugins, HTML and email export, document client</td><td>nothing extra</td></tr>
-          <tr><td><code>wysiwyg-editor/docx</code></td><td>.docx import and export</td><td><code>docx</code>, <code>mammoth</code></td></tr>
-          <tr><td><code>wysiwyg-editor/collab</code></td><td>Yjs collaboration and providers</td><td><code>yjs</code>, <code>y-prosemirror</code></td></tr>
-          <tr><td><code>wysiwyg-editor/react</code>, <code>/vue</code></td><td>Components</td><td><code>react</code> or <code>vue</code></td></tr>
+          <tr><td><code>wysiwygido</code></td><td>Editor, all plugins, HTML and email export, document client</td><td>nothing extra</td></tr>
+          <tr><td><code>wysiwygido/docx</code></td><td>.docx import and export</td><td><code>docx</code>, <code>mammoth</code></td></tr>
+          <tr><td><code>wysiwygido/collab</code></td><td>Yjs collaboration and providers</td><td><code>yjs</code>, <code>y-prosemirror</code></td></tr>
+          <tr><td><code>wysiwygido/react</code>, <code>/vue</code></td><td>Components</td><td><code>react</code> or <code>vue</code></td></tr>
         </tbody>
       </table>
       <p class="lead">A plugin is an object: nodes and marks for the schema, commands, ProseMirror plugins and toolbar items.</p>

@@ -1,16 +1,16 @@
 {
-  "name": "wysiwyg-editor",
+  "name": "wysiwygido",
   "version": "0.1.0",
   "description": "A modular, TypeScript WYSIWYG rich-text editor inspired by CKEditor 5, built on ProseMirror.",
   "license": "MIT",
   "type": "module",
-  "main": "./dist/wysiwyg-editor.js",
-  "module": "./dist/wysiwyg-editor.js",
+  "main": "./dist/wysiwygido.js",
+  "module": "./dist/wysiwygido.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/wysiwyg-editor.js"
+      "import": "./dist/wysiwygido.js"
     },
     "./collab": {
       "types": "./dist/collab.d.ts",

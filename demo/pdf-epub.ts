@@ -26,5 +26,5 @@ import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 plugins: [...defaultPlugins, PdfEpub({ pdf: { workerSrc: workerUrl }, epub: { title, author, language: 'id' } })],
 editor.execute('openPdf');            // file picker; or editor.execute('importPdf', blob)
 editor.execute('exportEpub');         // download; editor.execute('exportEpub', '') only emits the 'export' event
-// or without the plugin: import { importPdf } from 'wysiwyg-editor/pdf'; import { exportEpub } from 'wysiwyg-editor/epub';
+// or without the plugin: import { importPdf } from 'wysiwygido/pdf'; import { exportEpub } from 'wysiwygido/epub';
 `));

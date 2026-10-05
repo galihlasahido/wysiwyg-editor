@@ -24,7 +24,7 @@ export interface WysiwygElement extends HTMLElement {
  *
  * Attributes: `value`, `readonly`, `theme` (light | dark | auto), `placeholder`, `locale`, `ribbon`, `paged` (A4 pages with a ruler),
  * `outline`, `name` (the HTML is submitted with a surrounding form under this name). Properties: `value`, `readOnly`, `plugins`, `config`,
- * `editor`. Events: `editor-ready` and `editor-change` (`detail.html`). Load the stylesheet (`wysiwyg-editor/style.css`) in the page:
+ * `editor`. Events: `editor-ready` and `editor-change` (`detail.html`). Load the stylesheet (`wysiwygido/style.css`) in the page:
  * the element renders in the light DOM so the document can be styled and printed like any other content.
  */
 export function defineEditorElement(tag = 'wysiwyg-editor'): void {

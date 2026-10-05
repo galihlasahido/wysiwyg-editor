@@ -32,7 +32,7 @@ const editor = createEditor({
 (window as unknown as { editor: typeof editor }).editor = editor;
 editor.on('proofread-status', (e) => { $('#status').textContent = (e as { message: string }).message; });
 $('#app').append(codePanel(`
-import { SpellCheck, createLanguageToolProvider } from 'wysiwyg-editor';
+import { SpellCheck, createLanguageToolProvider } from 'wysiwygido';
 
 plugins: [...defaultPlugins.filter((p) => p.name !== 'spellcheck'), SpellCheck({
   provider: createLanguageToolProvider('https://your-languagetool/v2/check'),  // the paragraph text is sent to this server
