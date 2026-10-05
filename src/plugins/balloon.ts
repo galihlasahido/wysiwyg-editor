@@ -1,6 +1,7 @@
 import { Plugin } from 'prosemirror-state';
 import type { Editor } from '../editor';
 import { hasIcon, icon } from '../icons';
+import { runToolbarItem } from '../toolbar';
 import type { EditorPlugin, ToolbarItem } from '../types';
 
 export interface BalloonOptions {
@@ -68,7 +69,7 @@ export function BalloonToolbar(options: BalloonOptions = {}): EditorPlugin {
               else if (item.icon) btn.innerHTML = item.icon;
               else btn.textContent = label;
               btn.addEventListener('mousedown', (e) => e.preventDefault()); // keep the selection
-              btn.addEventListener('click', () => (editor.execute(item.command, ...(item.args ?? [])), refresh()));
+              btn.addEventListener('click', () => (runToolbarItem(editor, item), refresh()));
               if (item.isActive) {
                 const active = item.isActive;
                 updaters.push(() => {

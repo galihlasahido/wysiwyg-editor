@@ -38,7 +38,7 @@
 .wy-svg-sprite { display: none; }
 
 /* ---- Compact toolbar ---- */
-.wy-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; padding: 6px; border-bottom: 1px solid var(--wy-border); background: var(--wy-surface); border-radius: 6px 6px 0 0; }
+.wy-toolbar { position: relative; display: flex; align-items: flex-start; gap: 2px; padding: 6px; border-bottom: 1px solid var(--wy-border); background: var(--wy-surface); border-radius: 6px 6px 0 0; }
 .wy-btn, .wy-select { height: 30px; min-width: 30px; padding: 0 8px; border: 1px solid transparent; border-radius: 4px; background: transparent; color: inherit; font: inherit; font-size: 13px; cursor: pointer; }
 .wy-select { background: var(--wy-bg); border-color: var(--wy-border-2); }
 .wy-btn:hover, .wy-select:hover { background: var(--wy-hover); }
@@ -633,3 +633,22 @@ textarea.wy-ask-input { min-height: 84px; max-height: 40vh; }
 .wy-mermaid-edit { position: absolute; top: 8px; right: 8px; opacity: 0; padding: 3px 8px; border: 1px solid var(--wy-border-2); border-radius: 6px; background: var(--wy-bg); color: inherit; font: 12px system-ui, sans-serif; cursor: pointer; }
 .wy-mermaid:hover .wy-mermaid-edit, .wy-mermaid:focus-within .wy-mermaid-edit, .wy-mermaid.ProseMirror-selectednode .wy-mermaid-edit { opacity: 1; }
 @media print { .wy-mermaid-edit { display: none; } .wy-mermaid { border-color: transparent; } }
+
+/* ---- Toolbar layout: rows, groups, spacer, position, overflow ---- */
+.wy-tb-bar { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 2px; }
+.wy-toolbar.is-overflow-more .wy-tb-bar { flex-wrap: nowrap; overflow: hidden; }
+.wy-toolbar.is-overflow-scroll .wy-tb-bar { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; }
+.wy-toolbar.is-align-center .wy-tb-bar { justify-content: center; }
+.wy-toolbar.is-align-end .wy-tb-bar { justify-content: flex-end; }
+.wy-tb-break { flex: 0 0 100%; height: 0; }
+.wy-tb-spacer { flex: 1 1 0; min-width: 8px; }
+.wy-tb-group { display: inline-flex; align-items: center; gap: 2px; padding-inline: 4px 6px; border-inline-end: 1px solid var(--wy-border); }
+.wy-tb-group:last-child { border-inline-end: 0; }
+.wy-toolbar.is-sticky { position: sticky; top: 0; z-index: 20; }
+.wy-toolbar.is-bottom { border-bottom: 0; border-top: 1px solid var(--wy-border); border-radius: 0 0 6px 6px; }
+.wy-toolbar.is-bottom.is-sticky { top: auto; bottom: 0; }
+.wy-tb-more[hidden], .wy-tb-pop[hidden] { display: none; }
+.wy-tb-more { flex: none; }
+.wy-tb-pop { position: absolute; inset-inline-end: 6px; top: calc(100% + 2px); z-index: 30; display: flex; flex-wrap: wrap; gap: 2px; max-width: min(380px, 92vw); padding: 6px; border: 1px solid var(--wy-border-2); border-radius: 8px; background: var(--wy-bg); box-shadow: var(--wy-pop-shadow); }
+.wy-toolbar.is-bottom .wy-tb-pop { top: auto; bottom: calc(100% + 2px); }
+@media print { .wy-tb-pop { display: none; } }

@@ -5,7 +5,8 @@ import { Office, ParagraphFormat, Direction, TableOfContents, Footnotes, SpellCh
 
 export { Editor } from './editor';
 export type { EditorConfig } from './editor';
-export type { EditorPlugin, ToolbarItem, Command } from './types';
+export type { EditorPlugin, ToolbarItem, ToolbarEntry, ToolbarGroup, ToolbarOptions, Command, RibbonContribution, EditorEvent } from './types';
+export { definePlugin } from './types';
 export * from './plugins';
 
 export const defaultPlugins = [Essentials, BasicStyles, Heading, Fonts, Alignment, Colors, List, TaskList, Blocks, Link, Image, Table, FindReplace, WordCount, SpecialCharacters, FormatPainter, Footnotes, TableOfContents, SpellCheck(), Direction, ParagraphFormat, Office, Autoformat];
@@ -34,9 +35,9 @@ export { registerLocale, translate, isRtlLocale } from './i18n';
 export type { Locale } from './i18n';
 export { openDialog, askDialog, avatar, avatarColor } from './dialog';
 export type { AskOptions } from './dialog';
-export { Ribbon, DEFAULT_RIBBON } from './ribbon';
+export { Ribbon, DEFAULT_RIBBON, applyContributions } from './ribbon';
 export type { RibbonOptions, RibbonTab, RibbonGroup, RibbonControl } from './ribbon';
-export { icon, ICONS, hasIcon } from './icons';
+export { icon, ICONS, hasIcon, registerIcon } from './icons';
 export * from './crop';
 export { toEmailHTML, toEmailText } from './email';
 export type { EmailOptions } from './email';

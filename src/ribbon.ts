@@ -3,7 +3,8 @@ import type { Editor } from './editor';
 import { hasIcon, icon } from './icons';
 import { SPECIAL_CHARACTERS } from './plugins/special-characters';
 import { restrictedKey } from './plugins/restricted-editing';
-import type { ToolbarItem } from './types';
+import { runToolbarItem } from './toolbar';
+import type { RibbonContribution, ToolbarItem } from './types';
 
 // ---- layout description ---------------------------------------------------------------------------------------
 
@@ -34,6 +35,8 @@ export interface RibbonTab {
 }
 export interface RibbonOptions {
   tabs?: RibbonTab[];
+  /** Final say over the tabs (after plugin contributions): add, remove, reorder or rename tabs, groups and controls. */
+  customize?: (tabs: RibbonTab[]) => RibbonTab[];
   /** File tab actions that need optional packages are supplied by the app. */
   onOpenDocx?: () => void;
   onExportDocx?: () => void;
@@ -61,6 +64,29 @@ const EMOJI = ['😀', '😂', '😊', '😍', '😎', '🤔', '👍', '👎', '
 const sizes = (name: string, list: [string, string][]): MenuEntry[] => list.map(([label, value]) => ({ label, command: name, args: [value] }));
 
 /** The default tabs, modelled on a word processor ribbon. Controls whose plugin is not installed are skipped. */
+/** Insert the groups plugins contribute (creating tabs as needed) into a copy of `tabs`. */
+export function applyContributions(tabs: RibbonTab[], plugins: { name: string; ribbon?: RibbonContribution | RibbonContribution[] }[]): RibbonTab[] {
+  const out = tabs.map((t) => ({ ...t, groups: [...t.groups] }));
+  for (const p of plugins) {
+    for (const c of p.ribbon ? [p.ribbon].flat() : []) {
+      let tab = out.find((t) => t.id === c.tab);
+      if (!tab) {
+        tab = { id: c.tab, label: c.tabLabel ?? c.tab, groups: [] };
+        const view = out.findIndex((t) => t.id === 'view');
+        if (view >= 0) out.splice(view, 0, tab); // before View, Help …: custom tabs sit with the main ones
+        else out.push(tab);
+      }
+      const at = (id?: string) => (id ? tab!.groups.findIndex((g) => g.id === id) : -1);
+      const after = at(c.after);
+      const before = at(c.before);
+      if (after >= 0) tab.groups.splice(after + 1, 0, c.group);
+      else if (before >= 0) tab.groups.splice(before, 0, c.group);
+      else tab.groups.push(c.group);
+    }
+  }
+  return out;
+}
+
 export const DEFAULT_RIBBON: RibbonTab[] = [
   {
     id: 'file',
@@ -294,7 +320,8 @@ export class Ribbon {
   };
 
   constructor(private editor: Editor, options: RibbonOptions = {}) {
-    this.tabs = options.tabs ?? DEFAULT_RIBBON;
+    const merged = applyContributions(options.tabs ?? DEFAULT_RIBBON, editor.config.plugins);
+    this.tabs = options.customize ? options.customize(merged) : merged;
     // .docx needs optional packages, so the app supplies the actions; without them the buttons stay hidden.
     if (options.onOpenDocx) editor.registerCommand('openDocx', () => (options.onOpenDocx!(), true));
     if (options.onExportDocx) editor.registerCommand('exportDocx', () => (options.onExportDocx!(), true), { readOnlySafe: true });
@@ -462,7 +489,7 @@ export class Ribbon {
         if (!item || item.type === 'separator' || item.type === 'select') return null;
         const label = this.label(c.item, c.label ?? ed.t(item.name, item.label));
         const ic = c.icon ?? (hasIcon(item.name) ? item.name : '');
-        const btn = this.button({ label, icon: ic, size: c.size ?? defaultSize ?? 'small', iconOnly: c.iconOnly, onClick: () => ed.execute(item.command, ...(item.args ?? [])) });
+        const btn = this.button({ label, icon: ic, size: c.size ?? defaultSize ?? 'small', iconOnly: c.iconOnly, onClick: () => runToolbarItem(ed, item) });
         if (item.isActive) {
           const isActive = item.isActive;
           this.updaters.push((s) => {

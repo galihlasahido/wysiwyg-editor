@@ -1,0 +1,10 @@
+aside.callout { margin: 12px 0; padding: 10px 14px; border-left: 4px solid var(--c, #2563eb); border-radius: 0 8px 8px 0; background: color-mix(in srgb, var(--c, #2563eb) 10%, transparent); }
+aside.callout[data-kind="warning"] { --c: #d97706; }
+aside.callout[data-kind="danger"] { --c: #dc2626; }
+aside.callout[data-kind="success"] { --c: #16a34a; }
+aside.callout::before { content: attr(data-kind); display: block; margin-bottom: 2px; font: 700 11px/1.4 system-ui, sans-serif; letter-spacing: .06em; text-transform: uppercase; color: var(--c, #2563eb); }
+.goal { display: inline-flex; align-items: center; gap: 8px; margin: 8px 0; padding: 4px 10px; border: 1px solid var(--line); border-radius: 999px; font-size: 13px; }
+.goal progress { width: 120px; height: 8px; }
+.playground { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; margin: 12px 0; padding: 12px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; }
+.playground label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+.playground select { padding: 6px; }

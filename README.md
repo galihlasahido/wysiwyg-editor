@@ -11,13 +11,13 @@ Everything is opt-in plugins; the core is small. It is **not published to npm ye
 
 ```sh
 pnpm install
-pnpm dev        # the demo gallery at http://localhost:5173 (35 examples)
+pnpm dev        # the demo gallery at http://localhost:5173 (36 examples)
 pnpm test       # 196 tests (unit, accessibility with axe-core, server integration)
 pnpm build      # library in dist/
 pnpm server     # reference backend on :8787
 ```
 
-**Live demos:** https://galihlasahido.github.io/wysiwyg-editor/ — a landing page plus 35 small real pages (classic, inline and
+**Live demos:** https://galihlasahido.github.io/wysiwyg-editor/ — a landing page plus 36 small real pages (classic, inline and
 document editors, a headless editor, developer docs with runnable code blocks, a notebook, a playground, a README editor,
 real-time and asynchronous collaboration, Word import/export, email, merge fields, source editing, Markdown, AI, images, mobile).
 Each has a "Show the code" section.
@@ -214,21 +214,65 @@ AIAssistant({ provider: createFetchProvider('/api/ai') }) // your server calls t
 A provider is any `(req) => Promise<string> | AsyncIterable<string>`; stream chunks and the preview updates live.
 Model output is parsed as Markdown with raw HTML disabled, so it cannot inject markup.
 
-## Writing a plugin
+## Arranging the toolbar
+
+`toolbar` takes a list of names, or an options object. Entries can be a plugin item name, `'|'` (separator), `'-'` (new row),
+`'>'` (spacer: everything after it goes to the far end), an item you define on the spot, or a named group:
 
 ```ts
-const Hello: EditorPlugin = {
-  name: 'hello',
-  marks: { /* ProseMirror MarkSpec */ },
-  setup(editor) {
-    editor.registerCommand('hello', () => true);
-    return [/* ProseMirror plugins */];
+createEditor({
+  element, plugins,
+  toolbar: {
+    items: [
+      { group: 'Text', items: ['bold', 'italic', 'underline'] },
+      '|', 'heading', 'bulletList', '-',                       // second row
+      'link', 'image', '>',
+      { name: 'clear', label: 'Clear', icon: '🧹', run: (editor) => editor.setHTML('<p></p>') },
+    ],
+    position: 'bottom',          // 'top' (default) | 'bottom'
+    sticky: true,                // stay in view while scrolling
+    overflow: 'more',            // 'wrap' (default) | 'more' (a "⋯" menu) | 'scroll'
+    align: 'center',             // 'start' | 'center' | 'end'
+    hide: ['strike'],            // leave items out of the default layout
   },
-  toolbar: [{ name: 'hello', label: 'Hello', icon: '👋', command: 'hello' }],
-};
+});
+editor.setToolbar({ items: ['bold', 'italic'] });   // rearrange later; `false` removes the toolbar
 ```
 
-Plugins may set `priority` (keymap order) and `transformTransaction` (rewrite user edits, used by track changes).
+Without `items` you get every plugin's buttons in plugin order. For the ribbon, `ribbon: { tabs, customize(tabs) => tabs }` lets you add, remove,
+reorder or rename tabs, groups and controls.
+
+## Writing a plugin
+
+A plugin is a plain object. Everything is optional except `name`; `definePlugin` just gives you type checking:
+
+```ts
+import { definePlugin, registerIcon } from 'wysiwyg-editor';
+
+const Callout = definePlugin({
+  name: 'callout',
+  requires: ['word-count'],                       // fails fast with a clear message if it is not installed
+  nodes: { callout: { /* ProseMirror NodeSpec */ } },
+  marks: { /* ProseMirror MarkSpec */ },
+  setup(editor) {                                  // once the schema exists
+    editor.registerCommand('insertCallout', (e, kind = 'info') => { /* ... */ return true; });
+    return [/* ProseMirror plugins: decorations, node views, input rules */];
+  },
+  toolbar: [{ name: 'callout', label: 'Callout', icon: '💡', command: 'insertCallout' }],
+  keymap: { 'Mod-Alt-c': 'insertCallout' },        // a command name, or (editor) => boolean
+  ribbon: { tab: 'insert', after: 'tables', group: { id: 'callout', label: 'Callouts', controls: [/* ... */] } },
+  onReady(editor) { editor.on('change', () => {}); },
+  destroy(editor) { /* remove listeners, timers, DOM */ },
+  priority: 0,                                     // higher runs first (keymaps)
+  transformTransaction(tr, state) { return tr; },  // rewrite user edits (track changes uses it)
+});
+```
+
+Install it like any other: `plugins: [...defaultPlugins, Callout]`. A plugin can take options by being a function that returns the object
+(`Comments({ author })`). Plugins talk to the page through **events**: `editor.on('ready' | 'change' | 'selection' | 'focus' | 'blur' | 'command' | 'destroy' | yourEvent, fn)`
+returns an unsubscribe function, and `editor.emit('my-event', payload)` tells others (a listener that throws is reported and does not stop the rest).
+`registerIcon(name, svgInner)` adds an icon for ribbon buttons. See `demo/custom-plugin` for a complete third-party plugin, and `src/plugins/` for the built-in ones.
+Plugins are fixed when the editor is created (the schema cannot change afterwards); commands, toolbar layout and listeners can change at any time.
 
 ## Known limitations
 

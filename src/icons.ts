@@ -175,6 +175,11 @@ ICONS.cropImage = ICONS.crop;
 ICONS.imageAlt = ICONS.alt;
 ICONS.toggleTracking = ICONS.trackChanges;
 
+/** Add your own icon: `inner` is SVG content (paths) drawn on a 24x24 grid in the current colour, like the built-in ones. */
+export function registerIcon(name: string, inner: string): void {
+  ICONS[name] = inner;
+}
+
 export function hasIcon(name: string): boolean {
   return name in ICONS;
 }

@@ -1,20 +1,25 @@
 import { DOMParser, DOMSerializer, Schema, type MarkSpec, type NodeSpec } from 'prosemirror-model';
+import { keymap } from 'prosemirror-keymap';
 import { EditorState } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { isRtlLocale, translate } from './i18n';
-import { Toolbar } from './toolbar';
+import { Toolbar, resolveLayout } from './toolbar';
 import { Ribbon, type RibbonOptions } from './ribbon';
 import { getStats, type Stats } from './plugins/word-count';
 import { inertElement } from './inert';
 import { markdownToDoc, docToMarkdown } from './markdown';
-import type { Command, EditorPlugin, ToolbarItem } from './types';
+import type { Command, EditorEvent, EditorPlugin, ToolbarEntry, ToolbarItem, ToolbarOptions } from './types';
 
 export interface EditorConfig {
   /** Element the editor is mounted into. */
   element: HTMLElement;
   plugins: EditorPlugin[];
-  /** Toolbar item names, in order ('|' = separator); defaults to every plugin's items. `false` hides the toolbar (e.g. an inline editor with a balloon). */
-  toolbar?: string[] | false;
+  /**
+   * The toolbar layout. A list of item names (`'|'` separator, `'-'` new row, `'>'` spacer to the far end), or an options
+   * object with `items`, `position`, `sticky`, `overflow`, `align` and `hide`. Defaults to every plugin's items.
+   * `false` hides the toolbar (e.g. an inline editor with a balloon). Change it later with `setToolbar`.
+   */
+  toolbar?: ToolbarEntry[] | ToolbarOptions | false;
   /** Initial HTML content. */
   content?: string;
   placeholder?: string;
@@ -41,7 +46,8 @@ const baseNodes: Record<string, NodeSpec> = {
 export class Editor {
   readonly schema: Schema;
   readonly view: EditorView;
-  readonly toolbar: Toolbar | Ribbon;
+  /** The toolbar or ribbon. Replaced when `setToolbar` is called. */
+  toolbar: Toolbar | Ribbon;
   readonly root: HTMLElement;
   /** Flex row holding optional side panels (outline) and the workspace. */
   readonly body: HTMLElement;
@@ -58,12 +64,15 @@ export class Editor {
   /** Turns a dropped, pasted or uploaded image into a URL for the document. Base64 by default; a plugin (the file manager) may wrap it. */
   uploadImage: (file: File) => Promise<string>;
   private commands = new Map<string, Command>();
+  private listeners = new Map<string, Set<(payload: any) => void>>();
   private readOnlySafe = new Set<string>();
   
 
   constructor(config: EditorConfig) {
 
     this.config = config;
+    const names = new Set(config.plugins.map((p) => p.name));
+    for (const p of config.plugins) for (const need of p.requires ?? []) if (!names.has(need)) throw new Error(`Plugin "${p.name}" requires the plugin "${need}", which is not installed.`);
     this.readOnly = config.readOnly ?? false;
     this.uploadImage = config.uploadImage ?? readAsDataURL;
     const nodes: Record<string, NodeSpec> = { ...baseNodes };
@@ -100,7 +109,13 @@ export class Editor {
 
     const byPriority = [...config.plugins].sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0));
     this.transformers = byPriority.flatMap((p) => (p.transformTransaction ? [p.transformTransaction.bind(p)] : []));
-    const pmPlugins = byPriority.flatMap((p) => p.setup?.(this) ?? []);
+    const pmPlugins = byPriority.flatMap((p) => {
+      const own = p.setup?.(this) ?? [];
+      if (!p.keymap) return own;
+      // string = a command name; function = your own handler. Typing in read-only mode is already refused by `execute`.
+      const bindings = Object.fromEntries(Object.entries(p.keymap).map(([key, target]) => [key, () => (typeof target === 'string' ? this.execute(target) : target(this))]));
+      return [keymap(bindings), ...own];
+    });
     const doc = this.parseHTML(config.content ?? '');
     const state = EditorState.create({ doc, plugins: pmPlugins });
     const editor = this; // eslint-disable-line @typescript-eslint/no-this-alias
@@ -122,21 +137,87 @@ export class Editor {
           for (const t of editor.transformers) tr = t(tr, this.state);
         }
         const before = this.state.doc;
+        const beforeSel = this.state.selection;
         const next = this.state.apply(tr);
         this.updateState(next);
         if (!editor.ready) return;
         editor.toolbar.update(next);
         // A plugin may have rejected the transaction (restricted editing): then nothing changed and nobody is told.
-        if (tr.docChanged && next.doc !== before) config.onChange?.(editor.getHTML());
+        if (tr.docChanged && next.doc !== before) {
+          config.onChange?.(editor.getHTML());
+          editor.emit('change', { state: next });
+        }
+        if (!next.selection.eq(beforeSel)) editor.emit('selection', { state: next });
       },
     });
 
-    const items = this.resolveToolbar(config);
-    this.toolbar = config.ribbon ? new Ribbon(this, config.ribbon === true ? {} : config.ribbon) : new Toolbar(this, items);
-    if (config.toolbar !== false) this.root.prepend(this.toolbar.el);
+    this.toolbar = this.buildToolbar(config.toolbar);
+    this.mountToolbar(config.toolbar);
     this.toolbar.update(this.view.state);
     if (this.readOnly) this.root.classList.add('is-readonly');
+    this.view.dom.addEventListener('focus', () => this.emit('focus', {}));
+    this.view.dom.addEventListener('blur', () => this.emit('blur', {}));
     this.ready = true;
+    for (const p of config.plugins) p.onReady?.(this);
+    this.emit('ready', {});
+  }
+
+  // ---- toolbar
+
+  private buildToolbar(layout: EditorConfig['toolbar']): Toolbar | Ribbon {
+    if (this.config.ribbon) return new Ribbon(this, this.config.ribbon === true ? {} : this.config.ribbon);
+    const all = this.config.plugins.flatMap((p) => p.toolbar ?? []);
+    const options: ToolbarOptions = Array.isArray(layout) ? { items: layout } : layout || {};
+    const entries: ToolbarEntry[] = options.items ?? all.map((i) => i.name);
+    const known: ToolbarItem[] = [...all];
+    return new Toolbar(this, resolveLayout(entries, known, options.hide), options);
+  }
+
+  private mountToolbar(layout: EditorConfig['toolbar']) {
+    if (layout === false) return;
+    const bottom = !Array.isArray(layout) && layout?.position === 'bottom';
+    this.root.classList.toggle('has-toolbar-bottom', bottom);
+    if (bottom) this.root.append(this.toolbar.el);
+    else this.root.prepend(this.toolbar.el);
+  }
+
+  /** Rearrange the toolbar at runtime: same forms as the `toolbar` option. Not used with the ribbon. */
+  setToolbar(layout: EditorConfig['toolbar']): void {
+    if (this.config.ribbon) return;
+    this.toolbar.el.remove();
+    (this.toolbar as Toolbar).destroy?.();
+    this.config.toolbar = layout;
+    this.toolbar = this.buildToolbar(layout);
+    this.mountToolbar(layout);
+    this.toolbar.update(this.view.state);
+  }
+
+  // ---- events
+
+  /**
+   * Listen to editor events: `ready`, `change`, `selection`, `focus`, `blur`, `command` (`{ name, args, result }`),
+   * `destroy`, and any event a plugin emits itself. Returns a function that removes the listener.
+   */
+  on<T = any>(event: EditorEvent, handler: (payload: T) => void): () => void {
+    let set = this.listeners.get(event);
+    if (!set) this.listeners.set(event, (set = new Set()));
+    set.add(handler);
+    return () => this.off(event, handler);
+  }
+
+  off(event: EditorEvent, handler: (payload: any) => void): void {
+    this.listeners.get(event)?.delete(handler);
+  }
+
+  /** Tell listeners something happened. A listener that throws is reported and does not stop the others. */
+  emit(event: EditorEvent, payload: unknown = {}): void {
+    for (const fn of [...(this.listeners.get(event) ?? [])]) {
+      try {
+        fn(payload);
+      } catch (e) {
+        console.error(`Listener for "${event}" failed`, e);
+      }
+    }
   }
 
   /** Translate a UI label for the configured locale, falling back to `fallback` (English). */
@@ -156,6 +237,7 @@ export class Editor {
     if (this.readOnly && !this.readOnlySafe.has(name)) return false;
     const result = cmd(this, ...args);
     this.view.focus();
+    this.emit('command', { name, args, result });
     return result;
   }
 
@@ -231,6 +313,12 @@ export class Editor {
   }
 
   destroy(): void {
+    this.emit('destroy', {});
+    for (const p of this.config.plugins) {
+      try { p.destroy?.(this); } catch (e) { console.error(`Plugin "${p.name}" failed to clean up`, e); }
+    }
+    (this.toolbar as Toolbar).destroy?.();
+    this.listeners.clear();
     if (this.systemQuery && this.onSystemTheme) this.systemQuery.removeEventListener('change', this.onSystemTheme);
     this.view.destroy();
     this.root.remove();
@@ -239,17 +327,6 @@ export class Editor {
   private parseHTML(html: string) {
     const el = inertElement(html); // not document.createElement: that would run onerror handlers before the schema drops them
     return DOMParser.fromSchema(this.schema).parse(el);
-  }
-
-  private resolveToolbar(config: EditorConfig): ToolbarItem[] {
-    const all = config.plugins.flatMap((p) => p.toolbar ?? []);
-    if (!config.toolbar) return all;
-    const byName = new Map(all.map((i) => [i.name, i]));
-    return config.toolbar.flatMap((n, i): ToolbarItem[] => {
-      if (n === '|') return [{ type: 'separator', name: `sep-${i}` }];
-      const item = byName.get(n);
-      return item ? [item] : [];
-    });
   }
 }
 
