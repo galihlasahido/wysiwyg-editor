@@ -494,3 +494,51 @@ describe('Comments shared through collaboration', () => {
     expect(new Set(A.comments.store.list()[0].replies.map((r) => r.id)).size).toBe(1);
   });
 });
+
+describe('Presence bar', () => {
+  const flush = () => new Promise((r) => setTimeout(r, 15));
+  const make = (awareness: Awareness, name = 'Ana') => {
+    document.body.innerHTML = '';
+    const el = document.createElement('div');
+    document.body.append(el);
+    return new Editor({ element: el, plugins: [...defaultPlugins, Collaboration({ ydoc: new Y.Doc(), awareness, user: { name, color: '#e03131' }, seed: '<p>hello</p>' })] });
+  };
+  const remote = (aw: Awareness, id: number, state: Record<string, unknown>) => {
+    // simulate another client by writing its state and announcing the change
+    aw.getStates().set(id, state);
+    aw.emit('change', [{ added: [id], updated: [], removed: [] }, 'test']);
+  };
+
+  it('is hidden while you are alone and lists everyone once someone joins, with you first', async () => {
+    const aw = new Awareness(new Y.Doc());
+    const e = make(aw);
+    await flush();
+    const bar = e.root.querySelector('.wy-presence') as HTMLElement;
+    expect(bar.hidden).toBe(true);
+    remote(aw, 999, { user: { name: 'Budi', color: '#1971c2' } });
+    expect(bar.hidden).toBe(false);
+    const buttons = [...bar.querySelectorAll('button')];
+    expect(buttons.map((b) => b.getAttribute('aria-label'))).toEqual(['Ana (you)', 'Budi']);
+    expect(buttons[0].disabled).toBe(true); // you cannot jump to yourself
+    expect(buttons[1].disabled).toBe(true); // Budi has no cursor yet
+  });
+
+  it('enables jumping once the other person has a cursor, and shows their colour', async () => {
+    const aw = new Awareness(new Y.Doc());
+    const e = make(aw);
+    await flush();
+    remote(aw, 5, { user: { name: 'Citra', color: '#2f9e44' }, cursor: { anchor: { type: null, tname: 'prosemirror', item: null, assoc: 0 }, head: { type: null, tname: 'prosemirror', item: null, assoc: 0 } } });
+    const btn = [...e.root.querySelectorAll<HTMLButtonElement>('.wy-presence button')].find((b) => b.getAttribute('aria-label')!.startsWith('Citra'))!;
+    expect(btn.disabled).toBe(false);
+    expect((btn.firstElementChild as HTMLElement).style.background).toContain('47, 158, 68');
+    btn.click(); // must not throw even when the position cannot be resolved
+  });
+
+  it('can be turned off', async () => {
+    document.body.innerHTML = '';
+    const el = document.createElement('div');
+    document.body.append(el);
+    const e = new Editor({ element: el, plugins: [...defaultPlugins, Collaboration({ ydoc: new Y.Doc(), awareness: new Awareness(new Y.Doc()), presence: false })] });
+    expect(e.root.querySelector('.wy-presence')).toBeNull();
+  });
+});

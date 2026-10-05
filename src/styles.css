@@ -661,3 +661,15 @@ textarea.wy-ask-input { min-height: 84px; max-height: 40vh; }
 .wy-ie-zoom { display: inline-flex; align-items: center; gap: 4px; }
 .wy-ie-zoom .wy-btn { height: 26px; padding: 0 9px; border-radius: 6px; }
 .wy-ie-zoomval { min-width: 56px; font-variant-numeric: tabular-nums; }
+
+/* ---- Presence bar (who is in the document) ---- */
+.wy-presence { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-bottom: 1px solid var(--wy-border); background: var(--wy-surface); }
+.wy-presence[hidden] { display: none; }
+.wy-peer { padding: 3px; border: 0; border-radius: 999px; background: none; cursor: pointer; line-height: 0; }
+.wy-peer:disabled { cursor: default; }
+.wy-peer:not(:disabled):hover { background: color-mix(in srgb, var(--wy-accent) 12%, transparent); }
+.wy-peer.is-me { order: -1; }
+.wy-peer-flash { animation: wy-peer-flash 1.2s ease-out; }
+@keyframes wy-peer-flash { 0%, 40% { background: color-mix(in srgb, var(--wy-accent) 25%, transparent); } 100% { background: transparent; } }
+@media (prefers-reduced-motion: reduce) { .wy-peer-flash { animation: none; background: color-mix(in srgb, var(--wy-accent) 20%, transparent); } }
+@media print { .wy-presence { display: none; } }
