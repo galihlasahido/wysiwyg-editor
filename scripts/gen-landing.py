@@ -56,6 +56,7 @@ GROUPS = [
    ('dialogs', 'Modal dialogs', 'The dialogs behind comments, links, alt text and footnotes, and askDialog() for your own code: validation, live preview, snippets.', ['Modal', 'askDialog']),
    ('image-editor', 'Image editor', 'The image editor on its own: drop a picture, crop, rotate, resize, adjust, filter, draw, add text, zoom and pan, then download.', ['Canvas', 'Crop', 'Filters']),
    ('file-manager', 'Files and image editing', 'A file library (upload, drag and drop, search, rename, download, delete) and an image editor: crop, rotate, resize, adjust, filters, draw, text.', ['Files', 'Image editor']),
+   ('embeds', 'Embedded media', 'Paste a YouTube, Vimeo or OpenStreetMap link and get a player or map; only listed services, sandboxed frames, link kept on print.', ['Video', 'Maps']),
    ('images', 'Images: upload, resize, crop', 'Upload with progress, resize, crop, caption and alt text.', ['Images', 'Crop']),
  ]),
 ]

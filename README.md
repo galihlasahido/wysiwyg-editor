@@ -133,6 +133,11 @@ underline, colour and alignment stay, pictures that point at local files are rem
 *picture* of what you copied on the clipboard: when there is text or HTML too, the text wins, so a pasted list or table stays editable. A clipboard that holds only a
 picture (or an `<img>` with no text) still pastes the picture.
 
+**Embedded media**: `Embeds()` turns a pasted YouTube (privacy-enhanced), Vimeo or OpenStreetMap link (on an empty line, or Insert → Media) into a player or map. Only listed
+services ever become a frame (add your own with `providers`, each must return an `https` address on its own host), the frame is sandboxed with no referrer, and the saved HTML
+keeps only the address: the iframe is rebuilt and re-checked on load, so edited markup cannot point a frame elsewhere. Printing and Word/Markdown export keep the link. Allow the
+provider hosts in your `frame-src` CSP.
+
 **Restricted editing**: `RestrictedEditing()` adds `locked_section` blocks (a title with the table of contents, legal
 text) that cannot be changed, and `editable_region` blocks that can, while everything else stays ordinary text. It is
 enforced by rejecting transactions, so typing, deleting, pasting, dropping and find & replace are all covered, including

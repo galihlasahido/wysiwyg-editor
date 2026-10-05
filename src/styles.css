@@ -703,3 +703,11 @@ del.wy-diff-del, .wy-diff-legend .wy-diff-del { background: #fee2e2; color: #7f1
 .wy-draft-banner span { flex: 1; }
 .wy-offline { padding: 6px 12px; background: #1f2937; color: #fff; font-size: 12px; text-align: center; }
 @media print { .wy-draft-banner, .wy-offline { display: none; } }
+
+/* ---- Embedded media ---- */
+.wy-embed { position: relative; margin: 14px 0; }
+.wy-embed iframe { display: block; width: 100%; aspect-ratio: var(--wy-embed-aspect, 16 / 9); border: 0; border-radius: 8px; background: #000; }
+.wy-embed.ProseMirror-selectednode iframe { outline: 2px solid var(--wy-accent); }
+.wy-embed-link { display: block; margin-top: 4px; font-size: 12px; color: var(--wy-page-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wy-embed-bad { padding: 16px; text-align: center; color: var(--wy-page-muted); border: 1px dashed var(--wy-border); border-radius: 8px; }
+@media print { .wy-embed iframe { display: none; } .wy-embed-link { font-size: 12px; color: #111; white-space: normal; } }

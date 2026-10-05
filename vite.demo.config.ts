@@ -20,7 +20,7 @@ const CSP = [
   "img-src 'self' data: blob: https:",
   "font-src 'self' data:",
   "connect-src 'self'",
-  "frame-src 'self' blob: data:",
+  "frame-src 'self' blob: data: https://www.youtube-nocookie.com https://player.vimeo.com https://www.openstreetmap.org", // embedded media (the Embeds plugin)
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",

@@ -338,6 +338,8 @@ function blocks(node: PMNode, ctx: Ctx): Block[] {
     }
     case 'code_block':
       return node.textContent.split('\n').map((line) => new D.Paragraph({ children: [new D.TextRun({ text: line, font: 'Courier New', size: 20 })], shading: { type: D.ShadingType.CLEAR, fill: 'F0F0F0', color: 'auto' } }));
+    case 'embed':
+      return [new D.Paragraph({ children: [new D.TextRun({ text: 'Media: ', color: '6B7280' }), new D.ExternalHyperlink({ link: String(node.attrs.url), children: [new D.TextRun({ text: String(node.attrs.url), style: 'Hyperlink', color: '1D4ED8', underline: {} })] })] })];
     case 'math_block': {
       const eq = latexToDocx(node.attrs.tex);
       return [new D.Paragraph({ alignment: D.AlignmentType.CENTER, spacing: { before: 120, after: 120 }, children: eq ? [new D.Math({ children: eq }) as unknown as D.ParagraphChild] : [new D.TextRun({ text: node.attrs.tex, font: 'Cambria Math', italics: true })] })];

@@ -46,6 +46,10 @@ const knownNodes: Record<string, (state: MarkdownSerializerState, node: PMNode, 
       state.write('```');
       state.closeBlock(node);
     },
+    embed(state, node) {
+      state.write(`[${state.esc(node.attrs.url)}](${markdownUrl(node.attrs.url)})`);
+      state.closeBlock(node);
+    },
     merge_field(state, node) {
       state.write(`{{${node.attrs.name}}}`);
     },
