@@ -138,6 +138,11 @@ services ever become a frame (add your own with `providers`, each must return an
 keeps only the address: the iframe is rebuilt and re-checked on load, so edited markup cannot point a frame elsewhere. Printing and Word/Markdown export keep the link. Allow the
 provider hosts in your `frame-src` CSP.
 
+**Form fields**: `FormFields()` puts real controls in the text: `insertField('checkbox' | 'select' | 'date' | 'text', { label, options, required, name })` (or the toolbar buttons). People can fill them
+inside locked sections and in a read-only editor (`fillInReadOnly`, default on), while the text around stays locked. `editor.extensions.form.getData()` returns `{ name: value }`, `validate()` lists
+and outlines the required fields still empty, `setFieldValue(name, value)` fills from code, and a `field-change` event reports each answer. Values are validated per kind (a drop-down value must be one of its options, a date must be a real
+date), the saved HTML keeps the answer as visible text too, and Word / Markdown export show it (`☒`, `[x]`).
+
 **Restricted editing**: `RestrictedEditing()` adds `locked_section` blocks (a title with the table of contents, legal
 text) that cannot be changed, and `editable_region` blocks that can, while everything else stays ordinary text. It is
 enforced by rejecting transactions, so typing, deleting, pasting, dropping and find & replace are all covered, including

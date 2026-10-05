@@ -103,3 +103,21 @@ test('<wysiwyg-editor> is a form control', async ({ page }) => {
   expect(JSON.parse(await page.locator('#sent').innerText()).body).not.toContain('TYPED-IN-ELEMENT');
   expect(problems).toEqual([]);
 });
+
+test('form fields work inside a locked contract and report what is missing', async ({ page }) => {
+  const problems = await openDemo(page, 'contract-form');
+  await page.getByRole('button', { name: 'Check the form' }).click();
+  await expect(page.locator('#answers')).toContainText('Still required: payment, start, accept');
+  await page.locator('.wy-locked .wy-field input[type=checkbox]').check();
+  await page.locator('.wy-field select').selectOption('Card');
+  await page.locator('.wy-field input[type=date]').fill('2026-10-05');
+  await page.getByRole('button', { name: 'Check the form' }).click();
+  const answers = JSON.parse(await page.locator('#answers').innerText());
+  expect(answers).toEqual({ accept: true, payment: 'Card', start: '2026-10-05' });
+  // read-only "fill in only" mode: the controls still work
+  await page.getByRole('button', { name: 'Fill-in only' }).click();
+  await page.locator('.wy-field input[type=checkbox]').uncheck();
+  await page.getByRole('button', { name: 'Check the form' }).click();
+  expect(await page.locator('#answers').innerText()).toContain('Still required: accept');
+  expect(problems).toEqual([]);
+});

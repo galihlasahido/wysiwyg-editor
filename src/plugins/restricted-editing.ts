@@ -233,6 +233,8 @@ export function RestrictedEditing(options: RestrictedEditingOptions = {}): Edito
           state: { init: () => ({ controls: options.authorControls !== false }), apply: (_tr, v) => v },
           filterTransaction(tr: Transaction, _state: EditorState) {
             if (author || !tr.docChanged || BYPASS_META.some((m) => tr.getMeta(m))) return true;
+            // Filling a form field changes only that field's value, which is allowed even inside a locked section
+            if (tr.getMeta('wy-field') && tr.steps.every((s, i) => stepRanges(s).every(([from, to]) => { const n = tr.docs[i].nodeAt(from); return n?.type.name === 'form_field' && from + n.nodeSize === to; }))) return true;
             for (let i = 0; i < tr.steps.length; i++) {
               const doc = tr.docs[i]; // the document this step applies to
               for (const [from, to] of stepRanges(tr.steps[i])) {

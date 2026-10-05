@@ -218,6 +218,9 @@ function inlineChildren(node: PMNode, ctx: Ctx): D.ParagraphChild[] {
     } else if (child.type.name === 'math_inline') {
       const eq = latexToDocx(child.attrs.tex); // a native Word equation; the LaTeX text when the formula is outside what we convert
       run = eq ? (new D.Math({ children: eq }) as unknown as D.ParagraphChild) : new D.TextRun({ text: child.attrs.tex, font: 'Cambria Math', italics: true, ...o });
+    } else if (child.type.name === 'form_field') {
+      const a = child.attrs;
+      run = new D.TextRun({ text: `${a.label ? `${a.label}: ` : ''}${a.kind === 'checkbox' ? (a.value === 'true' ? '☒' : '☐') : a.value || '________'}`, underline: a.kind === 'checkbox' ? undefined : {}, ...o });
     } else if (child.type.name === 'attachment') {
       run = new D.TextRun({ text: `[${child.attrs.name}]`, color: '1D4ED8', ...o });
     } else if (child.type.name === 'hard_break') {

@@ -50,6 +50,10 @@ const knownNodes: Record<string, (state: MarkdownSerializerState, node: PMNode, 
       state.write(`[${state.esc(node.attrs.url)}](${markdownUrl(node.attrs.url)})`);
       state.closeBlock(node);
     },
+    form_field(state, node) {
+      const a = node.attrs;
+      state.write(a.kind === 'checkbox' ? `${a.label ? `${state.esc(a.label)} ` : ''}${a.value === 'true' ? '[x]' : '[ ]'}` : `${a.label ? `${state.esc(a.label)}: ` : ''}${state.esc(a.value || '____')}`);
+    },
     merge_field(state, node) {
       state.write(`{{${node.attrs.name}}}`);
     },
