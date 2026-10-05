@@ -515,7 +515,7 @@ export class Ribbon {
       }
       case 'menu': {
         if (!ed.hasCommand(c.need)) return null;
-        const btn = this.button({ label: this.label(c.id, c.label), icon: c.icon, size: c.size ?? defaultSize ?? 'small', iconOnly: c.iconOnly, chevron: true, onClick: () => this.toggleMenu(btn, () => this.menuBody(c.entries(ed))) });
+        const btn = this.button({ label: this.label(c.id, c.label), icon: c.icon, size: c.size ?? defaultSize ?? 'small', iconOnly: c.iconOnly, chevron: true, onClick: () => this.toggleMenu(btn, () => this.menuBody(this.available(c.entries(ed), ed))) });
         btn.setAttribute('aria-haspopup', 'menu');
         btn.setAttribute('aria-expanded', 'false');
         return btn;
@@ -668,6 +668,12 @@ export class Ribbon {
     this.closeMenu();
     this.editor.execute(command, ...args);
     this.update(this.editor.view.state);
+  }
+
+  /** Drop entries whose command this editor does not have (their plugin is not installed), and headings left with nothing under them. */
+  private available(entries: MenuEntry[], ed: Editor): MenuEntry[] {
+    const kept = entries.filter((en) => !('command' in en) || !en.command || ed.hasCommand(en.command));
+    return kept.filter((en, i) => !('heading' in en && en.heading) || (kept[i + 1] && !('heading' in kept[i + 1] && (kept[i + 1] as { heading?: boolean }).heading)));
   }
 
   private menuBody(entries: MenuEntry[]): HTMLElement {

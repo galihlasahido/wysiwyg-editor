@@ -157,3 +157,15 @@ describe('plugin API', () => {
     ed.destroy();
   });
 });
+
+describe('ribbon menus only offer what is installed', () => {
+  it('the Picture menu has no diagram entry without the Mermaid plugin', () => {
+    const ed = createEditor({ element: host(), plugins: defaultPlugins, ribbon: true });
+    const btn = [...ed.root.querySelectorAll('button')].find((b) => /^Picture/.test(b.getAttribute('aria-label') ?? b.textContent ?? '')) as HTMLElement | undefined;
+    // the Picture menu appears with the image command; without the Mermaid plugin it must not list the diagram entry
+    if (btn) btn.click();
+    const items = [...document.querySelectorAll('.wy-menu-item')].map((b) => b.textContent);
+    expect(items.some((t) => /Diagram \(Mermaid\)/.test(t ?? ''))).toBe(false);
+    ed.destroy();
+  });
+});
