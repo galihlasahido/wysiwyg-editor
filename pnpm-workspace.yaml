@@ -1,0 +1,5 @@
+allowBuilds:
+  esbuild: true
+# pnpm 10 (used in CI) reads this older spelling of the same setting
+onlyBuiltDependencies:
+  - esbuild
