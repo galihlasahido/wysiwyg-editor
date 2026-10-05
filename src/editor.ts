@@ -64,6 +64,7 @@ export class Editor {
   /** Turns a dropped, pasted or uploaded image into a URL for the document. Base64 by default; a plugin (the file manager) may wrap it. */
   uploadImage: (file: File) => Promise<string>;
   private commands = new Map<string, Command>();
+  private destroyed = false;
   private listeners = new Map<string, Set<(payload: any) => void>>();
   private readOnlySafe = new Set<string>();
   
@@ -234,6 +235,7 @@ export class Editor {
   execute(name: string, ...args: any[]): boolean {
     const cmd = this.commands.get(name);
     if (!cmd) throw new Error(`Unknown command: ${name}`);
+    if (this.destroyed) return false; // a late callback (an upload that finished after the editor was removed) must not touch a dead view
     if (this.readOnly && !this.readOnlySafe.has(name)) return false;
     const result = cmd(this, ...args);
     this.view.focus();
@@ -314,6 +316,7 @@ export class Editor {
 
   destroy(): void {
     this.emit('destroy', {});
+    this.destroyed = true;
     for (const p of this.config.plugins) {
       try { p.destroy?.(this); } catch (e) { console.error(`Plugin "${p.name}" failed to clean up`, e); }
     }

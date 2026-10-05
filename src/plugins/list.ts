@@ -16,9 +16,15 @@ export const List: EditorPlugin = {
     ordered_list: {
       content: 'list_item+',
       group: 'block',
-      attrs: { order: { default: 1 } },
-      parseDOM: [{ tag: 'ol', getAttrs: (n) => ({ order: Number((n as HTMLElement).getAttribute('start') ?? 1) }) }],
-      toDOM: (n) => (n.attrs.order === 1 ? ['ol', 0] : ['ol', { start: n.attrs.order }, 0]),
+      // `type` is how the numbers look: 1, a, A, i or I (the HTML <ol type>). Word lists often use a. b. c. and i. ii. iii.
+      attrs: { order: { default: 1 }, type: { default: '1' } },
+      parseDOM: [{ tag: 'ol', getAttrs: (n) => {
+        const el = n as HTMLElement;
+        const start = Number(el.getAttribute('start') ?? 1);
+        const type = el.getAttribute('type') ?? '1';
+        return { order: Number.isFinite(start) && start >= 0 && start < 100000 ? Math.round(start) : 1, type: ['1', 'a', 'A', 'i', 'I'].includes(type) ? type : '1' };
+      } }],
+      toDOM: (n) => ['ol', { ...(n.attrs.order === 1 ? {} : { start: n.attrs.order }), ...(n.attrs.type === '1' ? {} : { type: n.attrs.type }) }, 0],
     },
     list_item: { content: 'paragraph block*', defining: true, parseDOM: [{ tag: 'li' }], toDOM: () => ['li', 0] },
   },

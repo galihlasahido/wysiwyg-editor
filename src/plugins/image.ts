@@ -4,6 +4,7 @@ import type { EditorView, NodeView } from 'prosemirror-view';
 import { cropFromString, cropLayout, cropToString, dragCrop, normalizeCrop, visibleSize, type Crop, type Handle } from '../crop';
 import { askDialog } from '../dialog';
 import type { EditorPlugin } from '../types';
+import { hasPasteableText } from '../paste';
 import { isSafeSrc } from '../url';
 
 const SAFE_SRC = { test: isSafeSrc };
@@ -174,6 +175,9 @@ export const Image: EditorPlugin = {
           handlePaste: (_v, e) => {
             const files = imageFiles(e.clipboardData?.files);
             if (!files.length) return false;
+            // Word, Excel and web pages put a PICTURE of what you copied next to its HTML and text. When there is text, the
+            // text is what you meant (an editable list or table): do not let the screenshot win.
+            if (hasPasteableText(e.clipboardData)) return false;
             insertFiles(files);
             return true;
           },

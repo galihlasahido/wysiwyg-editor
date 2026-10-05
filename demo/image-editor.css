@@ -1,0 +1,11 @@
+.ie-drop { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 28px 16px; text-align: center; border: 2px dashed var(--line); border-radius: 14px; background: var(--card); transition: border-color .12s, background .12s; }
+.ie-drop.over { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--card)); }
+.ie-drop p { margin: 0; color: var(--muted); }
+.ie-result { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; margin-top: 14px; }
+.ie-result figure { margin: 0; padding: 10px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; }
+.ie-result img { display: block; max-width: 100%; max-height: 360px; margin: 0 auto; border-radius: 6px; background: repeating-conic-gradient(color-mix(in srgb, var(--fg) 8%, transparent) 0 25%, transparent 0 50%) 0 0 / 16px 16px; }
+.ie-result figcaption { margin-top: 8px; font-size: 13px; color: var(--muted); }
+.ie-url { display: flex; gap: 8px; margin-top: 12px; }
+.ie-url input { flex: 1; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: inherit; font: inherit; }
+.ie-msg { margin-top: 8px; min-height: 1.4em; font-size: 13px; }
+.ie-msg.error { color: #dc2626; }

@@ -214,3 +214,14 @@ describe('equations and diagrams in Word', () => {
     expect(doc).toContain('graph TD');
   });
 });
+
+describe('numbered list styles in Word', () => {
+  it('exports a. b. and i. ii. numbering and the start number', async () => {
+    const e = make('<ol type="a" start="3"><li><p>x</p></li></ol><ol type="I"><li><p>y</p></li></ol>');
+    const { read } = await parts(e);
+    const numbering = await read('word/numbering.xml');
+    expect(numbering).toContain('w:val="lowerLetter"');
+    expect(numbering).toContain('w:val="upperRoman"');
+    expect(numbering).toMatch(/w:start w:val="3"/);
+  });
+});

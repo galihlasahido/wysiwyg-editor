@@ -1,0 +1,9 @@
+.se-grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 900px) { .se-grid { grid-template-columns: 1fr; } }
+.se-controls { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; margin: 8px 0 12px; padding: 10px 12px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; font-size: 13px; }
+.se-controls label { display: inline-flex; gap: 6px; align-items: center; }
+.se-title { width: 100%; margin-bottom: 8px; padding: 8px 10px; font: 600 16px system-ui; border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: inherit; }
+.se-row { margin: 0; max-height: 300px; overflow: auto; padding: 10px; font: 12px/1.5 ui-monospace, Menlo, monospace; white-space: pre-wrap; word-break: break-word; background: color-mix(in srgb, var(--fg) 6%, transparent); border-radius: 8px; }
+.se-log { width: 100%; border-collapse: collapse; font-size: 12px; }
+.se-log td, .se-log th { padding: 3px 6px; border-bottom: 1px solid var(--line); text-align: left; }
+.se-ok { color: #16a34a; } .se-bad { color: #dc2626; } .se-warn { color: #d97706; }

@@ -55,3 +55,5 @@ export { openImageEditor } from './image-editor';
 export type { ImageEditorOptions, ImageEditResult } from './image-editor';
 export { applyAdjustments, boxBlur, FILTER_PRESETS, NEUTRAL as NEUTRAL_ADJUSTMENTS, formatBytes } from './image-ops';
 export type { Adjustments } from './image-ops';
+export { cleanPastedHTML, isWordHTML, isGoogleDocsHTML, hasPasteableText } from './paste';
+export { markerStyle } from './paste';

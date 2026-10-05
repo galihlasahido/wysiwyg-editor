@@ -1,0 +1,6 @@
+.dlg-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin: 12px 0; }
+.dlg-card { display: flex; flex-direction: column; gap: 8px; padding: 14px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; }
+.dlg-card h2 { margin: 0; font-size: 15px; }
+.dlg-card p { margin: 0; flex: 1; font-size: 13px; color: var(--muted); }
+.dlg-result { margin: 8px 0; padding: 10px 12px; border-left: 4px solid var(--accent); background: var(--card); border-radius: 0 8px 8px 0; font: 13px ui-monospace, Menlo, monospace; min-height: 1.5em; white-space: pre-wrap; }
+.swatch { width: 100%; min-height: 60px; border-radius: 8px; border: 1px solid var(--line); display: flex; align-items: center; justify-content: center; font: 600 13px system-ui; }

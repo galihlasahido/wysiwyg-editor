@@ -11,13 +11,13 @@ Everything is opt-in plugins; the core is small. It is **not published to npm ye
 
 ```sh
 pnpm install
-pnpm dev        # the demo gallery at http://localhost:5173 (36 examples)
+pnpm dev        # the demo gallery at http://localhost:5173 (39 examples)
 pnpm test       # 196 tests (unit, accessibility with axe-core, server integration)
 pnpm build      # library in dist/
 pnpm server     # reference backend on :8787
 ```
 
-**Live demos:** https://galihlasahido.github.io/wysiwyg-editor/ — a landing page plus 36 small real pages (classic, inline and
+**Live demos:** https://galihlasahido.github.io/wysiwyg-editor/ — a landing page plus 39 small real pages (classic, inline and
 document editors, a headless editor, developer docs with runnable code blocks, a notebook, a playground, a README editor,
 real-time and asynchronous collaboration, Word import/export, email, merge fields, source editing, Markdown, AI, images, mobile).
 Each has a "Show the code" section.
@@ -109,6 +109,12 @@ LaTeX equations drawn by KaTeX with MathML for screen readers; type `$x^2$`, use
 class, state, ER, Gantt, pie, mind map) with starter templates and a live preview; it forces `securityLevel: 'strict'`, draws labels as SVG text, strips scripts from the
 SVG, follows the light or dark page colours, renders one diagram at a time, and shows Mermaid's message instead of throwing. Import KaTeX's CSS in your page
 (`katex/dist/katex.min.css`). Markdown round-trips as `$x$`, `$$ … $$` and ```` ```mermaid ```` fences. Word export writes equations as **native Word equations** (fractions, roots, scripts, sums, integrals, limits, brackets, Greek letters; a formula outside that subset is kept as its LaTeX text) and diagrams as **PNG pictures** (drawn on a canvas; without one the Mermaid source is written, labelled).
+
+**Pasting from Word and Google Docs**: pasted HTML is cleaned before it is parsed (`cleanPastedHTML`): Word's fake list paragraphs become real nested
+lists (with their `1.` / `a.` / `i.` numbering and start number), conditional comments, `<o:p>` and `mso-*` styles go, fonts and sizes are dropped while bold, italic,
+underline, colour and alignment stay, pictures that point at local files are removed, and Google Docs' fake bold wrapper is unwrapped. Word and Excel also put a
+*picture* of what you copied on the clipboard: when there is text or HTML too, the text wins, so a pasted list or table stays editable. A clipboard that holds only a
+picture (or an `<img>` with no text) still pastes the picture.
 
 **Restricted editing**: `RestrictedEditing()` adds `locked_section` blocks (a title with the table of contents, legal
 text) that cannot be changed, and `editable_region` blocks that can, while everything else stays ordinary text. It is

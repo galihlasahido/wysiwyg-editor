@@ -139,20 +139,25 @@ const ALIGN: Record<string, (typeof D.AlignmentType)[keyof typeof D.AlignmentTyp
   justify: D.AlignmentType.JUSTIFIED,
 };
 
-function levels(format: 'decimal' | 'bullet', text?: string): D.ILevelsOptions[] {
+type ListFormat = 'decimal' | 'lowerLetter' | 'upperLetter' | 'lowerRoman' | 'upperRoman' | 'bullet';
+const FORMATS: Record<ListFormat, (typeof D.LevelFormat)[keyof typeof D.LevelFormat]> = { decimal: D.LevelFormat.DECIMAL, lowerLetter: D.LevelFormat.LOWER_LETTER, upperLetter: D.LevelFormat.UPPER_LETTER, lowerRoman: D.LevelFormat.LOWER_ROMAN, upperRoman: D.LevelFormat.UPPER_ROMAN, bullet: D.LevelFormat.BULLET };
+const TYPE_FORMAT: Record<string, ListFormat> = { '1': 'decimal', a: 'lowerLetter', A: 'upperLetter', i: 'lowerRoman', I: 'upperRoman' };
+
+function levels(format: ListFormat, text?: string, start = 1): D.ILevelsOptions[] {
   return Array.from({ length: 9 }, (_, level) => ({
     level,
-    format: format === 'decimal' ? D.LevelFormat.DECIMAL : D.LevelFormat.BULLET,
-    text: format === 'decimal' ? `%${level + 1}.` : text ?? (level % 2 ? '◦' : '•'),
+    format: FORMATS[format],
+    start: format === 'bullet' ? undefined : start,
+    text: format !== 'bullet' ? `%${level + 1}.` : text ?? (level % 2 ? '◦' : '•'),
     alignment: D.AlignmentType.START,
     style: { paragraph: { indent: { left: 720 * (level + 1), hanging: 360 } } },
   }));
 }
 
-function newNumbering(ctx: Ctx, format: 'decimal' | 'bullet', text?: string): string {
+function newNumbering(ctx: Ctx, format: ListFormat, text?: string, start = 1): string {
   const ref = `list-${ctx.numberingRefs.length}`;
   ctx.numberingRefs.push(ref);
-  ctx.numbering.push(levels(format, text));
+  ctx.numbering.push(levels(format, text, start));
   return ref;
 }
 
@@ -264,7 +269,7 @@ type Block = D.Paragraph | D.Table | D.TableOfContents;
 function listBlocks(list: PMNode, ctx: Ctx, depth: number): Block[] {
   const out: Block[] = [];
   const name = list.type.name;
-  const ref = name === 'ordered_list' ? newNumbering(ctx, 'decimal') : name === 'bullet_list' ? newNumbering(ctx, 'bullet') : null;
+  const ref = name === 'ordered_list' ? newNumbering(ctx, TYPE_FORMAT[list.attrs.type] ?? 'decimal', undefined, Math.max(1, Number(list.attrs.order) || 1)) : name === 'bullet_list' ? newNumbering(ctx, 'bullet') : null;
   list.forEach((item) => {
     let first = true;
     const taskRef = name === 'task_list' ? newNumbering(ctx, 'bullet', item.attrs.checked ? '☑' : '☐') : null;

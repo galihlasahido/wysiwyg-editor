@@ -93,12 +93,15 @@ const PRESETS: Record<string, ToolbarEntry[] | undefined> = {
 const select = (label: string, id: string, options: string[]) => el('label', {}, label, el('select', { id }, ...options.map((o) => el('option', { value: o, textContent: o }))));
 const sticky = el('input', { type: 'checkbox', id: 'sticky' });
 const code = el('pre', { class: 'out' });
+const events = el('pre', { class: 'out', style: 'max-height:160px' }, 'Events appear here as you type, select and run commands…');
 $('#app').append(
   el('div', { class: 'demo-note' }, 'Left: a compact toolbar you can rearrange. Below it, a ribbon editor shows the same plugin adding an ', el('strong', {}, 'Extras'), ' tab. Select text and press ', el('code', {}, 'Ctrl/Cmd+Alt+C'), ' for a callout.'),
   el('div', { class: 'playground' }, select('Layout', 'preset', Object.keys(PRESETS)), select('Position', 'position', ['top', 'bottom']), select('When it does not fit', 'overflow', ['wrap', 'more', 'scroll']), select('Align', 'align', ['start', 'center', 'end']), el('label', {}, 'Sticky', sticky)),
   el('div', { class: 'panel', style: 'resize:horizontal;overflow:auto;max-width:100%' }, el('div', { id: 'editor' })),
   el('h2', { style: 'font-size:15px;margin:16px 0 6px' }, 'The configuration'),
   code,
+  el('h2', { style: 'font-size:15px;margin:16px 0 6px' }, 'Editor events (editor.on)'),
+  events,
   el('h2', { style: 'font-size:15px;margin:16px 0 6px' }, 'Same plugin in the ribbon'),
   el('div', { class: 'panel' }, el('div', { id: 'ribbon' })),
 );
@@ -106,6 +109,13 @@ $('#app').append(
 const content = '<h1>Release notes</h1><p>Select a paragraph and wrap it in a callout with the buttons, the shortcut, or the Extras tab.</p><p>Drag the right edge of the editor panel to make it narrower and try the "more" overflow.</p>';
 const editor = createEditor({ element: $('#editor'), content, plugins: [...defaultPlugins, Callout, WordGoal(60)], toolbar: { overflow: 'wrap' } });
 (window as unknown as { editor: typeof editor }).editor = editor;
+let firstEvent = true;
+for (const name of ['change', 'selection', 'focus', 'blur', 'command'] as const) {
+  editor.on(name, (payload: { name?: string }) => {
+    if (firstEvent) { events.textContent = ''; firstEvent = false; }
+    events.textContent = `${new Date().toLocaleTimeString()}  ${name}${payload?.name ? ` (${payload.name})` : ''}\n${events.textContent}`.split('\n').slice(0, 40).join('\n');
+  });
+}
 
 function apply() {
   const v = (id: string) => ($(`#${id}`) as HTMLSelectElement).value;

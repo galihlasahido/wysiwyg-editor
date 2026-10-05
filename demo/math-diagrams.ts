@@ -1,5 +1,5 @@
 import 'katex/dist/katex.min.css';
-import { Equations, Mermaid, createEditor, defaultPlugins } from '../src';
+import { Equations, Mermaid, createEditor, defaultPlugins, download } from '../src';
 import { $, button, codePanel, el } from './samples';
 
 const content =
@@ -26,6 +26,7 @@ $('#actions').append(
   button('Dark', () => editor.setTheme(editor.root.dataset.theme === 'dark' ? 'light' : 'dark')),
   button('Show Markdown', () => { out.hidden = false; out.textContent = editor.getMarkdown(); }, true),
   button('Show HTML', () => { out.hidden = false; out.textContent = editor.getHTML(); }),
+  button('Download .docx (native equations + diagram pictures)', async () => download(await (await import('../src/docx')).exportDocx(editor), 'math-and-diagrams.docx')),
 );
 $('#app').append(codePanel(`
 import 'katex/dist/katex.min.css';
