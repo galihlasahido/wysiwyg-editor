@@ -4,6 +4,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-10-11
+
+The first release that includes the 0.2.0 changes below: 0.2.0 itself was never published to npm.
+
 ### Fixed
 - Tables and lists pasted from Word (and Google Docs) were far too loose: every cell and list item carried the browser's 1em paragraph margins, so a one-line table row was about 70 px tall. Paragraphs inside table cells and list items now have no margin, and cell padding and line height are compact (`--wy-cell-pad-y`, `--wy-cell-pad-x`, `--wy-cell-line-height` adjust them). Spacing set on purpose through the paragraph menu still applies.
 
@@ -55,7 +59,8 @@ A modular rich-text editor on ProseMirror with a plugin architecture. Everything
 ### Known limitations
 See the README section "Known limitations".
 
-[Unreleased]: https://github.com/galihlasahido/wysiwyg-editor/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/galihlasahido/wysiwyg-editor/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/galihlasahido/wysiwyg-editor/compare/v0.1.1...v0.2.1
 [0.2.0]: https://github.com/galihlasahido/wysiwyg-editor/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/galihlasahido/wysiwyg-editor/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/galihlasahido/wysiwyg-editor/releases/tag/v0.1.0
