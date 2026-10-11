@@ -1,6 +1,6 @@
 {
   "name": "wysiwygido",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "A modular, TypeScript WYSIWYG rich-text editor inspired by CKEditor 5, built on ProseMirror.",
   "license": "MIT",
   "type": "module",

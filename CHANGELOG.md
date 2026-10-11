@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/). Until 1.0, minor versions may contain breaking changes; they are listed under "Changed" or "Removed".
 
-## Unreleased
+## 0.4.0
 
 - Added: colour themes (`Themes` plugin): light, dark, sepia, ocean, forest, rose, solarized, midnight, nord and high-contrast, a View → Themes menu, `colorTheme` / `cycleColorTheme` / `clearColorTheme` commands, your own theme from a handful of colours, and `<wysiwyg-editor theme="sepia">`.
 - Added: the editor emits a `theme` event when Dark Mode or Switch Background changes.
