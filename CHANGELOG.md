@@ -4,6 +4,9 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Fixed
+- Tables and lists pasted from Word (and Google Docs) were far too loose: every cell and list item carried the browser's 1em paragraph margins, so a one-line table row was about 70 px tall. Paragraphs inside table cells and list items now have no margin, and cell padding and line height are compact (`--wy-cell-pad-y`, `--wy-cell-pad-x`, `--wy-cell-line-height` adjust them). Spacing set on purpose through the paragraph menu still applies.
+
 ## [0.2.0] - 2026-10-06
 
 ### Changed (breaking)

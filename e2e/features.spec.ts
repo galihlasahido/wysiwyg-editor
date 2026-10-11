@@ -215,3 +215,52 @@ test('proofreading: underlines, a click offers suggestions, applying one fixes t
   await expect(page.locator('.wy-proof-spelling', { hasText: 'recieve' })).toHaveCount(0);
   expect(problems).toEqual([]);
 });
+
+test('pasting a Word table and numbered list keeps cells and list items as tight as Word', async ({ page, browserName }) => {
+  const problems = await openDemo(page, 'feature-rich');
+  await editorReady(page);
+  const word = `<html xmlns:o="urn:schemas-microsoft-com:office:office"><head><style>p.MsoNormal{margin:0cm}</style></head><body><!--StartFragment-->
+<table class=MsoTableGrid border=1 cellspacing=0 cellpadding=0 style='border-collapse:collapse;border:none'><tr><td valign=top style='border:solid windowtext 1.0pt;padding:0cm 5.4pt 0cm 5.4pt'><p class=MsoNormal align=center style='text-align:center'>sfsf<o:p></o:p></p></td><td valign=top style='border:solid windowtext 1.0pt;padding:0cm 5.4pt'><p class=MsoNormal>Jk<o:p></o:p></p></td></tr>
+<tr><td valign=top style='border:solid windowtext 1.0pt;padding:0cm 5.4pt'><p class=MsoNormal>J<o:p></o:p></p></td><td valign=top style='border:solid windowtext 1.0pt;padding:0cm 5.4pt'><p class=MsoNormal>Kj<o:p></o:p></p></td></tr></table>
+<p class=MsoListParagraphCxSpFirst style='margin-bottom:0cm;text-indent:-18.0pt;mso-list:l0 level1 lfo1'><![if !supportLists]><span style='mso-list:Ignore'>1.<span>&nbsp;&nbsp;</span></span><![endif]>123<o:p></o:p></p>
+<p class=MsoListParagraphCxSpLast style='margin-bottom:0cm;text-indent:-18.0pt;mso-list:l0 level1 lfo1'><![if !supportLists]><span style='mso-list:Ignore'>2.<span>&nbsp;&nbsp;</span></span><![endif]>123<o:p></o:p></p><!--EndFragment--></body></html>`;
+  // Firefox ignores clipboardData on a synthetic paste event, so there the content a paste produces is set directly: the spacing is a style rule either way.
+  const m = await page.evaluate(async ([html, real]) => {
+    const ed = (window as any).editor;
+    ed.setHTML('<p></p>');
+    ed.view.focus();
+    if (real) {
+      const dt = new DataTransfer();
+      dt.setData('text/html', html);
+      dt.setData('text/plain', 'x');
+      ed.view.dom.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }));
+    } else {
+      ed.setHTML('<table><tr><td><p style="text-align: center">sfsf</p></td><td><p>Jk</p></td></tr><tr><td><p>J</p></td><td><p>Kj</p></td></tr></table><ol><li><p>123</p></li><li><p>123</p></li></ol>');
+    }
+    await new Promise((r) => setTimeout(r, 300));
+    const dom: HTMLElement = ed.view.dom;
+    const cs = (el: Element, k: string) => getComputedStyle(el).getPropertyValue(k);
+    const tdp = dom.querySelector('td p')!;
+    const lip = dom.querySelector('li p')!;
+    return {
+      cell: [cs(tdp, 'margin-top'), cs(tdp, 'margin-bottom')],
+      item: [cs(lip, 'margin-top'), cs(lip, 'margin-bottom')],
+      row: Math.round(dom.querySelector('tr')!.getBoundingClientRect().height),
+      items: dom.querySelectorAll('li').length,
+      cells: dom.querySelectorAll('td').length,
+    };
+  }, [word, browserName !== 'firefox'] as const);
+  expect(m.cells).toBe(4);
+  expect(m.items).toBe(2);
+  expect(m.cell).toEqual(['0px', '0px']);
+  expect(m.item).toEqual(['0px', '0px']);
+  expect(m.row).toBeLessThan(36); // a one-line row was 71 px before
+  // spacing a person sets on purpose still shows inside a cell
+  const spaced = await page.evaluate(() => {
+    const ed = (window as any).editor;
+    ed.setHTML('<table><tr><td><p style="margin-bottom: 20pt">a</p></td></tr></table>');
+    return getComputedStyle(ed.view.dom.querySelector('td p')).getPropertyValue('margin-bottom');
+  });
+  expect(parseFloat(spaced)).toBeGreaterThan(20);
+  expect(problems).toEqual([]);
+});
