@@ -46,6 +46,7 @@ GROUPS = [
    ('recording', 'Voice, screen and dictation', 'Record audio or the screen into the document and dictate text, with a visible recording bar and a cancel key.', ['Audio', 'Dictation']),
    ('charts', 'Charts from tables', 'Bar, line and pie charts built from a table, stored as data and written to Word as pictures.', ['Charts']),
    ('columns', 'Columns', 'Newspaper-style columns: wrap blocks in two to four columns with an optional rule and gap.', ['Layout']),
+   ('themes', 'Themes', 'Ten colour themes for the toolbar, ribbon and paper, switched at run time, plus your own from a handful of colours.', ['Theme', 'Dark mode']),
    ('captions', 'Captions and cross-references', 'Numbered figure and table captions that renumber themselves, cross-references that follow them, and a list of figures.', ['Captions', 'References']),
    ('export-word-pdf', 'Export to Word and PDF', 'Download .docx with page setup, headers and footers, or print to PDF.', ['.docx', 'PDF']),
    ('import-word', 'Import from Word', 'Open a .docx and get clean, schema-validated content. One undo step.', ['.docx', 'Import']),

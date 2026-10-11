@@ -326,3 +326,19 @@ test('Change case: the menu, and the keyboard shortcut', async ({ page }) => {
   await page.keyboard.press('ControlOrMeta+Alt+s');
   await expect(page.locator('.wy-content p').first()).toHaveText('hello_world');
 });
+
+test('colour themes restyle the editor and the ribbon menu lists them', async ({ page }) => {
+  const problems = await openDemo(page, 'themes');
+  const bg = () => page.locator('.wy-editor').evaluate((el) => getComputedStyle(el).backgroundColor);
+  const before = await bg();
+  await page.getByRole('button', { name: 'Midnight', exact: true }).click();
+  await expect(page.locator('.wy-editor')).toHaveAttribute('data-color-theme', 'midnight');
+  expect(await bg()).not.toBe(before);
+  await page.screenshot({ path: 'test-results/theme-midnight.png' });
+  await page.getByRole('button', { name: 'Sepia', exact: true }).click();
+  await page.screenshot({ path: 'test-results/theme-sepia.png' });
+  await page.getByRole('tab', { name: 'View', exact: true }).click();
+  await page.getByRole('button', { name: 'Themes' }).first().click();
+  await expect(page.getByRole('menuitem', { name: 'Nord' })).toBeVisible();
+  expect(problems).toEqual([]);
+});

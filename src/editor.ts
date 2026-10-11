@@ -359,6 +359,7 @@ export class Editor {
     this.root.dataset.theme = theme;
     this.root.dataset.page = theme;
     this.toolbar.update(this.view.state);
+    this.emit('theme', { theme });
   }
 
   get isPageDark(): boolean {
@@ -369,6 +370,7 @@ export class Editor {
   setPageDark(dark: boolean): void {
     this.root.dataset.page = dark ? 'dark' : 'light';
     this.toolbar.update(this.view.state);
+    this.emit('theme', { theme: this.theme });
   }
 
   /** Whether a command is registered (used to hide ribbon buttons whose plugin is not installed). */

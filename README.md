@@ -469,6 +469,30 @@ tOGGLE cASE (`Ctrl/⌘+Alt+G`), snake_case (`Ctrl/⌘+Alt+S`), camelCase (`Ctrl/
 in the right-click menu. Upper/lower/toggle/title/sentence keep every bold, link and colour in place; snake/camel/kebab join the words into one
 identifier that takes the formatting of its first letter. From code: `editor.execute('changeCase', 'snake')` or the pure `convertCase(text, 'camel')`.
 
+## Themes
+
+Ten colour themes ship with the editor: `light`, `dark`, `sepia`, `ocean`, `forest`, `rose`, `solarized`, `midnight`, `nord` and `high-contrast`. A theme restyles the toolbar, ribbon, panels and the paper, and only inside the editor.
+
+```ts
+import { createEditor, defaultPlugins, Themes } from 'wysiwygido';
+
+createEditor({ element, plugins: [...defaultPlugins, Themes({ initial: 'sepia' })] });
+editor.execute('colorTheme', 'midnight');
+editor.execute('cycleColorTheme');
+editor.execute('clearColorTheme'); // back to the stock look
+```
+
+Pick one from **View → Themes** in the ribbon, or use `<wysiwyg-editor theme="nord">`. Dark Mode on its own returns to the stock look.
+
+Your own theme is a handful of colours; hover, borders, selection and the rest are derived from them:
+
+```ts
+Themes({ extra: [{ name: 'brand', label: 'Brand', palette: { mode: 'light', bg: '#fff8f0', surface: '#ffeede', fg: '#2a1a10',
+  muted: '#7a5a44', border: '#f0d6bf', accent: '#e8590c', workspace: '#f0d2b8', pageBg: '#fff', pageFg: '#2a1a10' } }] });
+```
+
+`editor.extensions.themes` gives `list()`, `current()`, `register(theme)`, `apply(name)` and `clear()`. A theme can also set any `--wy-*` variable through `vars`.
+
 ## Cover page
 
 `Cover` (in `defaultPlugins`) adds a cover page: one picture that fills the whole first page, edge to edge, with the text starting on page 2. Use

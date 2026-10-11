@@ -22,7 +22,7 @@ export interface WysiwygElement extends HTMLElement {
  *
  *   <wysiwyg-editor value="<p>Hello</p>" ribbon paged theme="dark" name="body"></wysiwyg-editor>
  *
- * Attributes: `value`, `readonly`, `theme` (light | dark | auto), `placeholder`, `locale`, `ribbon`, `paged` (A4 pages with a ruler),
+ * Attributes: `value`, `readonly`, `theme` (light | dark | auto, or the name of a colour theme such as sepia), `placeholder`, `locale`, `ribbon`, `paged` (A4 pages with a ruler),
  * `outline`, `name` (the HTML is submitted with a surrounding form under this name). Properties: `value`, `readOnly`, `plugins`, `config`,
  * `editor`. Events: `editor-ready` and `editor-change` (`detail.html`). Load the stylesheet (`wysiwygido/style.css`) in the page:
  * the element renders in the light DOM so the document can be styled and printed like any other content.
@@ -68,7 +68,7 @@ export function defineEditorElement(tag = 'wysiwyg-editor'): void {
         content: this.initial,
         plugins: this.plugins,
         readOnly: this.hasAttribute('readonly'),
-        theme: this.getAttribute('theme') ?? undefined,
+        theme: ['light', 'dark', 'auto'].includes(this.getAttribute('theme') ?? '') ? this.getAttribute('theme') : undefined,
         placeholder: this.getAttribute('placeholder') ?? undefined,
         locale: this.getAttribute('locale') ?? undefined,
         ribbon: this.hasAttribute('ribbon') || undefined,
@@ -83,6 +83,8 @@ export function defineEditorElement(tag = 'wysiwyg-editor'): void {
         },
       };
       this.editor = createEditor(options as unknown as Parameters<typeof createEditor>[0]);
+      const named = this.getAttribute('theme');
+      if (named && !['light', 'dark', 'auto'].includes(named)) this.editor.execute('colorTheme', named);
       this.sync();
       this.dispatchEvent(new CustomEvent('editor-ready', { detail: { editor: this.editor }, bubbles: true, composed: true }));
     }
@@ -98,6 +100,7 @@ export function defineEditorElement(tag = 'wysiwyg-editor'): void {
       else if (name === 'value' && value !== null && this.editor) this.value = value;
       else if (name === 'readonly' && this.editor) this.editor.setReadOnly(value !== null);
       else if (name === 'theme' && this.editor && (value === 'light' || value === 'dark')) this.editor.setTheme(value);
+      else if (name === 'theme' && this.editor && value) this.editor.execute('colorTheme', value); // a named colour theme
     }
 
     private sync() {

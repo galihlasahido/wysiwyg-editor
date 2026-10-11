@@ -92,3 +92,5 @@ export { Recording, isSafeClip } from './recording';
 export type { RecordingOptions } from './recording';
 export { PdfEpub } from './pdf-epub';
 export type { PdfEpubOptions } from './pdf-epub';
+export { Themes, defaultThemes, themeVars } from './themes';
+export type { Theme, ThemePalette, ThemesOptions, ThemeApi } from './themes';
