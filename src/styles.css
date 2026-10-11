@@ -797,3 +797,17 @@ del.wy-diff-del, .wy-diff-legend .wy-diff-del { background: #fee2e2; color: #7f1
 .wy-proof-suggest { font-weight: 600; }
 .wy-proof-none { padding: 4px 8px; color: var(--wy-page-muted); font-style: italic; }
 @media print { .wy-proof { text-decoration: none; } .wy-proof-menu { display: none; } }
+
+/* right-click menu */
+.wy-ctx-layer { position: fixed; inset: 0; z-index: 1000; pointer-events: none; }
+.wy-ctx { position: fixed; pointer-events: auto; min-width: 210px; max-width: 320px; max-height: calc(100vh - 8px); overflow-y: auto; padding: 4px; background: var(--wy-bg); color: var(--wy-fg); border: 1px solid var(--wy-border-2); border-radius: 8px; box-shadow: var(--wy-pop-shadow); font: 13px/1.3 system-ui, sans-serif; }
+.wy-ctx-item { display: flex; align-items: center; gap: 8px; width: 100%; padding: 6px 10px 6px 6px; border: 0; border-radius: 5px; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.wy-ctx-item:hover, .wy-ctx-item:focus-visible, .wy-ctx-item[data-open] { background: var(--wy-hover); outline: none; }
+.wy-ctx-item:focus-visible { box-shadow: inset 0 0 0 2px var(--wy-accent); }
+.wy-ctx-item[aria-disabled='true'] { opacity: .5; cursor: default; }
+.wy-ctx-item.is-danger { color: var(--wy-danger); }
+.wy-ctx-icon { flex: none; width: 20px; text-align: center; }
+.wy-ctx-label { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wy-ctx-key, .wy-ctx-arrow { flex: none; color: var(--wy-muted); font-size: 12px; }
+.wy-ctx-sep { height: 1px; margin: 4px 6px; background: var(--wy-border); }
+.wy-ctx-hint { padding: 6px 10px 4px; color: var(--wy-muted); font-size: 11px; border-top: 1px solid var(--wy-border); margin-top: 4px; }

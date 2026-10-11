@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/). Until 1.0, minor versions may contain breaking changes; they are listed under "Changed" or "Removed".
 
+## Unreleased
+
+- Added: right-click menu (`ContextMenu`, in the default set) with table, list, link, picture and text-format items, and a `contextMenu(context)` hook for plugins to add their own.
+- Added: `addRowBefore`, `addColumnBefore`, `toggleHeaderColumn`, `selectTable`, `selectRow`, `selectColumn`, `distributeColumns`, `listStyle` and `restartNumbering` commands.
+- Fixed: a table reduced to one row, one column or one empty cell could not be deleted. Deleting its last row or column now removes the table, and Backspace/Delete in an empty single cell does too.
+- Changed: `bulletList` / `orderedList` inside a list of the other kind now convert it instead of lifting out.
+
 ## [Unreleased]
 
 ## [0.2.1] - 2026-10-11

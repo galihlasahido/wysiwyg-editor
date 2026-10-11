@@ -1,8 +1,9 @@
 import { toggleMark } from 'prosemirror-commands';
+import { TextSelection } from 'prosemirror-state';
 import { askDialog } from '../dialog';
-import type { EditorPlugin } from '../types';
+import type { ContextMenuEntry, EditorPlugin } from '../types';
 import { isSafeHref } from '../url';
-import { markActive } from './helpers';
+import { markActive, markRunAt } from './helpers';
 
 
 export const Link: EditorPlugin = {
@@ -37,6 +38,23 @@ export const Link: EditorPlugin = {
       if (!isSafeHref(href)) return false;
       return toggleMark(type, { href })(state, dispatch);
     });
+  },
+  contextMenuOrder: 30,
+  contextMenu({ state, readonly }) {
+    const run = markRunAt(state, 'link');
+    const href = run && String(run.mark.attrs.href ?? '');
+    if (!run || !href || !isSafeHref(href)) return readonly ? [] : state.selection.empty ? [] : [{ label: 'Link…', icon: '🔗', command: 'link' }];
+    const items: ContextMenuEntry[] = [
+      { label: 'Open link', icon: '↗', readOnly: true, run: () => { window.open(href, '_blank', 'noopener,noreferrer'); } },
+      { label: 'Copy link address', readOnly: true, run: () => { void navigator.clipboard?.writeText(href).catch(() => undefined); } },
+    ];
+    if (!readonly) items.push('-', { label: 'Edit link…', icon: '🔗', run: (e) => {
+      const { from, to } = run;
+      e.view.dispatch(e.view.state.tr.setSelection(TextSelection.create(e.view.state.doc, from, to)));
+      e.view.dispatch(e.view.state.tr.removeMark(from, to, e.schema.marks.link));
+      e.execute('link');
+    } }, { label: 'Remove link', danger: true, run: (e) => { e.view.dispatch(e.view.state.tr.removeMark(run.from, run.to, e.schema.marks.link)); } });
+    return items;
   },
   toolbar: [{ name: 'link', label: 'Link', icon: '🔗', command: 'link', isActive: (s) => markActive(s, s.schema.marks.link) }],
 };

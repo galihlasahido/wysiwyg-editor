@@ -461,6 +461,30 @@ returns an unsubscribe function, and `editor.emit('my-event', payload)` tells ot
 `registerIcon(name, svgInner)` adds an icon for ribbon buttons. See `demo/custom-plugin` for a complete third-party plugin, and `src/plugins/` for the built-in ones.
 Plugins are fixed when the editor is created (the schema cannot change afterwards); commands, toolbar layout and listeners can change at any time.
 
+## Right-click menu
+
+`ContextMenu` is in `defaultPlugins`. Right-click shows cut/copy/paste and then what applies at the click: table tools in a table (insert/delete
+rows and columns, merge/split, header row/column, cell colour, select, even column widths), list tools in a list (bulleted/numbered/checklist,
+indent, numbering style, restart numbering), link tools on a link (open, copy address, edit, remove), picture tools on a picture (alt text, caption,
+size, crop, edit, delete), and text formatting on a selection. It opens from the keyboard with the Menu key or Shift+F10, works with the arrow keys,
+Escape closes it, and Shift + right-click gives the browser's own menu. A read-only editor only gets copy, open link and select all.
+Deleting the last row or column of a table now removes the table, and Backspace/Delete in an empty one-cell table removes it too.
+
+Add your own lines from any plugin:
+
+```ts
+definePlugin({
+  name: 'my-menu',
+  contextMenu({ closest, readonly }) {
+    if (readonly || !closest('blockquote')) return [];
+    return ['-', { label: 'Remove quote', command: 'blockQuote' }, { label: 'Say hi', run: (editor) => alert('hi') }];
+  },
+});
+```
+
+Items take `label`, `command`/`args` or `run`, `icon`, `shortcut`, `disabled`, `checked`, `danger`, `readOnly` and `items` (a submenu); `'-'` is a separator.
+Leave the plugin out of `plugins` to have no custom menu.
+
 ## Known limitations
 
 - **Pagination is visual.** The document stays one ProseMirror doc; blocks are measured in the browser and spaced across

@@ -1,9 +1,49 @@
-import type { MarkSpec, NodeSpec } from 'prosemirror-model';
+import type { Mark, MarkSpec, Node as PMNode, NodeSpec } from 'prosemirror-model';
 import type { EditorState, Plugin as PMPlugin, Transaction } from 'prosemirror-state';
 import type { Editor } from './editor';
 import type { RibbonGroup } from './ribbon';
 
 export type Command = (editor: Editor, ...args: any[]) => boolean;
+
+/** One line of a right-click menu. */
+export interface ContextMenuItem {
+  label: string;
+  /** A registered command to run, with its arguments. Give this or `run`. */
+  command?: string;
+  args?: any[];
+  /** Or your own code. */
+  run?: (editor: Editor) => void | boolean;
+  /** A short symbol shown before the label (a character or emoji). */
+  icon?: string;
+  /** Text shown at the right, such as `Ctrl+B`. Informational only. */
+  shortcut?: string;
+  /** Shown greyed out and not clickable. */
+  disabled?: boolean;
+  /** Shown with a check mark (an option that is on). */
+  checked?: boolean;
+  /** Styled as a destructive action (delete). */
+  danger?: boolean;
+  /** Also offered, and allowed, when the editor is read-only (copy, open a link). Everything else is hidden there. */
+  readOnly?: boolean;
+  /** A fly-out submenu instead of an action. */
+  items?: ContextMenuEntry[];
+}
+/** An item, or `'-'` for a separator. */
+export type ContextMenuEntry = ContextMenuItem | '-';
+
+/** What a plugin sees when it decides which items to add to the right-click menu. */
+export interface ContextMenuContext {
+  editor: Editor;
+  /** The mouse event that opened the menu, or null when it was opened from the keyboard. */
+  event: MouseEvent | null;
+  state: EditorState;
+  /** The editor cannot be changed right now. */
+  readonly: boolean;
+  /** The nearest ancestor of the selection with this node type (`'table'`, `'bullet_list'`…), or null. */
+  closest(typeName: string): { node: PMNode; pos: number; depth: number } | null;
+  /** The mark of this type at the selection or caret, with the range it covers, or null. */
+  markAt(markName: string): { mark: Mark; from: number; to: number } | null;
+}
 
 export interface ToolbarButton {
   type?: 'button';
@@ -86,6 +126,10 @@ export interface EditorPlugin {
   keymap?: Record<string, string | ((editor: Editor) => boolean)>;
   /** Add a group (and, if needed, a tab) to the ribbon. */
   ribbon?: RibbonContribution | RibbonContribution[];
+  /** Items for the right-click menu, given the current selection. Return an empty list when nothing applies. Needs the `ContextMenu` plugin. */
+  contextMenu?(context: ContextMenuContext): ContextMenuEntry[];
+  /** Where this plugin's group sits in the right-click menu: higher is nearer the top. Default 0. */
+  contextMenuOrder?: number;
   /**
    * Rewrite a user transaction before it is applied (used by track changes). Not called for transactions
    * carrying the `wy-raw` meta, so a plugin can apply its own edits without re-entering itself.

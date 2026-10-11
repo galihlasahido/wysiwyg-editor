@@ -1,15 +1,15 @@
 import './styles.css';
 import { Editor, type EditorConfig } from './editor';
 import { Pages, Outline, type PageOptions } from './plugins';
-import { Office, ParagraphFormat, Direction, TableOfContents, Footnotes, SpellCheck, SpecialCharacters, FormatPainter, WordCount, FindReplace, Alignment, Autoformat, Colors, Fonts, TaskList, BasicStyles, Blocks, Essentials, Heading, Image, Link, List, Table } from './plugins';
+import { Office, ParagraphFormat, Direction, TableOfContents, Footnotes, SpellCheck, SpecialCharacters, FormatPainter, WordCount, FindReplace, Alignment, Autoformat, Colors, Fonts, TaskList, BasicStyles, Blocks, Essentials, Heading, Image, Link, List, Table, ContextMenu } from './plugins';
 
 export { Editor } from './editor';
 export type { EditorConfig, DocxExportOptions } from './editor';
-export type { EditorPlugin, ToolbarItem, ToolbarEntry, ToolbarGroup, ToolbarOptions, Command, RibbonContribution, EditorEvent } from './types';
+export type { EditorPlugin, ToolbarItem, ToolbarEntry, ToolbarGroup, ToolbarOptions, Command, ContextMenuContext, ContextMenuEntry, ContextMenuItem, RibbonContribution, EditorEvent } from './types';
 export { definePlugin } from './types';
 export * from './plugins';
 
-export const defaultPlugins = [Essentials, BasicStyles, Heading, Fonts, Alignment, Colors, List, TaskList, Blocks, Link, Image, Table, FindReplace, WordCount, SpecialCharacters, FormatPainter, Footnotes, TableOfContents, SpellCheck(), Direction, ParagraphFormat, Office, Autoformat];
+export const defaultPlugins = [Essentials, BasicStyles, Heading, Fonts, Alignment, Colors, List, TaskList, Blocks, Link, Image, Table, ContextMenu(), FindReplace, WordCount, SpecialCharacters, FormatPainter, Footnotes, TableOfContents, SpellCheck(), Direction, ParagraphFormat, Office, Autoformat];
 
 /** Create an editor with the default feature set. */
 export function createEditor(

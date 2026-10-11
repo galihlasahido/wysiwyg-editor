@@ -31,6 +31,19 @@ export const BasicStyles: EditorPlugin = {
     subscript: { excludes: 'superscript', parseDOM: [{ tag: 'sub' }, { style: 'vertical-align=sub' }], toDOM: () => ['sub', 0] },
     superscript: { excludes: 'subscript', parseDOM: [{ tag: 'sup:not([data-footnote])' }, { style: 'vertical-align=super' }], toDOM: () => ['sup', 0] },
   },
+  contextMenuOrder: 5,
+  contextMenu({ state, readonly }) {
+    if (readonly || state.selection.empty) return [];
+    const on = (n: string) => markActive(state, state.schema.marks[n]);
+    const mod = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || '') ? '⌘' : 'Ctrl+';
+    return [
+      ...(['bold', 'italic', 'underline', 'strike'] as const).map((n) => {
+        const d = defs.find((x) => x.name === n)!;
+        return { label: d.label, command: n, checked: on(n), shortcut: n === 'strike' ? undefined : `${mod}${d.key.slice(-1).toUpperCase()}` };
+      }),
+      { label: 'More formatting', items: (['code', 'subscript', 'superscript'] as const).map((n) => ({ label: defs.find((x) => x.name === n)!.label, command: n, checked: on(n) })) },
+    ];
+  },
   setup(editor) {
     const keys: Record<string, any> = {};
     for (const d of defs) {

@@ -3,7 +3,7 @@ import type { Node as PMNode } from 'prosemirror-model';
 import type { EditorView, NodeView } from 'prosemirror-view';
 import { cropFromString, cropLayout, cropToString, dragCrop, normalizeCrop, visibleSize, type Crop, type Handle } from '../crop';
 import { askDialog } from '../dialog';
-import type { EditorPlugin } from '../types';
+import type { ContextMenuEntry, ContextMenuItem, EditorPlugin } from '../types';
 import { hasPasteableText } from '../paste';
 import { isSafeSrc } from '../url';
 
@@ -191,6 +191,22 @@ export const Image: EditorPlugin = {
         },
       }),
     ];
+  },
+  contextMenuOrder: 25,
+  contextMenu({ state, editor, readonly }) {
+    const sel = state.selection;
+    if (!(sel instanceof NodeSelection) || sel.node.type.name !== 'image' || readonly) return [];
+    const has = (c: string) => editor.hasCommand(c);
+    const items: ContextMenuEntry[] = [
+      { label: 'Alternative text…', command: 'imageAlt', icon: 'Aa' },
+      { label: sel.node.attrs.caption ? 'Edit caption…' : 'Add caption…', command: 'imageCaption' },
+      { label: 'Size', items: [25, 50, 75, 100].map((p): ContextMenuItem => ({ label: `${p}%`, run: (e) => { const dom = e.view.nodeDOM(sel.from) as HTMLElement | null; const full = (dom?.closest('.wy-content') as HTMLElement | null)?.clientWidth ?? 600; e.execute('imageWidth', Math.round((full * p) / 100)); } })).concat([{ label: 'Original size', run: (e) => { e.execute('imageWidth', null); } }]) },
+    ];
+    if (has('cropImage')) items.push({ label: 'Crop', command: 'cropImage', icon: '⛶' });
+    if (has('resetCrop') && sel.node.attrs.crop) items.push({ label: 'Reset crop', command: 'resetCrop' });
+    if (has('editImage')) items.push({ label: 'Edit image…', command: 'editImage', icon: '✎' });
+    items.push('-', { label: 'Delete image', danger: true, icon: '🗑', run: (e) => { e.view.dispatch(e.view.state.tr.deleteSelection()); } });
+    return items;
   },
   toolbar: [
     { name: 'image', label: 'Insert image from URL', icon: '🖼', command: 'image' },

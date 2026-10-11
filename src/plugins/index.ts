@@ -5,6 +5,8 @@ export { List } from './list';
 export { Blocks } from './blocks';
 export { Link } from './link';
 export { Image } from './image';
+export { ContextMenu, buildContextMenu, tidyEntries } from './context-menu';
+export type { ContextMenuOptions } from './context-menu';
 export { Table } from './table';
 export { Autoformat } from './autoformat';
 export { Alignment } from './alignment';

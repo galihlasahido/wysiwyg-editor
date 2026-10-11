@@ -147,3 +147,28 @@ export function docIndex<T>(name: string, match: (n: PMNode) => boolean, scan: (
   });
   return { key, plugin, get: (state: EditorState): S => key.getState(state)! };
 }
+
+
+/** Where the link (or any mark) at the selection starts and ends: the whole run of text that carries the same mark. */
+export function markRunAt(state: EditorState, markName: string): { mark: import('prosemirror-model').Mark; from: number; to: number } | null {
+  const type = state.schema.marks[markName];
+  if (!type) return null;
+  const { $from, from, to, empty } = state.selection;
+  let found: import('prosemirror-model').Mark | null = null;
+  if (empty) found = type.isInSet($from.marks()) ?? null;
+  else state.doc.nodesBetween(from, to, (n) => { if (!found && n.isInline) found = type.isInSet(n.marks) ?? null; });
+  if (!found) return null;
+  const mark: import('prosemirror-model').Mark = found;
+  const runs: { from: number; to: number }[] = [];
+  let cur: { from: number; to: number } | null = null;
+  $from.parent.forEach((child, offset) => {
+    if (child.isInline && child.marks.some((m) => m.eq(mark))) {
+      if (cur) cur.to = offset + child.nodeSize;
+      else runs.push((cur = { from: offset, to: offset + child.nodeSize }));
+    } else cur = null;
+  });
+  const at = $from.parentOffset;
+  const run = runs.find((r) => at >= r.from && at <= r.to);
+  const start = $from.start();
+  return run ? { mark, from: start + run.from, to: start + run.to } : { mark, from, to };
+}

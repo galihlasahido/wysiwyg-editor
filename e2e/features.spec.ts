@@ -264,3 +264,29 @@ test('pasting a Word table and numbered list keeps cells and list items as tight
   expect(parseFloat(spaced)).toBeGreaterThan(20);
   expect(problems).toEqual([]);
 });
+
+test('right-click in a table opens the table menu, and a one-cell table can be deleted', async ({ page }) => {
+  await openDemo(page, 'feature-rich');
+  await editorReady(page);
+  await page.evaluate(() => {
+    const ed = (window as any).editor;
+    ed.setHTML('<p>x</p><table><tr><td><p>a</p></td><td><p>b</p></td></tr></table><p>y</p>');
+  });
+  const cell = page.locator('.wy-content td').first();
+  await cell.click({ button: 'right' });
+  const menu = page.locator('.wy-ctx').first();
+  await expect(menu).toBeVisible();
+  await expect(menu.getByRole('menuitem', { name: /Insert row below/ })).toBeVisible();
+  await menu.getByRole('menuitem', { name: /Delete column/ }).click();
+  await expect(menu).toBeHidden();
+  await expect(page.locator('.wy-content td')).toHaveCount(1);
+  // now a single cell: the menu's Delete column removes the whole table
+  await page.locator('.wy-content td').first().click({ button: 'right' });
+  await page.locator('.wy-ctx').getByRole('menuitem', { name: /Delete column/ }).click();
+  await expect(page.locator('.wy-content table')).toHaveCount(0);
+  // keyboard: Escape closes it
+  await page.locator('.wy-content p').first().click({ button: 'right' });
+  await expect(page.locator('.wy-ctx').first()).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.wy-ctx')).toHaveCount(0);
+});
