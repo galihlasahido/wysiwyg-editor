@@ -811,3 +811,9 @@ del.wy-diff-del, .wy-diff-legend .wy-diff-del { background: #fee2e2; color: #7f1
 .wy-ctx-key, .wy-ctx-arrow { flex: none; color: var(--wy-muted); font-size: 12px; }
 .wy-ctx-sep { height: 1px; margin: 4px 6px; background: var(--wy-border); }
 .wy-ctx-hint { padding: 6px 10px 4px; color: var(--wy-muted); font-size: 11px; border-top: 1px solid var(--wy-border); margin-top: 4px; }
+
+/* cover page: one picture over the whole first page, running out into the margins */
+.wy-cover { position: relative; height: var(--wy-cover-h, 70vh); margin: 0 0 12px; user-select: none; }
+.wy-cover img { position: absolute; z-index: 1; display: block; max-width: none; object-fit: cover; left: calc(-1 * var(--wy-ml, 0px)); top: calc(-1 * var(--wy-mt, 0px)); width: calc(100% + var(--wy-ml, 0px) + var(--wy-mr, 0px)); height: calc(100% + var(--wy-mt, 0px) + var(--wy-mb, 0px) + 12px); }
+.wy-cover.ProseMirror-selectednode img { outline: 3px solid var(--wy-accent); outline-offset: -3px; }
+@media print { .wy-cover { break-after: page; } }

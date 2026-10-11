@@ -2,6 +2,7 @@ import { NodeSelection, type EditorState } from 'prosemirror-state';
 import type { Editor } from './editor';
 import { hasIcon, icon } from './icons';
 import { SPECIAL_CHARACTERS } from './plugins/special-characters';
+import { CASE_ITEMS } from './plugins/text-case';
 import { restrictedKey } from './plugins/restricted-editing';
 import { runToolbarItem } from './toolbar';
 import type { RibbonContribution, ToolbarItem } from './types';
@@ -113,7 +114,7 @@ export const DEFAULT_RIBBON: RibbonTab[] = [
           {
             kind: 'stack',
             controls: [
-              { kind: 'row', controls: [{ kind: 'select', item: 'fontFamily', width: 128 }, { kind: 'select', item: 'fontSize', width: 56 }, cmd('grow', 'fontSizeStep', 'Increase font size', 'fontGrow', { args: [1], iconOnly: true }), cmd('shrink', 'fontSizeStep', 'Decrease font size', 'fontShrink', { args: [-1], iconOnly: true }), cmd('clear', 'clearFormatting', 'Clear all formatting', 'clearFormatting', { iconOnly: true })] },
+              { kind: 'row', controls: [{ kind: 'select', item: 'fontFamily', width: 128 }, { kind: 'select', item: 'fontSize', width: 56 }, cmd('grow', 'fontSizeStep', 'Increase font size', 'fontGrow', { args: [1], iconOnly: true }), cmd('shrink', 'fontSizeStep', 'Decrease font size', 'fontShrink', { args: [-1], iconOnly: true }), cmd('clear', 'clearFormatting', 'Clear all formatting', 'clearFormatting', { iconOnly: true }), { kind: 'menu', id: 'changeCase', label: 'Change case (Shift+F3)', icon: 'changeCase', need: 'caseUpper', iconOnly: true, entries: () => CASE_ITEMS.map((i) => ({ label: i.sample, command: i.command })) }] },
               {
                 kind: 'row',
                 controls: [it('bold', { iconOnly: true }), it('italic', { iconOnly: true }), it('underline', { iconOnly: true }), it('strike', { iconOnly: true }), it('subscript', { iconOnly: true, icon: 'subscript' }), it('superscript', { iconOnly: true, icon: 'superscript' }), { kind: 'palette', id: 'textColor', label: 'Font color', icon: 'textColor', command: 'textColor', colors: TEXT_COLORS, none: 'Automatic', iconOnly: true }, { kind: 'palette', id: 'highlight', label: 'Text highlight color', icon: 'highlight', command: 'highlight', colors: HIGHLIGHTS, none: 'No color', iconOnly: true }],

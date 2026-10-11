@@ -32,6 +32,8 @@ export const ICONS: Record<string, string> = {
   subscript: '<path d="M4 5l9 11M13 5 4 16"/><path d="M16 17.5a2 2 0 1 1 3.4 1.4L16 21.5h4.2"/>',
   superscript: '<path d="M4 8l9 11M13 8 4 19"/><path d="M16 3.5a2 2 0 1 1 3.4 1.4L16 7.5h4.2"/>',
   fontGrow: '<path d="M3 20 9 5l6 15M5.2 15h7.6"/><path d="M17 8.5 19.5 5.5 22 8.5"/>',
+  changeCase: '<path d="M2.5 18 7 6l4.5 12M4.2 14.5h5.6"/><path d="M14 18v-7a2.5 2.5 0 0 1 5 0v7M14 14.5h5"/>',
+  coverPage: '<rect x="5" y="2.5" width="14" height="19" rx="1.5"/><path d="m5 16 4.5-4.5 3.5 3.5 2.5-2.5L19 16.5"/><circle cx="14.5" cy="7.5" r="1.3"/>',
   fontShrink: '<path d="M3 20 9 5l6 15M5.2 15h7.6"/><path d="M17 5.5 19.5 8.5 22 5.5"/>',
   clearFormatting: `<path d="M2.5 19 7 7l4.5 12M4.2 15.5h5.6"/><path d="m13 15.5 5-5.5 3.5 3.5-4 4.5h-4.5z" stroke="${A}"/><path d="M11 21h10"/>`,
   textColor: `<path d="M6 16 12 3l6 13M8.2 11.5h7.6"/><rect x="4" y="19" width="16" height="2.6" rx=".6" fill="${R}" stroke="none"/>`,

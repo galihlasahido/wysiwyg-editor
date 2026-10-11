@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/). Until 1.0, minor versions may contain breaking changes; they are listed under "Changed" or "Removed".
 
+## Unreleased
+
+- Added: change case (UPPER, lower, toggle, snake_case, camelCase, Title, Sentence, PascalCase, kebab-case) with shortcuts, a Home-tab menu and a right-click submenu; `Shift+F3` cycles.
+- Added: cover page (`Cover` plugin, Layout and Insert tabs): a picture over the whole first page, exported to Word anchored to the page.
+
+
 ## 0.2.2
 
 - Added: right-click menu (`ContextMenu`, in the default set) with table, list, link, picture and text-format items, and a `contextMenu(context)` hook for plugins to add their own.

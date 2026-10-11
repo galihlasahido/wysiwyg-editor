@@ -220,6 +220,9 @@ export function Pages(options: PageOptions = {}): EditorPlugin {
         root.style.setProperty('--wy-page-w', `${width}px`);
         root.style.setProperty('--wy-ml', `${m.left}px`);
         root.style.setProperty('--wy-mr', `${m.right}px`);
+        root.style.setProperty('--wy-mt', `${m.top}px`);
+        root.style.setProperty('--wy-mb', `${m.bottom}px`);
+        root.style.setProperty('--wy-cover-h', `${contentHeight() - 12}px`); // minus the 12px every block is followed by
         renderRuler();
         refresh(true);
       };
@@ -463,7 +466,7 @@ export function Pages(options: PageOptions = {}): EditorPlugin {
               });
               const innerHeight = inner.reduce((t, r) => t + r.height, 0);
               const adj = (top: number) => inner.reduce((t, r) => (r.bottom <= top + 0.5 ? t + r.height : t), 0);
-              const metric: BlockMetric = { height: 0, breakAfter: node.type.name === 'page_break' };
+              const metric: BlockMetric = { height: 0, breakAfter: node.type.name === 'page_break' || node.type.name === 'cover_page' };
               let lines: LineGroup[] | undefined;
               if (node.type.name === 'paragraph' && node.childCount > 0) {
                 const groups = measureLines(dom, rect.top, adj, scale);

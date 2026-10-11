@@ -112,6 +112,11 @@ const imageKey = (attrs: { src: string; crop?: Crop | null }) => (attrs.crop ? `
 function collectImages(doc: PMNode): { key: string; src: string; crop: Crop | null }[] {
   const out = new Map<string, { key: string; src: string; crop: Crop | null }>();
   doc.descendants((n) => {
+    if (n.type.name === 'cover_page') {
+      const key = imageKey({ src: n.attrs.src });
+      out.set(key, { key, src: n.attrs.src, crop: null });
+      return;
+    }
     if (n.type.name !== 'image') return;
     const key = imageKey(n.attrs as { src: string; crop?: Crop | null });
     out.set(key, { key, src: n.attrs.src, crop: n.attrs.crop ?? null });
@@ -131,6 +136,8 @@ interface Ctx {
   commentIds: Map<string, number>;
   referenced: Set<string>;
   quote: number;
+  /** Page size in px, for the cover picture. */
+  pageSize: { w: number; h: number };
 }
 
 const ALIGN: Record<string, (typeof D.AlignmentType)[keyof typeof D.AlignmentType]> = {
@@ -392,6 +399,20 @@ function blocks(node: PMNode, ctx: Ctx): Block[] {
     }
     case 'horizontal_rule':
       return [new D.Paragraph({ border: { bottom: { style: D.BorderStyle.SINGLE, size: 6, color: '999999', space: 1 } } })];
+    case 'cover_page': {
+      const img = ctx.images.get(imageKey({ src: node.attrs.src }));
+      const after = new D.Paragraph({ children: [new D.PageBreak()] });
+      if (!img) return [after];
+      // anchored to the page itself, so the picture runs edge to edge whatever the margins are
+      const run = new D.ImageRun({
+        type: img.type,
+        data: img.data,
+        transformation: { width: ctx.pageSize.w, height: ctx.pageSize.h },
+        floating: { horizontalPosition: { relative: D.HorizontalPositionRelativeFrom.PAGE, offset: 0 }, verticalPosition: { relative: D.VerticalPositionRelativeFrom.PAGE, offset: 0 }, behindDocument: true, allowOverlap: true },
+        altText: { name: 'cover', title: 'Cover', description: String(node.attrs.alt || 'Cover page') },
+      });
+      return [new D.Paragraph({ children: [run] }), after];
+    }
     case 'page_break':
       return [new D.Paragraph({ children: [new D.PageBreak()] })];
     case 'toc':
@@ -472,6 +493,7 @@ export async function buildDocx(editor: Editor, options: ExportOptions = {}): Pr
     commentIds: new Map(exported.map((t, i) => [t.id, i])),
     referenced: new Set(),
     quote: 0,
+    pageSize: { w: page?.width ?? 794, h: page?.height ?? 1123 },
   };
   // Top-level `columns` blocks become their own continuous Word sections with the right column count; the text around them is single-column.
   type Segment = { count: number; gap: number; rule: boolean; children: Block[] };

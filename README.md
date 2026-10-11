@@ -461,6 +461,21 @@ returns an unsubscribe function, and `editor.emit('my-event', payload)` tells ot
 `registerIcon(name, svgInner)` adds an icon for ribbon buttons. See `demo/custom-plugin` for a complete third-party plugin, and `src/plugins/` for the built-in ones.
 Plugins are fixed when the editor is created (the schema cannot change afterwards); commands, toolbar layout and listeners can change at any time.
 
+## Change case
+
+`TextCase` (in `defaultPlugins`) changes the case of the selection, or of the word at the caret: UPPERCASE (`Ctrl/⌘+Alt+U`), lowercase (`Ctrl/⌘+Alt+L`),
+tOGGLE cASE (`Ctrl/⌘+Alt+G`), snake_case (`Ctrl/⌘+Alt+S`), camelCase (`Ctrl/⌘+Alt+M`), plus Title Case, Sentence case, PascalCase and kebab-case from the menu.
+`Shift+F3` cycles lowercase, UPPERCASE, Title Case and Sentence case like Word. The menu is the **Aa** button in the Home tab's Font group and *Change case*
+in the right-click menu. Upper/lower/toggle/title/sentence keep every bold, link and colour in place; snake/camel/kebab join the words into one
+identifier that takes the formatting of its first letter. From code: `editor.execute('changeCase', 'snake')` or the pure `convertCase(text, 'camel')`.
+
+## Cover page
+
+`Cover` (in `defaultPlugins`) adds a cover page: one picture that fills the whole first page, edge to edge, with the text starting on page 2. Use
+**Layout → Cover Page** (also under Insert) to upload a picture or give its address; choosing it again replaces the picture, and *Remove cover page* takes it out.
+It goes through your `uploadImage` handler like any picture, is exported to Word as a picture anchored to the page, and is a block named `cover_page` in the document.
+`editor.execute('coverPage', url, alt)` does the same from code. Page numbers count the cover as page 1.
+
 ## Right-click menu
 
 `ContextMenu` is in `defaultPlugins`. Right-click shows cut/copy/paste and then what applies at the click: table tools in a table (insert/delete

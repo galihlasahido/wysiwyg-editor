@@ -290,3 +290,39 @@ test('right-click in a table opens the table menu, and a one-cell table can be d
   await page.keyboard.press('Escape');
   await expect(page.locator('.wy-ctx')).toHaveCount(0);
 });
+
+test('a cover page fills the whole first page and the text starts on the next one', async ({ page }) => {
+  const problems = await openDemo(page, 'feature-rich');
+  await editorReady(page);
+  await page.evaluate(() => {
+    const c = document.createElement('canvas'); c.width = 60; c.height = 80;
+    const g = c.getContext('2d')!; g.fillStyle = '#1d4ed8'; g.fillRect(0, 0, 60, 80);
+    (window as any).editor.execute('coverPage', c.toDataURL('image/png'), 'Cover');
+  });
+  const m = await page.evaluate(async () => {
+    const ed = (window as any).editor;
+    await new Promise((r) => setTimeout(r, 400));
+    const card = ed.root.querySelector('.wy-content').getBoundingClientRect();
+    const img = ed.view.dom.querySelector('.wy-cover img').getBoundingClientRect();
+    const next = [...ed.view.dom.children].find((c: Element) => !c.matches('.wy-cover, .wy-page-header, .wy-page-end') && c.getBoundingClientRect().top > img.bottom - 1)!.getBoundingClientRect();
+    const s = ed.extensions.pageSettings();
+    const scale = card.width / s.width;
+    return { w: img.width / scale, h: img.height / scale, left: (img.left - card.left) / scale, top: (img.top - card.top) / scale, pageW: s.width, pageH: s.height, nextTop: (next.top - card.top) / scale };
+  });
+  expect(Math.abs(m.w - m.pageW)).toBeLessThan(2);
+  expect(Math.abs(m.h - m.pageH)).toBeLessThan(2);
+  expect(Math.abs(m.left)).toBeLessThan(2);
+  expect(Math.abs(m.top)).toBeLessThan(2);
+  expect(m.nextTop).toBeGreaterThanOrEqual(m.pageH - 1); // the text begins on page 2
+  expect(problems).toEqual([]);
+});
+
+test('Change case: the menu, and the keyboard shortcut', async ({ page }) => {
+  await openDemo(page, 'feature-rich');
+  await editorReady(page);
+  await page.evaluate(() => { const ed = (window as any).editor; ed.setHTML('<p>hello world</p>'); ed.view.focus(); ed.execute('selectAll'); });
+  await page.keyboard.press('ControlOrMeta+Alt+u');
+  await expect(page.locator('.wy-content p').first()).toHaveText('HELLO WORLD');
+  await page.keyboard.press('ControlOrMeta+Alt+s');
+  await expect(page.locator('.wy-content p').first()).toHaveText('hello_world');
+});
