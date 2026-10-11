@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/). Until 1.0, minor versions may contain breaking changes; they are listed under "Changed" or "Removed".
 
-## Unreleased
+## 0.2.2
 
 - Added: right-click menu (`ContextMenu`, in the default set) with table, list, link, picture and text-format items, and a `contextMenu(context)` hook for plugins to add their own.
 - Added: `addRowBefore`, `addColumnBefore`, `toggleHeaderColumn`, `selectTable`, `selectRow`, `selectColumn`, `distributeColumns`, `listStyle` and `restartNumbering` commands.
