@@ -11,7 +11,7 @@ Everything is opt-in plugins; the core is small. Install from npm (the first rel
 
 ```sh
 pnpm install
-pnpm dev        # the demo gallery at http://localhost:5173 (39 examples)
+pnpm dev        # the demo gallery at http://localhost:5173 (49 examples)
 pnpm test       # 196 tests (unit, accessibility with axe-core, server integration)
 pnpm build      # library in dist/
 pnpm server     # reference backend on :8787
@@ -347,6 +347,7 @@ Try it with the AI demo: `…/demo/ai.html?endpoint=http://127.0.0.1:8788/api/ai
 | `SpellCheck({ provider: createLanguageToolProvider(url) })` | `POST` form `text=…&language=…` | LanguageTool's JSON: `{ matches: [{ offset, length, message, replacements: [{ value }], rule: { id, issueType } }] }` |
 | `SpellCheck({ provider })` (your own) | `{ text, lang, signal }` | `[{ offset, length, message, replacements?: string[], rule?, kind?: 'spelling' \| 'grammar' \| 'style' }]`, offsets in characters of the text sent |
 | `Mentions({ search })` | the typed text | `[{ id, label }]` (may be a Promise) |
+| `DataTable({ sources: { orders: createFetchDataSource(url) } })` | `GET url?page&pageSize&search&sort&filters` (`sort` and `filters` are JSON) | JSON `{ rows, total, totals? }`: one page, the number of matching rows, and footer totals over all of them. Try it with the data table demo: `…/demo/data-table.html?endpoint=http://127.0.0.1:8788/api/orders` |
 | `PdfEpub`, `Embeds`, `Offline` | nothing to your server | they run in the browser |
 
 **What an AI endpoint returns per `action`** (the full instruction is in `instruction`, pass it to the model as the system prompt and `text` as the user message). The reply is the text itself: no "Here is…", no quotes, no JSON wrapper.
@@ -513,10 +514,8 @@ editor.execute('insertDataTable', {
 ```ts
 DataTable({
   sources: {
-    orders: async ({ page, pageSize, search, filters, sort }) => {
-      const r = await fetch(`/api/orders?${new URLSearchParams({ page, pageSize, search, sort: JSON.stringify(sort) })}`).then((x) => x.json());
-      return { rows: r.items, total: r.total, totals: { amount: r.sumAmount } };   // rows as arrays or { columnKey: value }
-    },
+    orders: createFetchDataSource('/api/orders'),      // GET /api/orders?page=0&pageSize=25&search=…&sort=[…]&filters={…} -> { rows, total, totals }
+    // or write your own: async ({ page, pageSize, search, filters, sort }) => ({ rows, total, totals: { amount } })   (rows as arrays or { columnKey: value })
   },
   onEdit: async ({ key, value, row }) => api.patch(row.id, { [key]: value }),      // optional: without it the table is read-only
 });

@@ -7,6 +7,7 @@
  *   POST /api/upload      uploadImage               raw image bytes                   ->  JSON {url}
  *   POST /api/proofread   createLanguageToolProvider  form text=…&language=…          ->  LanguageTool-style {matches}
  *   GET  /api/mentions    Mentions({ search })      ?q=an                             ->  [{id, label}]
+ *   GET  /api/orders      DataTable({ sources })    ?page&pageSize&search&sort&filters ->  JSON {rows, total, totals}
  *
  * It is an example, not a product: the "model" is a set of text rules, files go to a local folder, and there are no user accounts.
  * Run it with `pnpm server:examples` (port 8788) and point the editor at it, e.g. `?endpoint=http://127.0.0.1:8788/api/ai` on the AI demo.
@@ -15,6 +16,7 @@ import { createHash } from 'node:crypto';
 import { createServer as createHttpServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { cleanSpec, queryRows, type ViewState } from '../../src/data-table';
 
 export interface ExampleApiOptions {
   /** Where posts and uploads are kept. Default `./data/examples`. */
@@ -58,6 +60,22 @@ function proofread(text: string) {
 }
 
 const PEOPLE = ['Ana Lestari', 'Andi Pratama', 'Bagus Santoso', 'Citra Dewi', 'Dian Kusuma', 'Eko Wijaya', 'Fitri Handayani'];
+
+// ---- data table source: 5,000 made-up orders. A real route would run a database query with the same four inputs.
+const REGIONS = ['North', 'South', 'East', 'West'];
+const ORDERS = cleanSpec({
+  columns: [
+    { key: 'id', title: 'Order', type: 'number' },
+    { key: 'customer', title: 'Customer', type: 'text' },
+    { key: 'region', title: 'Region', type: 'select', options: REGIONS },
+    { key: 'amount', title: 'Amount', type: 'currency', currency: 'USD', total: 'sum' },
+    { key: 'placed', title: 'Placed', type: 'date' },
+    { key: 'paid', title: 'Paid', type: 'boolean' },
+  ],
+  rows: Array.from({ length: 5000 }, (_, i) => [i + 1, `${PEOPLE[i % PEOPLE.length]}`, REGIONS[i % 4], 20 + ((i * 37) % 900) + (i % 7) / 10, `2026-${String((i % 12) + 1).padStart(2, '0')}-${String((i % 27) + 1).padStart(2, '0')}`, i % 3 === 0]),
+})!;
+/** Reads a JSON query value that must stay small and well-formed; anything else is treated as absent. */
+const jsonParam = (v: string | null, max: number): unknown => { if (!v || v.length > max) return undefined; try { return JSON.parse(v); } catch { return undefined; } };
 
 // ---- images: trust the bytes, not the Content-Type the client claims
 const IMAGE_TYPES: [string, string, (b: Buffer) => boolean][] = [
@@ -159,6 +177,26 @@ export function createExampleApi(options: ExampleApiOptions = {}): { server: Ser
       const q = (url.searchParams.get('q') ?? '').toLowerCase().slice(0, 50);
       return json(res, 200, PEOPLE.filter((n) => n.toLowerCase().split(' ').some((w) => w.startsWith(q))).slice(0, 8).map((label) => ({ id: String(PEOPLE.indexOf(label) + 1), label })));
     }
+
+    // DataTable({ sources: { orders: createFetchDataSource(url) } }): one page of rows, how many match, and the footer totals over all of them.
+    if (req.method === 'GET' && path === '/api/orders') {
+      const q = url.searchParams;
+      const page = Math.max(0, Math.min(1_000_000, Math.floor(Number(q.get('page'))) || 0));
+      const pageSize = Math.max(1, Math.min(200, Math.floor(Number(q.get('pageSize'))) || 25));
+      const rawSort = jsonParam(q.get('sort'), 400);
+      const rawFilters = jsonParam(q.get('filters'), 2000);
+      const view: ViewState = {
+        search: (q.get('search') ?? '').slice(0, 100),
+        filters: Object.fromEntries(Object.entries(rawFilters && typeof rawFilters === 'object' ? rawFilters : {}).filter(([k, v]) => ORDERS.columns.some((c) => c.key === k) && typeof v === 'string').map(([k, v]) => [k, (v as string).slice(0, 100)])),
+        sort: (Array.isArray(rawSort) ? rawSort : []).filter((x) => ORDERS.columns.some((c) => c.key === x?.key)).slice(0, 3).map((x) => ({ key: x.key as string, dir: x.dir === 'desc' ? 'desc' as const : 'asc' as const })),
+      };
+      const hits = queryRows(ORDERS, view, 'en-US');
+      return json(res, 200, {
+        rows: hits.slice(page * pageSize, (page + 1) * pageSize).map((r) => ORDERS.rows[r]),
+        total: hits.length,
+        totals: { amount: Math.round(hits.reduce((n, r) => n + (ORDERS.rows[r][3] as number), 0) * 100) / 100 },
+      });
+    }
     throw new HttpError(404, 'Not found');
   };
 
@@ -180,5 +218,5 @@ export function createExampleApi(options: ExampleApiOptions = {}): { server: Ser
 // `pnpm server:examples`
 if (process.argv[1] && /server[\\/]examples[\\/]api\.ts$/.test(process.argv[1])) {
   const api = createExampleApi();
-  api.listen(Number(process.env.PORT) || 8788).then((p) => console.log(`Example API on http://127.0.0.1:${p}  (POST /api/ai, PUT /api/posts/:id, POST /api/upload, POST /api/proofread, GET /api/mentions)`));
+  api.listen(Number(process.env.PORT) || 8788).then((p) => console.log(`Example API on http://127.0.0.1:${p}  (POST /api/ai, PUT /api/posts/:id, POST /api/upload, POST /api/proofread, GET /api/mentions, GET /api/orders)`));
 }

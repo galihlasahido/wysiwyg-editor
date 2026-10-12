@@ -1399,6 +1399,28 @@ class DataTableView implements NodeView {
   }
 }
 
+/**
+ * A data source that asks your server: `GET url?page&pageSize&search&sort&filters&groupBy`, where `sort`, `filters` and `groupBy` are JSON.
+ * The reply must be JSON `{ rows, total, totals? }` (see `DataPage`). Use it as `DataTable({ sources: { orders: createFetchDataSource('/api/orders') } })`.
+ */
+export function createFetchDataSource(url: string, init: RequestInit = {}): (query: DataQuery) => Promise<DataPage> {
+  return async (q) => {
+    const target = new URL(url, typeof location === 'undefined' ? undefined : location.href);
+    if (target.protocol !== 'http:' && target.protocol !== 'https:') throw new Error('A data source must be an http or https address.');
+    target.searchParams.set('page', String(q.page));
+    target.searchParams.set('pageSize', String(q.pageSize));
+    if (q.search) target.searchParams.set('search', q.search);
+    if (q.sort.length) target.searchParams.set('sort', JSON.stringify(q.sort));
+    if (Object.keys(q.filters).length) target.searchParams.set('filters', JSON.stringify(q.filters));
+    if (q.groupBy.length) target.searchParams.set('groupBy', JSON.stringify(q.groupBy));
+    const res = await fetch(target, { ...init, headers: { accept: 'application/json', ...init.headers } });
+    if (!res.ok) throw new Error(`The server answered ${res.status}.`);
+    const body = await res.json().catch(() => null);
+    if (!body || !Array.isArray(body.rows)) throw new Error('The server did not send {rows, total}.');
+    return body as DataPage;
+  };
+}
+
 /** The data table node, its plugin and the commands around it. */
 export function DataTable(options: DataTablePluginOptions = {}): EditorPlugin {
   const host: Host = { editor: undefined as unknown as Editor, options: { ...options, buttons: [...(options.buttons ?? [])], rowActions: [...(options.rowActions ?? [])], sources: { ...options.sources } }, views: new Map(), last: null };

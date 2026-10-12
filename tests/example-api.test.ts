@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createExampleApi } from '../server/examples/api';
-import { createEndpointSaver, createFetchProvider, createLanguageToolProvider } from '../src';
+import { createEndpointSaver, createFetchDataSource, createFetchProvider, createLanguageToolProvider } from '../src';
 
 let api: ReturnType<typeof createExampleApi>;
 let base: string;
@@ -68,6 +68,38 @@ describe('example API, used by the editor\'s own helpers', () => {
     const list = await (await fetch(`${base}/api/mentions?q=an`)).json();
     expect(list.map((x: any) => x.label)).toEqual(['Ana Lestari', 'Andi Pratama']);
     expect(list[0]).toEqual({ id: '1', label: 'Ana Lestari' });
+  });
+  it('createFetchDataSource pages, searches, filters and sorts through the orders route', async () => {
+    const load = createFetchDataSource(`${base}/api/orders`);
+    const first = await load({ page: 0, pageSize: 10, search: '', filters: {}, sort: [], groupBy: [] });
+    expect(first.rows.length).toBe(10);
+    expect(first.total).toBe(5000);
+    expect((first.rows[0] as unknown[])[0]).toBe(1);
+    expect(first.totals!.amount).toBeGreaterThan(0);
+    const next = await load({ page: 1, pageSize: 10, search: '', filters: {}, sort: [], groupBy: [] });
+    expect((next.rows[0] as unknown[])[0]).toBe(11);
+    const found = await load({ page: 0, pageSize: 50, search: 'Ana Lestari', filters: { region: 'North' }, sort: [{ key: 'amount', dir: 'desc' }], groupBy: [] });
+    expect(found.total).toBeGreaterThan(0);
+    expect(found.total).toBeLessThan(5000);
+    expect(found.rows.every((r) => (r as unknown[])[2] === 'North' && (r as unknown[])[1] === 'Ana Lestari')).toBe(true);
+    const amounts = found.rows.map((r) => (r as number[])[3]);
+    expect(amounts).toEqual([...amounts].sort((a, b) => b - a));
+    expect(found.totals!.amount).toBeGreaterThan(0);
+  });
+  it('the orders route limits the page size and ignores nonsense in sort and filters', async () => {
+    const big = await (await fetch(`${base}/api/orders?pageSize=99999`)).json();
+    expect(big.rows.length).toBe(200);
+    const odd = await fetch(`${base}/api/orders?sort=%7Bnot-json&filters=%5B1%5D&page=-4&pageSize=abc`);
+    expect(odd.status).toBe(200);
+    const body = await odd.json();
+    expect(body.rows.length).toBe(25);
+    expect(body.total).toBe(5000);
+    const evil = await (await fetch(`${base}/api/orders?filters=${encodeURIComponent(JSON.stringify({ __proto__: 'x', nope: 'y' }))}&sort=${encodeURIComponent(JSON.stringify([{ key: 'constructor', dir: 'asc' }]))}`)).json();
+    expect(evil.total).toBe(5000);
+  });
+  it('createFetchDataSource reports a failing server and refuses other schemes', async () => {
+    await expect(createFetchDataSource(`${base}/api/nothing`)({ page: 0, pageSize: 5, search: '', filters: {}, sort: [], groupBy: [] })).rejects.toThrow(/404/);
+    await expect(createFetchDataSource('javascript:alert(1)')({ page: 0, pageSize: 5, search: '', filters: {}, sort: [], groupBy: [] })).rejects.toThrow(/http/);
   });
   it('only the listed origins get CORS headers', async () => {
     const yes = await fetch(`${base}/api/mentions`, { headers: { origin: 'http://localhost:5173' } });

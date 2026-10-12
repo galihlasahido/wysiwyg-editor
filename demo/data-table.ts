@@ -1,4 +1,4 @@
-import { Charts, cleanDataTable, createEditor, defaultPlugins, DataTable, download, queryDataRows, type DataPage, type DataQuery } from '../src';
+import { Charts, cleanDataTable, createFetchDataSource, createEditor, defaultPlugins, DataTable, download, queryDataRows, type DataPage, type DataQuery } from '../src';
 import { $, button, codePanel, el } from './samples';
 
 const names = ['Oolong tea', 'Green tea', 'Black tea', 'Espresso beans', 'Filter coffee', 'Matcha', 'Chai mix', 'Hot chocolate', 'Cold brew', 'Rooibos', 'Earl Grey', 'Jasmine pearls'];
@@ -80,7 +80,8 @@ const editor = createEditor({
   ribbon: true,
   plugins: [...defaultPlugins.filter((p) => p.name !== 'dataTable'), Charts(), DataTable({
     locale: 'en-US',
-    sources: { orders: loadOrders },
+    // `?endpoint=http://127.0.0.1:8788/api/orders` (pnpm server:examples) uses the example server instead of the pretend one above
+    sources: { orders: new URLSearchParams(location.search).get('endpoint') ? createFetchDataSource(new URLSearchParams(location.search).get('endpoint')!) : loadOrders },
     buttons: [
       { id: 'restock', label: 'Mark inactive', needsSelection: true, onClick: ({ selected }) => { status.textContent = `Would mark ${selected.length} product${selected.length === 1 ? '' : 's'} inactive.`; } },
       { id: 'count', label: 'How many?', onClick: ({ visible, spec: s }) => { status.textContent = `${visible.length} of ${s.rows.length} rows match right now.`; } },
