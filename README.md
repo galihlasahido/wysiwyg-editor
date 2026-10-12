@@ -334,7 +334,7 @@ Model output is parsed as Markdown with raw HTML disabled, so it cannot inject m
 
 ## Stability and versioning
 
-The package follows [semantic versioning](https://semver.org/). Until 1.0.0 a minor release (0.x) may change the API; from 1.0.0 only a major release may break it. What counts as the public API:
+The package follows [semantic versioning](https://semver.org/). Since 1.0.0 only a major release may break the public API (before it, minor releases could). What counts as the public API:
 
 - **Everything exported** from `wysiwygido` and its entry points (`/data-table`, `/docx`, `/pdf`, `/epub`, `/collab`, `/react`, `/vue`, `/svelte`, `/adapter`). The list of names is a test (`tests/api-surface.json`): removing or renaming one fails the build.
 - **The plugin contract**: the `EditorPlugin` hooks, `editor.registerCommand` / `execute` / `on`, command names, and the events the editor emits.

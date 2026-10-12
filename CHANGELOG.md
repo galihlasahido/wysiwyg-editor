@@ -1,9 +1,12 @@
 # Changelog
 
-All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/). Until 1.0, minor versions may contain breaking changes; they are listed under "Changed" or "Removed".
+All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/). Before 1.0.0 minor versions could contain breaking changes. From 1.0.0 on, only a major version may break the public API (see "Stability and versioning" in the README); changes are listed under "Changed" or "Removed".
 
-## Unreleased
+## 1.0.0
 
+The first stable release. The public API (the exported names, the plugin contract, the stored document formats and the `--wy-*` colour variables) now follows semantic versioning, and tests guard it. New since 0.4.0: the data table and its stand-alone version.
+
+- Added: **data table** (`DataTable` plugin): a block of records with typed columns (text, number, currency, date, yes/no, choice), search, column filters, multi-column sort, paging, cell editing, tick boxes, footer totals, custom toolbar buttons and row actions, right-click and heading menus, keyboard navigation and undo. Export to CSV, Excel (.xlsx, written without a library) and PDF; import from CSV and Excel; convert to and from a regular table; written to Word and Markdown as a table.
 - Added: the data table on its own, with no editor: `createDataTable` and `<wysiwyg-data-table>` from the new entry point `wysiwygido/data-table` (it imports no package, checked by the build), with its own undo, themes, change events and right-click menu.
 - Added: the data table's stored format is versioned (`v`). A table saved by a newer version is shown but not edited, and is kept exactly as it was.
 - Added: rows of a data table may be objects by column key; `createFetchDataSource` and a `GET /api/orders` route in the example server.
