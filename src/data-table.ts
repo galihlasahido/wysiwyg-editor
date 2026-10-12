@@ -1,3 +1,5 @@
+import { runFormula } from './data-table-formula';
+
 /**
  * The data behind a data table, and everything that can be done with it without a screen: validation, search, filter, sort, totals,
  * CSV, a small .xlsx writer and the HTML used for PDF. Pure functions, so they are easy to test and to use on the server.
@@ -23,6 +25,36 @@ export interface DataColumn {
   /** Shown in the footer row. */
   total?: Aggregate;
   hidden?: boolean;
+  /** A formula over the other columns of the same row (`[Price] * [Qty]`). The cells of this column are calculated, never stored. */
+  formula?: string;
+  /** Draw a bar in each cell, as long as the value is compared with the largest one. Number and currency columns. */
+  bar?: boolean;
+}
+
+export type Look = 'red' | 'green' | 'amber' | 'blue' | 'gray' | 'bold';
+export const LOOKS: Look[] = ['red', 'green', 'amber', 'blue', 'gray', 'bold'];
+/** Fill colours (RRGGBB) for files that cannot use the editor's theme colours. */
+export const LOOK_FILL: Record<Look, string | null> = { red: 'F8D7DA', green: 'D4EDDA', amber: 'FFF3CD', blue: 'DCE9FB', gray: 'E5E7EB', bold: null };
+
+/** Highlight cells (or the whole row) that match a condition, written like a filter box: `>100`, `5..10`, `Overdue`, `empty`. */
+export interface FormatRule {
+  /** Column key, or '' for any column. */
+  column: string;
+  test: string;
+  look: Look;
+  /** Colour the whole row, not just the cell. */
+  row: boolean;
+}
+
+/** A named set of search, filters, sort, grouping and hidden columns. */
+export interface SavedView {
+  name: string;
+  search: string;
+  filters: Record<string, string>;
+  sort: { key: string; dir: 'asc' | 'desc' }[];
+  groupBy: string[];
+  hidden: string[];
+  pageSize: number;
 }
 
 export interface DataTableOptions {
@@ -39,6 +71,10 @@ export interface DataTableOptions {
   height: number;
   /** Column keys to group the rows by (up to three levels). */
   groupBy: string[];
+  /** Rows can be opened to show their details. */
+  detail: boolean;
+  /** Rows can be dragged (or moved with Alt+Up and Alt+Down) to change their order. Only while no sort, search or filter is on. */
+  reorder: boolean;
   /** Name of a data source given to the plugin: the rows are then loaded page by page instead of stored in the document. Empty = the rows are in the document. */
   source: string;
 }
@@ -47,6 +83,8 @@ export interface DataTableSpec {
   columns: DataColumn[];
   rows: Cell[][];
   options: DataTableOptions;
+  rules: FormatRule[];
+  views: SavedView[];
 }
 
 export const MAX_ROWS = 20000;
@@ -56,7 +94,7 @@ export const COLUMN_TYPES: ColumnType[] = ['text', 'number', 'currency', 'date',
 export const AGGREGATES: Aggregate[] = ['sum', 'avg', 'count', 'min', 'max'];
 export const PAGE_SIZES = [10, 25, 50, 100, 0];
 
-export const defaultOptions = (): DataTableOptions => ({ title: '', pageSize: 10, search: true, filters: false, striped: true, bordered: false, selectable: false, density: 'normal', height: 0, groupBy: [], source: '' });
+export const defaultOptions = (): DataTableOptions => ({ title: '', pageSize: 10, search: true, filters: false, striped: true, bordered: false, selectable: false, density: 'normal', height: 0, detail: false, reorder: false, groupBy: [], source: '' });
 
 // ---- values
 
@@ -171,6 +209,9 @@ export function cleanSpec(raw: unknown): DataTableSpec | null {
     if (type === 'select') col.options = (Array.isArray(c.options) ? c.options : []).map((o: unknown) => cleanString(o, 200)).filter(Boolean).slice(0, 200);
     if (AGGREGATES.includes(c.total) && (type === 'number' || type === 'currency' || c.total === 'count')) col.total = c.total;
     if (c.hidden === true) col.hidden = true;
+    const formula = cleanString(c.formula, 500).trim();
+    if (formula && type !== 'boolean' && type !== 'select') col.formula = formula;
+    if (c.bar === true && (type === 'number' || type === 'currency')) col.bar = true;
     columns.push(col);
   }
   if (!columns.length) return null;
@@ -193,10 +234,32 @@ export function cleanSpec(raw: unknown): DataTableSpec | null {
     selectable: o.selectable === true,
     density: oneOf(o.density, ['compact', 'normal', 'comfortable'] as const, 'normal'),
     height: Number.isFinite(height) && height >= 120 && height <= 4000 ? height : 0,
+    detail: o.detail === true,
+    reorder: o.reorder === true,
     groupBy: (Array.isArray(o.groupBy) ? o.groupBy : []).filter((k: unknown) => typeof k === 'string' && columns.some((c) => c.key === k)).filter((k: string, i: number, a: string[]) => a.indexOf(k) === i).slice(0, 3),
     source: cleanString(o.source, 60).replace(/[^\w.-]/g, ''),
   };
-  return { columns, rows, options };
+  const keys = new Set(columns.map((c) => c.key));
+  const rules: FormatRule[] = (Array.isArray(data.rules) ? data.rules : []).slice(0, 30).flatMap((r: any): FormatRule[] => {
+    const test = cleanString(r?.test, 100).trim();
+    const column = typeof r?.column === 'string' && keys.has(r.column) ? r.column : '';
+    return test && (r?.column === '' || r?.column === undefined || keys.has(r?.column)) ? [{ column, test, look: oneOf(r?.look, LOOKS, 'amber'), row: r?.row === true }] : [];
+  });
+  const views: SavedView[] = (Array.isArray(data.views) ? data.views : []).slice(0, 20).flatMap((v: any): SavedView[] => {
+    const name = cleanString(v?.name, 60).trim();
+    if (!name) return [];
+    const size = Math.round(Number(v?.pageSize));
+    return [{
+      name,
+      search: cleanString(v?.search, 200),
+      filters: Object.fromEntries(Object.entries(v?.filters && typeof v.filters === 'object' ? v.filters : {}).filter(([k, x]) => keys.has(k) && typeof x === 'string' && x.trim()).map(([k, x]) => [k, (x as string).slice(0, 100)])),
+      sort: (Array.isArray(v?.sort) ? v.sort : []).filter((x: any) => keys.has(x?.key)).slice(0, 4).map((x: any) => ({ key: x.key, dir: x.dir === 'desc' ? 'desc' : 'asc' })),
+      groupBy: (Array.isArray(v?.groupBy) ? v.groupBy : []).filter((k: unknown) => typeof k === 'string' && keys.has(k)).slice(0, 3),
+      hidden: (Array.isArray(v?.hidden) ? v.hidden : []).filter((k: unknown) => typeof k === 'string' && keys.has(k)),
+      pageSize: Number.isFinite(size) && size >= 0 && size <= 1000 ? size : 10,
+    }];
+  });
+  return { columns, rows, options, rules, views };
 }
 
 /** A new spec from plain rows: the first row names the columns and each column's type is guessed from its values. */
@@ -217,6 +280,65 @@ export function guessType(values: unknown[]): ColumnType {
   // a number only when the text is nothing but a number (a phone or a code with letters stays text, and so does anything with a leading zero)
   if (filled.every((v) => (typeof v === 'number' && Number.isFinite(v)) || (typeof v === 'string' && /^[-+]?(\d{1,3}([.,]\d{3})+|\d+)([.,]\d+)?$/.test(v) && !/^[-+]?0\d/.test(v)))) return 'number';
   return 'text';
+}
+
+// ---- formula columns
+
+const COMPUTED = new WeakMap<Cell[][], { columns: DataColumn[]; out: Cell[][] }>();
+
+/** The same table with every formula column filled in. Without formula columns it is returned as it is. Results are remembered per rows array. */
+export function withFormulas(spec: DataTableSpec, rows: Cell[][] = spec.rows): DataTableSpec {
+  if (!spec.columns.some((c) => c.formula)) return rows === spec.rows ? spec : { ...spec, rows };
+  const memo = COMPUTED.get(rows);
+  if (memo && memo.columns === spec.columns) return { ...spec, rows: memo.out };
+  const cols = spec.columns;
+  const byName = new Map<string, number>();
+  cols.forEach((c, i) => { byName.set(c.key.toLowerCase(), i); if (c.title) byName.set(c.title.toLowerCase(), byName.get(c.title.toLowerCase()) ?? i); });
+  const out = rows.map((row) => {
+    const done = new Map<number, Cell>();
+    const busy = new Set<number>();
+    const value = (i: number): Cell => {
+      const col = cols[i];
+      if (!col.formula) return row[i] ?? null;
+      if (done.has(i)) return done.get(i)!;
+      if (busy.has(i)) return '#CYCLE!';
+      busy.add(i);
+      const res = runFormula(col.formula, (name) => { const at = byName.get(name.toLowerCase()); return at === undefined ? undefined : (value(at) as number | string | boolean | null); });
+      busy.delete(i);
+      const cell: Cell = typeof res === 'string' && res.startsWith('#') ? res : coerceCell(col.type, res);
+      done.set(i, cell);
+      return cell;
+    };
+    return cols.map((_, i) => value(i));
+  });
+  COMPUTED.set(rows, { columns: spec.columns, out });
+  return { ...spec, rows: out };
+}
+
+// ---- highlight rules
+
+const isBlank = (v: Cell) => v === null || v === undefined || v === '';
+
+/** What the highlight rules say about each row: a look for the whole row and one per cell (the first matching rule wins). */
+export function ruleLooks(spec: DataTableSpec, locale?: string): (row: Cell[]) => { row: Look | null; cells: (Look | null)[] } {
+  const keyAt = new Map(spec.columns.map((c, i) => [c.key, i]));
+  const rules = spec.rules.map((r) => {
+    const word = r.test.trim().toLowerCase();
+    const tests = spec.columns.map((c, i): Test | null => (r.column && keyAt.get(r.column) !== i ? null : word === 'empty' || word === 'blank' ? isBlank : word === '!empty' || word === 'notempty' ? (v) => !isBlank(v) : filterTest(c, r.test, locale)));
+    return { rule: r, tests };
+  });
+  return (row) => {
+    const cells: (Look | null)[] = spec.columns.map(() => null);
+    let whole: Look | null = null;
+    for (const { rule, tests } of rules) {
+      tests.forEach((t, i) => {
+        if (!t || !t(row[i] ?? null)) return;
+        if (rule.row) whole = whole ?? rule.look;
+        else cells[i] = cells[i] ?? rule.look;
+      });
+    }
+    return { row: whole, cells };
+  };
 }
 
 // ---- view: search, filter, sort
@@ -285,7 +407,8 @@ function compare(col: DataColumn, a: Cell, b: Cell): number {
 const isEmpty = (c: DataColumn, v: Cell) => v === null || v === undefined || (v === '' && c.type !== 'boolean');
 
 /** Indexes of the rows to show, in order: searched, filtered, then sorted (empty values always last). */
-export function queryRows(spec: DataTableSpec, view: ViewState, locale?: string): number[] {
+export function queryRows(source: DataTableSpec, view: ViewState, locale?: string): number[] {
+  const spec = withFormulas(source);
   const cols = spec.columns;
   const visible = cols.map((c, i) => (c.hidden ? -1 : i)).filter((i) => i >= 0);
   const tests: { i: number; t: Test }[] = [];
@@ -421,6 +544,8 @@ export interface ExportOptions {
   hidden?: boolean;
   /** CSV: put the shown text (1,234.50) in the file instead of the plain value (1234.5). */
   formatted?: boolean;
+  /** .xlsx and PDF: colour the cells the highlight rules match. Default true. */
+  formatting?: boolean;
   /** CSV delimiter. Default ",". */
   delimiter?: string;
   /** CSV: start the file with a byte-order mark so Excel reads it as UTF-8. Default true. */
@@ -446,7 +571,8 @@ function csvCell(col: DataColumn, v: Cell, o: ExportOptions, delim: string): str
 }
 
 /** The table as CSV text (CRLF line ends, quotes doubled). */
-export function toCSV(spec: DataTableSpec, o: ExportOptions = {}): string {
+export function toCSV(source: DataTableSpec, o: ExportOptions = {}): string {
+  const spec = withFormulas(source);
   const delim = o.delimiter ?? ',';
   const { columns, index } = exported(spec, o);
   const head = columns.map(({ c }) => csvCell({ ...c, type: 'text' }, c.title, { ...o, formatted: false }, delim));
@@ -549,34 +675,45 @@ function currencySymbol(code: string): string {
 }
 
 /** The table as a real Excel workbook: one sheet, a bold header row that stays in view, number and date formats, filter buttons, column widths. */
-export function toXlsx(spec: DataTableSpec, o: ExportOptions = {}): Uint8Array {
+export function toXlsx(source: DataTableSpec, o: ExportOptions = {}): Uint8Array {
+  const spec = withFormulas(source);
   const { columns, index } = exported(spec, o);
   const formats: string[] = []; // custom number formats, ids start at 164
   const fmtId = (code: string) => { let i = formats.indexOf(code); if (i < 0) i = formats.push(code) - 1; return 164 + i; };
-  const styles: { numFmtId: number }[] = [];
-  const style = (numFmtId: number) => { let i = styles.findIndex((s) => s.numFmtId === numFmtId); if (i < 0) i = styles.push({ numFmtId }) - 1; return i + 2; }; // 0 normal, 1 header
-  const styleOf = (c: DataColumn): number => {
-    if (c.type === 'date') return style(fmtId('yyyy-mm-dd'));
+  const styles: { numFmtId: number; look: Look | null }[] = [];
+  const style = (numFmtId: number, look: Look | null = null) => {
+    if (!numFmtId && !look) return 0;
+    let i = styles.findIndex((s) => s.numFmtId === numFmtId && s.look === look);
+    if (i < 0) i = styles.push({ numFmtId, look }) - 1;
+    return i + 2; // 0 normal, 1 header
+  };
+  const formatOf = (c: DataColumn): number => {
+    if (c.type === 'date') return fmtId('yyyy-mm-dd');
     if (c.type === 'number' || c.type === 'currency') {
       const dec = c.decimals ?? (c.type === 'currency' ? 2 : -1);
       const body = dec < 0 ? '#,##0.######' : dec === 0 ? '#,##0' : `#,##0.${'0'.repeat(dec)}`;
-      return style(fmtId(c.type === 'currency' ? `"${currencySymbol(c.currency || 'USD').replace(/"/g, '')}"${body}` : body));
+      return fmtId(c.type === 'currency' ? `"${currencySymbol(c.currency || 'USD').replace(/"/g, '')}"${body}` : body);
     }
     return 0;
   };
-  const cellStyles = columns.map(({ c }) => styleOf(c));
+  const numFmts0 = columns.map(({ c }) => formatOf(c));
+  const looks = o.formatting === false || !spec.rules.length ? null : ruleLooks(spec, o.locale);
 
   const rows: string[] = [];
   rows.push(`<row r="1">${columns.map(({ c }, k) => `<c r="${columnName(k)}1" s="1" t="inlineStr"><is><t xml:space="preserve">${xml(c.title)}</t></is></c>`).join('')}</row>`);
   index.forEach((r, n) => {
+    const lk = looks?.(spec.rows[r]);
     const cells = columns.map(({ c, i }, k) => {
       const v = spec.rows[r][i];
       const ref = `${columnName(k)}${n + 2}`;
-      if (v === null || v === undefined || (v === '' && c.type !== 'boolean')) return '';
-      if (c.type === 'boolean') return `<c r="${ref}" t="b"><v>${v ? 1 : 0}</v></c>`;
-      if ((c.type === 'number' || c.type === 'currency') && typeof v === 'number') return `<c r="${ref}" s="${cellStyles[k]}"><v>${v}</v></c>`;
-      if (c.type === 'date' && typeof v === 'string' && parseDate(v)) return `<c r="${ref}" s="${cellStyles[k]}"><v>${serial(parseDate(v)!)}</v></c>`;
-      return `<c r="${ref}" t="inlineStr"><is><t xml:space="preserve">${xml(String(v))}</t></is></c>`;
+      const look = lk ? lk.cells[i] ?? lk.row : null;
+      const st = style(numFmts0[k], look);
+      const sAttr = st ? ` s="${st}"` : '';
+      if (v === null || v === undefined || (v === '' && c.type !== 'boolean')) return look ? `<c r="${ref}"${sAttr}/>` : '';
+      if (c.type === 'boolean') return `<c r="${ref}"${sAttr} t="b"><v>${v ? 1 : 0}</v></c>`;
+      if ((c.type === 'number' || c.type === 'currency') && typeof v === 'number') return `<c r="${ref}"${sAttr}><v>${v}</v></c>`;
+      if (c.type === 'date' && typeof v === 'string' && parseDate(v)) return `<c r="${ref}"${sAttr}><v>${serial(parseDate(v)!)}</v></c>`;
+      return `<c r="${ref}"${sAttr} t="inlineStr"><is><t xml:space="preserve">${xml(String(v))}</t></is></c>`;
     });
     rows.push(`<row r="${n + 2}">${cells.join('')}</row>`);
   });
@@ -588,7 +725,7 @@ export function toXlsx(spec: DataTableSpec, o: ExportOptions = {}): Uint8Array {
   const last = `${columnName(columns.length - 1)}${index.length + 1}`;
   const sheet = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><sheetFormatPr defaultRowHeight="15"/><cols>${widths.map((w, k) => `<col min="${k + 1}" max="${k + 1}" width="${w}" customWidth="1"/>`).join('')}</cols><sheetData>${rows.join('')}</sheetData><autoFilter ref="A1:${last}"/></worksheet>`;
   const numFmts = formats.length ? `<numFmts count="${formats.length}">${formats.map((f, i) => `<numFmt numFmtId="${164 + i}" formatCode="${xml(f)}"/>`).join('')}</numFmts>` : '';
-  const stylesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">${numFmts}<fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE7ECF3"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="${2 + styles.length}"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/>${styles.map((s) => `<xf numFmtId="${s.numFmtId}" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>`).join('')}</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
+  const stylesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">${numFmts}<fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="8"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE7ECF3"/><bgColor indexed="64"/></patternFill></fill>${(['red', 'green', 'amber', 'blue', 'gray'] as Look[]).map((l) => `<fill><patternFill patternType="solid"><fgColor rgb="FF${LOOK_FILL[l]}"/><bgColor indexed="64"/></patternFill></fill>`).join('')}</fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="${2 + styles.length}"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/>${styles.map((s) => { const fill = s.look && s.look !== 'bold' ? 3 + ['red', 'green', 'amber', 'blue', 'gray'].indexOf(s.look) : 0; return `<xf numFmtId="${s.numFmtId}" fontId="${s.look === 'bold' ? 1 : 0}" fillId="${fill}" borderId="0" xfId="0" applyNumberFormat="1"${fill ? ' applyFill="1"' : ''}${s.look === 'bold' ? ' applyFont="1"' : ''}/>`; }).join('')}</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
   const name = sheetName(o.title || spec.options.title || 'Sheet1');
   const head = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n';
   const text = (s: string) => new TextEncoder().encode(s);
@@ -607,11 +744,14 @@ export function toXlsx(spec: DataTableSpec, o: ExportOptions = {}): Uint8Array {
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 /** A standalone page with just the table, ready to print or save as PDF. Header row repeats on every page. */
-export function toPrintHTML(spec: DataTableSpec, o: ExportOptions = {}): string {
+export function toPrintHTML(source: DataTableSpec, o: ExportOptions = {}): string {
+  const spec = withFormulas(source);
   const { columns, index } = exported(spec, o);
+  const looks = o.formatting === false || !spec.rules.length ? null : ruleLooks(spec, o.locale);
+  const lookCss = (l: Look | null | undefined) => (!l ? '' : l === 'bold' ? ';font-weight:700' : `;background:#${LOOK_FILL[l]}`);
   const align = (c: DataColumn) => c.align ?? (c.type === 'number' || c.type === 'currency' ? 'right' : 'left');
   const head = columns.map(({ c }) => `<th style="text-align:${align(c)}">${esc(c.title)}</th>`).join('');
-  const body = index.map((r) => `<tr>${columns.map(({ c, i }) => `<td style="text-align:${align(c)}">${esc(formatCell(c, spec.rows[r][i], o.locale))}</td>`).join('')}</tr>`).join('');
+  const body = index.map((r) => { const lk = looks?.(spec.rows[r]); return `<tr>${columns.map(({ c, i }) => `<td style="text-align:${align(c)}${lookCss(lk ? lk.cells[i] ?? lk.row : null)}">${esc(formatCell(c, spec.rows[r][i], o.locale))}</td>`).join('')}</tr>`; }).join('');
   const totals = columns.some(({ c }) => c.total)
     ? `<tfoot><tr>${columns.map(({ c, i }, k) => { const t = c.total ? aggregate(c, c.total, spec.rows, index, i) : null; return `<td style="text-align:${align(c)}">${t === null ? (k === 0 ? 'Total' : '') : esc(formatCell(c.total === 'count' ? { ...c, type: 'number', decimals: 0 } : c, t, o.locale))}</td>`; }).join('')}</tr></tfoot>`
     : '';

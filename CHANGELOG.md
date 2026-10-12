@@ -4,6 +4,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## Unreleased
 
+- Added: data table extras: formula columns (own safe parser), highlight rules and data bars (also written to .xlsx and PDF), saved views, openable row details (`DataTable({ detail })`), column resizing by mouse or keyboard, row reordering by drag or Alt+Up/Down, and charts from the rows on screen.
+- Fixed: a data table's heading did not stay in view while the table scrolled.
 - Added: data table at scale: group by up to three columns with folding and per-group totals, virtual scrolling for long tables without paging, rows loaded page by page from a data source (`DataTable({ sources, onEdit })`, `options.source`), and import of Excel (.xlsx) files read without a library (`dataTableFromFile`).
 - Added: data table (`DataTable` plugin): a block of records with typed columns, search, column filters, multi-column sort, paging, cell editing, selection, footer totals, custom toolbar buttons and row actions, right-click and heading menus, and keyboard navigation. Export to CSV, Excel (.xlsx, written without a library) and PDF; import from CSV; convert to and from a regular table. Written to Word and Markdown as a table.
 

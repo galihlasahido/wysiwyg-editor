@@ -1,4 +1,4 @@
-export interface DialogAction { label: string; primary?: boolean; onClick?: () => void }
+export interface DialogAction { label: string; primary?: boolean; /** Return `false` to keep the dialog open (a value that was refused). */ onClick?: () => unknown }
 
 /**
  * A modal dialog inside the editor root (focus moves in, Escape or the backdrop closes, focus returns to the
@@ -35,7 +35,7 @@ export function openDialog(root: HTMLElement, options: { title: string; body: st
     b.className = 'wy-btn';
     b.textContent = a.label;
     if (a.primary) b.style.fontWeight = '600';
-    b.addEventListener('click', () => (a.onClick?.(), close()));
+    b.addEventListener('click', () => { if (a.onClick?.() !== false) close(); });
     bar.append(b);
   }
   dlg.append(h, body, bar);

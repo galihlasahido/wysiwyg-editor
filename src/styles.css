@@ -838,7 +838,7 @@ del.wy-diff-del, .wy-diff-legend .wy-diff-del { background: #fee2e2; color: #7f1
 .wy-content .wy-dt.is-bordered .wy-dt-table th, .wy-content .wy-dt.is-bordered .wy-dt-table td { border-right: 1px solid var(--wy-page-border); }
 .wy-content .wy-dt.is-compact .wy-dt-table th, .wy-content .wy-dt.is-compact .wy-dt-table td { padding: 2px 8px; }
 .wy-content .wy-dt.is-comfortable .wy-dt-table th, .wy-content .wy-dt.is-comfortable .wy-dt-table td { padding: 11px 12px; }
-.wy-dt-table thead th { position: sticky; top: 0; z-index: 1; background: var(--wy-page-surface); font-weight: 600; white-space: nowrap; }
+.wy-content .wy-dt-table thead th { position: sticky; top: 0; z-index: 1; background: var(--wy-page-surface); font-weight: 600; white-space: nowrap; }
 .wy-content .wy-dt-table .wy-dt-filters td { padding: 4px 6px; background: var(--wy-page-bg); }
 .wy-dt-table th.wy-dt-actions { font-size: 0; }
 .wy-dt-filters input, .wy-dt-filters select { width: 100%; }
@@ -887,3 +887,38 @@ del.wy-diff-del, .wy-diff-legend .wy-diff-del { background: #fee2e2; color: #7f1
 .wy-dt.is-loading .wy-dt-scroll { opacity: .55; transition: opacity .15s; }
 .wy-dt-error { color: var(--wy-danger); }
 @media (prefers-reduced-motion: reduce) { .wy-dt.is-loading .wy-dt-scroll { transition: none; } }
+/* highlight rules, bars, details, resizing, reordering */
+.wy-dt-table [data-look='red'] { background: color-mix(in srgb, var(--wy-danger) 20%, var(--wy-page-bg)); }
+.wy-dt-table [data-look='green'] { background: color-mix(in srgb, var(--wy-ins) 22%, var(--wy-page-bg)); }
+.wy-dt-table [data-look='amber'] { background: color-mix(in srgb, var(--wy-warn) 24%, var(--wy-page-bg)); }
+.wy-dt-table [data-look='blue'] { background: color-mix(in srgb, var(--wy-accent) 20%, var(--wy-page-bg)); }
+.wy-dt-table [data-look='gray'] { background: color-mix(in srgb, var(--wy-page-fg) 12%, var(--wy-page-bg)); }
+.wy-dt-table [data-look='bold'] { font-weight: 700; }
+.wy-dt-table tr[data-look] > td:not([data-look]) { background: inherit; }
+.wy-dt-table tr[data-look='red'] > td:not([data-look]) { background: color-mix(in srgb, var(--wy-danger) 20%, var(--wy-page-bg)); }
+.wy-dt-table tr[data-look='green'] > td:not([data-look]) { background: color-mix(in srgb, var(--wy-ins) 22%, var(--wy-page-bg)); }
+.wy-dt-table tr[data-look='amber'] > td:not([data-look]) { background: color-mix(in srgb, var(--wy-warn) 24%, var(--wy-page-bg)); }
+.wy-dt-table tr[data-look='blue'] > td:not([data-look]) { background: color-mix(in srgb, var(--wy-accent) 20%, var(--wy-page-bg)); }
+.wy-dt-table tr[data-look='gray'] > td:not([data-look]) { background: color-mix(in srgb, var(--wy-page-fg) 12%, var(--wy-page-bg)); }
+.wy-dt-table tr[data-look='bold'] > td { font-weight: 700; }
+.wy-dt-barcell { background-image: linear-gradient(90deg, color-mix(in srgb, var(--wy-accent) 30%, transparent) var(--bar), transparent var(--bar)); background-repeat: no-repeat; }
+.wy-dt-table .wy-dt-lead { width: 1%; padding-left: 4px; padding-right: 4px; text-align: center; white-space: nowrap; }
+.wy-dt-table th.wy-dt-lead { font-size: 0; }
+.wy-dt-expand { font: inherit; border: 0; background: transparent; color: inherit; cursor: pointer; padding: 2px 6px; border-radius: 3px; }
+.wy-dt-expand:hover { background: var(--wy-hover); }
+.wy-content .wy-dt-table tr.wy-dt-detail td { background: var(--wy-page-surface); padding: 10px 16px 12px 40px; }
+.wy-dt-fields { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; margin: 0; }
+.wy-dt-fields dt { color: var(--wy-page-muted); font-size: 13px; }
+.wy-dt-fields dd { margin: 0; overflow-wrap: anywhere; }
+.wy-dt-drag { cursor: grab; color: var(--wy-page-muted); user-select: none; }
+.wy-dt-table tr.is-dragging { opacity: .45; }
+.wy-dt-table tr.drop-above > td { box-shadow: inset 0 2px 0 var(--wy-accent); }
+.wy-dt-table tr.drop-below > td { box-shadow: inset 0 -2px 0 var(--wy-accent); }
+.wy-dt-resize { position: absolute; top: 0; right: 0; bottom: 0; width: 7px; cursor: col-resize; touch-action: none; }
+.wy-dt-resize:hover, .wy-dt-resize:focus-visible, .wy-dt.is-resizing .wy-dt-resize { background: color-mix(in srgb, var(--wy-accent) 55%, transparent); outline: none; }
+.wy-dt.is-resizing { user-select: none; }
+.wy-dt-hint { margin: 0; font-size: 12.5px; color: var(--wy-muted); }
+.wy-dt-rule-list { display: flex; flex-direction: column; gap: 8px; margin: 8px 0; }
+.wy-dt-rule { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.wy-dt-rule input:not([type='checkbox']), .wy-dt-rule select { font: inherit; padding: 4px 8px; border: 1px solid var(--wy-border-2); border-radius: 4px; background: var(--wy-bg); color: var(--wy-fg); }
+.wy-dt-rule input:not([type='checkbox']) { width: 130px; }

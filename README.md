@@ -502,6 +502,12 @@ editor.execute('insertDataTable', {
 - **Convert both ways:** `tableToDataTable` turns the table at the cursor into a data table (the first row names the columns, types are guessed from the values), and `dataTableToTable` turns the selected data table back into an ordinary table. Also in the right-click menu.
 - **Look:** follows the colour theme. Options: striped rows, cell borders, row height, a fixed height with a sticky heading. The block is exported to Word as a real table, to Markdown as a table, and to HTML with a plain table inside.
 - **Import:** `editor.execute('dataTableFromFile')` opens a file picker for CSV, TSV or Excel (.xlsx); `dataTableFromCSV(text)` and `dataTableFromExcel(file)` take the content directly. The first row names the columns and each column's type is guessed (dates stay dates). The .xlsx reader is also written here, with no library, and reads the first visible sheet.
+- **Formula columns:** give a column a formula over the other columns of the same row: `[Price] * [Qty]`, `IF([Stock] < 5, "Reorder", "OK")`, `ROUND([Total] / [Count], 2)`. The results are calculated, never stored, and can be searched, filtered, sorted, totalled and exported like any column. Operators `+ - * / % ^ &` and comparisons; functions `IF AND OR NOT ROUND FLOOR CEIL ABS SQRT POWER MOD MIN MAX SUM AVERAGE COUNT LEN UPPER LOWER TRIM LEFT RIGHT CONCAT CONTAINS ISEMPTY TODAY YEAR MONTH DAY DAYS`. Errors show as `#DIV/0!`, `#REF!`, `#CYCLE!` and so on. The formula language is its own small parser (no `eval`): it can only calculate from its row.
+- **Highlight rules and bars:** Options → Highlight rules colours cells (or whole rows) that match a condition written like a filter box (`>100`, `5..10`, `Overdue`, `empty`) in red, green, amber, blue, gray or bold, using the theme's colours. The colours also go into .xlsx and PDF files. A column can draw a bar in each cell, in proportion to the largest value.
+- **Saved views:** Views → Save current view keeps the search, filters, sort, grouping, hidden columns and rows per page under a name; readers can apply a view too (they get the search, filters and sort).
+- **Details:** `options.detail` adds an open button to each row. By default it lists every field, including hidden columns; `DataTable({ detail: (row) => element })` shows what you build (it may be async).
+- **Resize and reorder:** drag a heading's right edge (or focus it and use the arrow keys; double-click resets). With `options.reorder`, drag the ⠿ handle or press Alt+Up / Alt+Down to move a row, while no search, sort or filter makes the order on screen different from the stored one.
+- **Charts:** Options → Chart of these rows makes a bar, line or pie chart (the Charts plugin) from the rows on screen, right after the table.
 - **Rows from a server:** set `options.source` to a name and give the plugin a function for it. The table then asks for one page at a time and stores no rows in the document.
 
 ```ts
@@ -519,7 +525,7 @@ editor.execute('insertDataTable', { columns: [...], rows: [], options: { source:
 
   Search is sent after a short pause, only the newest answer is shown, a failure shows its message with a "Try again" button, and Export asks the source for every matching row. Ticked rows are those on the current page. Groups show the rows of the current page.
 
-The pure parts (`dataTableToCSV`, `dataTableToXlsx`, `dataTableToPrintHTML`, `queryDataRows`, `cleanDataTable`) are exported too, so a server can build the same files.
+The pure parts (`dataTableToCSV`, `dataTableToXlsx`, `dataTableToPrintHTML`, `queryDataRows`, `cleanDataTable`, `dataTableWithFormulas`, `parseXlsx`) are exported too, so a server can build the same files.
 
 ## Themes
 

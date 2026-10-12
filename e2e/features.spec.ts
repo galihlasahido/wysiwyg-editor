@@ -414,3 +414,53 @@ test('data table: groups, long tables, a server source and importing Excel', asy
   await expect(imported.locator('tbody tr').nth(1)).toContainText('Feb 9, 2026');
   expect(problems).toEqual([]);
 });
+
+test('data table: formulas, highlights, details, views, resizing, reordering and charts', async ({ page }) => {
+  const problems = await openDemo(page, 'data-table');
+  const dt = page.locator('.wy-dt').first();
+
+  // a formula column and highlight rules
+  await expect(dt.locator('thead th[data-col="6"]')).toContainText('Stock value');
+  await expect(dt.locator('tbody tr[data-row]').first().locator('td[data-col="6"]')).toContainText('$');
+  await expect(dt.locator('td[data-look="red"]').first()).toBeVisible();
+  await expect(dt.locator('td.wy-dt-barcell').first()).toBeVisible();
+
+  // open a row
+  await dt.locator('[data-role="detail-toggle"]').first().click();
+  await expect(dt.locator('.wy-dt-detail').first()).toContainText('Product');
+  await dt.locator('[data-role="detail-toggle"]').first().click();
+  await expect(dt.locator('.wy-dt-detail')).toHaveCount(0);
+
+  // reorder with the keyboard: the first product moves to second place
+  const name = (n: number) => dt.locator('tbody tr[data-row]').nth(n).locator('td[data-col="0"]');
+  const first = await name(0).textContent();
+  const second = await name(1).textContent();
+  await name(0).click();
+  await page.keyboard.press('Alt+ArrowDown');
+  await expect(name(0)).toHaveText(second!);
+  await expect(name(1)).toHaveText(first!);
+
+  // resize with the mouse
+  const th = dt.locator('thead th[data-col="1"]');
+  const before = (await th.boundingBox())!.width;
+  await th.hover();
+  const grip = (await dt.locator('[data-role="resize"][data-col="1"]').boundingBox())!;
+  await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(grip.x + 90, grip.y + grip.height / 2, { steps: 5 });
+  await page.mouse.up();
+  expect((await dt.locator('thead th[data-col="1"]').boundingBox())!.width).toBeGreaterThan(before + 40);
+  await page.screenshot({ path: 'test-results/data-table-phase4.png' });
+
+  // a saved view
+  await dt.getByRole('button', { name: 'Views ▾' }).click();
+  await page.getByRole('menuitem', { name: 'Low stock', exact: true }).click();
+  await expect(dt.locator('thead th[data-col="2"]')).toHaveAttribute('aria-sort', 'ascending');
+  await expect(dt.locator('.wy-dt-info').first()).toContainText('filtered from 64');
+
+  // a chart of what is shown, right after the table
+  await dt.getByRole('button', { name: 'Options ▾' }).click();
+  await page.getByRole('menuitem', { name: 'Chart of these rows: bar' }).click();
+  await expect(page.locator('.wy-chart')).toHaveCount(1);
+  expect(problems).toEqual([]);
+});

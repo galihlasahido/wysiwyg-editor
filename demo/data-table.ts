@@ -1,4 +1,4 @@
-import { cleanDataTable, createEditor, defaultPlugins, DataTable, download, queryDataRows, type DataPage, type DataQuery } from '../src';
+import { Charts, cleanDataTable, createEditor, defaultPlugins, DataTable, download, queryDataRows, type DataPage, type DataQuery } from '../src';
 import { $, button, codePanel, el } from './samples';
 
 const names = ['Oolong tea', 'Green tea', 'Black tea', 'Espresso beans', 'Filter coffee', 'Matcha', 'Chai mix', 'Hot chocolate', 'Cold brew', 'Rooibos', 'Earl Grey', 'Jasmine pearls'];
@@ -15,13 +15,22 @@ const spec = {
   columns: [
     { key: 'name', title: 'Product', type: 'text' },
     { key: 'cat', title: 'Category', type: 'select', options: cats },
-    { key: 'stock', title: 'Stock', type: 'number', total: 'sum' },
+    { key: 'stock', title: 'Stock', type: 'number', total: 'sum', bar: true },
     { key: 'price', title: 'Price', type: 'currency', currency: 'USD', total: 'avg' },
     { key: 'added', title: 'Added', type: 'date' },
     { key: 'active', title: 'Active', type: 'boolean' },
+    { key: 'value', title: 'Stock value', type: 'currency', currency: 'USD', formula: '[Stock] * [Price]', total: 'sum' },
   ],
   rows,
-  options: { title: 'Products', pageSize: 10, search: true, filters: true, striped: true, selectable: true },
+  rules: [
+    { column: 'stock', test: '<10', look: 'red' },
+    { column: 'active', test: 'false', look: 'gray', row: true },
+  ],
+  views: [
+    { name: 'Low stock', search: '', filters: { stock: '<15' }, sort: [{ key: 'stock', dir: 'asc' }], groupBy: [], hidden: [], pageSize: 10 },
+    { name: 'Coffee by value', search: '', filters: { cat: 'Coffee' }, sort: [{ key: 'value', dir: 'desc' }], groupBy: [], hidden: ['added'], pageSize: 10 },
+  ],
+  options: { title: 'Products', pageSize: 10, search: true, filters: true, striped: true, selectable: true, detail: true, reorder: true },
 };
 
 // A pretend server: 5,000 orders, answering after a short delay, with real searching, filtering, sorting and paging.
@@ -45,7 +54,7 @@ async function loadOrders(q: DataQuery): Promise<DataPage> {
   return { rows: page.map((r) => orders.rows[r]), total: hits.length, totals: { amount: hits.reduce((n, r) => n + (orders.rows[r][3] as number), 0) } };
 }
 
-const status = el('div', { class: 'demo-note' }, 'Search, click a heading to sort (Shift+click for a second sort), type in the filter row (for numbers try >10, 5..20), double-click or press Enter on a cell to edit.');
+const status = el('div', { class: 'demo-note' }, 'Search, click a heading to sort (Shift+click for a second sort), type in the filter row (for numbers try >10, 5..20), double-click or press Enter on a cell to edit. Drag a column edge to resize, drag the ⠿ handle (or Alt+Up/Down) to reorder, open ▸ for details, and try Views ▾ and Options ▾ (highlight rules, charts).');
 
 $('#app').append(
   status,
@@ -69,7 +78,7 @@ const editor = createEditor({
   element: $('#editor'),
   content: '<h2>Stock list</h2><p>This table lives in the document: edits are undoable, and it exports to Word.</p>',
   ribbon: true,
-  plugins: [...defaultPlugins.filter((p) => p.name !== 'dataTable'), DataTable({
+  plugins: [...defaultPlugins.filter((p) => p.name !== 'dataTable'), Charts(), DataTable({
     locale: 'en-US',
     sources: { orders: loadOrders },
     buttons: [
