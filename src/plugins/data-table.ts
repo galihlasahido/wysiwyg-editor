@@ -5,15 +5,15 @@ import { openDialog } from '../dialog';
 import type { Editor } from '../editor';
 import { download } from '../export';
 import {
-  AGGREGATES, COLUMN_TYPES, MAX_COLUMNS, MAX_ROWS, PAGE_SIZES, aggregate, cleanSpec, coerceCell, formatCell, parseCSV, queryRows, specFromRows, toCSV, toPrintHTML, toXlsx,
-  type Aggregate, type Cell, type ColumnType, type DataColumn, type DataTableSpec, type ViewState,
+  AGGREGATES, COLUMN_TYPES, MAX_COLUMNS, MAX_ROWS, PAGE_SIZES, aggregate, cleanSpec, coerceCell, formatCell, groupDisplay, normalizeRows, parseCSV, parseXlsx, queryRows, specFromRows, toCSV, toPrintHTML, toXlsx,
+  type Aggregate, type Cell, type ColumnType, type DataColumn, type DataPage, type DataQuery, type DataTableSpec, type DisplayRow, type GroupInfo, type ViewState,
 } from '../data-table';
 import type { ContextMenuEntry, EditorPlugin } from '../types';
 
-export type { Aggregate, ColumnType, DataColumn, DataTableSpec, Cell as DataCell };
+export type { Aggregate, ColumnType, DataColumn, DataPage, DataQuery, DataTableSpec, Cell as DataCell };
 export {
   cleanSpec as cleanDataTable, formatCell as formatDataCell, queryRows as queryDataRows, specFromRows as dataTableFromRows,
-  toCSV as dataTableToCSV, toPrintHTML as dataTableToPrintHTML, toXlsx as dataTableToXlsx, parseCSV,
+  toCSV as dataTableToCSV, toPrintHTML as dataTableToPrintHTML, toXlsx as dataTableToXlsx, parseCSV, parseXlsx,
 };
 
 /** What a custom button or row action is given. */
@@ -48,12 +48,23 @@ export interface DataTablePluginOptions {
   rowActions?: DataTableRowAction[];
   /** Language for numbers and dates (default: the browser's). */
   locale?: string;
+  /**
+   * Data sources for tables that load their rows page by page (`options.source` names one). The function is given what to show (page,
+   * search, filters, sort) and answers with that page and the total number of matching rows. The rows are not stored in the document.
+   */
+  sources?: Record<string, (query: DataQuery) => Promise<DataPage> | DataPage>;
+  /** Called when a cell of a loaded table is edited. Without it, loaded tables cannot be edited. The table reloads afterwards. */
+  onEdit?: (change: { source: string; key: string; value: Cell; row: Record<string, Cell>; index: number }) => Promise<unknown> | unknown;
 }
 
 /** The API on `editor.extensions.dataTable`. */
 export interface DataTableApi {
   addButton(button: DataTableButton): void;
   addRowAction(action: DataTableRowAction): void;
+  /** Register or replace a data source for loaded tables. */
+  addSource(name: string, load: (query: DataQuery) => Promise<DataPage> | DataPage): void;
+  /** Reload the active table from its source. */
+  refresh(): void;
   /** The table that commands act on: the selected one, the one last used, or the only one in the document. */
   active(): { spec: DataTableSpec; selected(): Record<string, Cell>[]; visible(): Record<string, Cell>[] } | null;
   export(format: 'csv' | 'xlsx', options?: { selectedOnly?: boolean }): Blob | null;
@@ -81,7 +92,30 @@ const button = (label: string, cls: string, onClick: (e: MouseEvent) => void, ti
   return b;
 };
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'table';
-const asRecord = (spec: DataTableSpec, r: number): Record<string, Cell> => Object.fromEntries(spec.columns.map((c, i) => [c.key, spec.rows[r][i]]));
+const asRecord = (spec: DataTableSpec, rows: Cell[][], r: number): Record<string, Cell> => Object.fromEntries(spec.columns.map((c, i) => [c.key, rows[r]?.[i] ?? null]));
+
+/** One line of the body: a group heading or a data row. */
+type Line = { kind: 'row'; r: number } | { kind: 'group'; g: GroupInfo; folded: boolean };
+
+/** The lines to draw for these rows: a heading wherever the group changes (and at the top, so a page always says where it is). */
+function buildLines(rows: DisplayRow[]): Line[] {
+  const out: Line[] = [];
+  let prev: GroupInfo[] = [];
+  for (const d of rows) {
+    let common = 0;
+    while (common < d.path.length && common < prev.length && prev[common].key === d.path[common].key) common++;
+    for (let k = common; k < d.path.length; k++) out.push({ kind: 'group', g: d.path[k], folded: d.r === -1 && k === d.path.length - 1 });
+    if (d.r !== -1) out.push({ kind: 'row', r: d.r });
+    prev = d.path;
+  }
+  return out;
+}
+
+/** Above this many lines with paging off, only the lines in view are drawn. */
+const VIRTUAL_MIN = 200;
+const OVERSCAN = 20;
+const ROW_HEIGHT = { compact: 30, normal: 38, comfortable: 48 } as const;
+const REMOTE_PAGE = 25;
 
 interface MenuItem { label: string; checked?: boolean; disabled?: boolean; run(): void }
 
@@ -138,6 +172,9 @@ async function printPage(html: string): Promise<void> {
   win.print();
 }
 
+/** The bytes of a file picked by the user. */
+const readBytes = (file: Blob) => new Promise<Uint8Array>((ok, bad) => { const r = new FileReader(); r.onload = () => ok(new Uint8Array(r.result as ArrayBuffer)); r.onerror = () => bad(r.error); r.readAsArrayBuffer(file); });
+
 const defaultColumnTitle = (spec: DataTableSpec) => `Column ${spec.columns.length + 1}`;
 
 class DataTableView implements NodeView {
@@ -149,7 +186,24 @@ class DataTableView implements NodeView {
   private pageSize = 10;
   private selected = new Set<number>();
   private index: number[] = [];
+  /** The cell with the keyboard focus: `row` counts data rows only (group headings are skipped). */
   private active = { row: 0, col: 0 };
+  private collapsed = new Set<string>();
+  private display: DisplayRow[] = [];
+  private lines: Line[] = [];
+  private rowLines: number[] = [];
+  private virtual = false;
+  private rowH = 38;
+  private rendered = { from: 0, to: 0 };
+  private scrollFrame = 0;
+  private remoteRows: Cell[][] = [];
+  private remoteTotal = 0;
+  private remoteTotals: Record<string, number | null> | null = null;
+  private remoteLoaded = false;
+  private loadError = '';
+  private seq = 0;
+  private timer: ReturnType<typeof setTimeout> | undefined;
+  private destroyed = false;
   private editing: { td: HTMLElement; r: number; c: number; cancelled: boolean } | null = null;
   private paintedReadOnly = false;
   private titleEl = el('div', 'wy-dt-title');
@@ -188,12 +242,18 @@ class DataTableView implements NodeView {
     this.dom.addEventListener('dblclick', (e) => { const td = (e.target as HTMLElement).closest<HTMLElement>('td[data-col]'); if (td) this.startEdit(td); });
     this.dom.addEventListener('keydown', (e) => this.onKey(e));
     this.dom.addEventListener('change', (e) => this.onChange(e));
+    this.scroll.addEventListener('scroll', () => this.onScroll());
     this.load(node);
     this.paintAll();
   }
 
   private get readOnly() { return this.host.editor.isReadOnly; }
   private get locale() { return this.host.options.locale; }
+  private get isRemote() { return !!this.spec?.options.source; }
+  /** The rows that are being shown from: the document's, or the page the data source sent. */
+  private get rows(): Cell[][] { return this.isRemote ? this.remoteRows : this.spec?.rows ?? []; }
+  get canEditCells() { return !this.readOnly && (!this.isRemote || !!this.host.options.onEdit); }
+  get canEditRows() { return !this.readOnly && !this.isRemote; }
 
   private load(node: PMNode) {
     this.node = node;
@@ -203,8 +263,8 @@ class DataTableView implements NodeView {
     const keys = new Set(this.spec.columns.map((c) => c.key));
     this.state.filters = Object.fromEntries(Object.entries(this.state.filters).filter(([k]) => keys.has(k)));
     this.state.sort = this.state.sort.filter((s) => keys.has(s.key));
-    this.pageSize = this.spec.options.pageSize;
-    this.selected = new Set([...this.selected].filter((r) => r < this.spec!.rows.length));
+    this.pageSize = this.spec.options.source ? this.spec.options.pageSize || REMOTE_PAGE : this.spec.options.pageSize;
+    this.selected = new Set([...this.selected].filter((r) => r < this.rows.length));
   }
 
   // ---- node view protocol
@@ -217,6 +277,7 @@ class DataTableView implements NodeView {
       const sizeBefore = this.spec?.options.pageSize;
       this.load(node);
       if (this.spec && this.spec.options.pageSize !== sizeBefore) this.page = 0;
+      this.remoteLoaded = false;
       this.paintAll();
     }
     return true;
@@ -225,13 +286,13 @@ class DataTableView implements NodeView {
   deselectNode() { this.dom.classList.remove('ProseMirror-selectednode'); }
   stopEvent() { return true; } // the table handles its own mouse and keys
   ignoreMutation() { return true; }
-  destroy() { this.host.views.delete(this.dom); if (this.host.last === this) this.host.last = null; }
+  destroy() { this.destroyed = true; clearTimeout(this.timer); cancelAnimationFrame(this.scrollFrame); this.host.views.delete(this.dom); if (this.host.last === this) this.host.last = null; }
 
   // ---- reading
 
   get data(): DataTableSpec | null { return this.spec; }
-  visibleRows(): Record<string, Cell>[] { return this.spec ? this.index.map((r) => asRecord(this.spec!, r)) : []; }
-  selectedRows(): Record<string, Cell>[] { return this.spec ? [...this.selected].sort((a, b) => a - b).map((r) => asRecord(this.spec!, r)) : []; }
+  visibleRows(): Record<string, Cell>[] { return this.spec ? this.index.map((r) => asRecord(this.spec!, this.rows, r)) : []; }
+  selectedRows(): Record<string, Cell>[] { return this.spec ? [...this.selected].sort((a, b) => a - b).map((r) => asRecord(this.spec!, this.rows, r)) : []; }
   private context(): DataTableContext { return { editor: this.host.editor, spec: this.spec!, selected: this.selectedRows(), visible: this.visibleRows() }; }
   get nodePos(): number | undefined { return this.getPos(); }
 
@@ -249,6 +310,7 @@ class DataTableView implements NodeView {
   }
 
   addRow(after?: number): void {
+    if (!this.canEditRows) return;
     this.mutate((s) => {
       if (s.rows.length >= MAX_ROWS) return false;
       const row = s.columns.map((c) => coerceCell(c.type, null));
@@ -256,13 +318,23 @@ class DataTableView implements NodeView {
     });
     if (after === undefined && this.spec && this.pageSize) { this.page = Math.floor(this.index.length / this.pageSize); this.paintRows(); }
   }
-  duplicateRow(r: number): void { this.mutate((s) => { if (s.rows.length >= MAX_ROWS) return false; s.rows.splice(r + 1, 0, [...s.rows[r]]); }); }
+  duplicateRow(r: number): void { if (!this.canEditRows) return; this.mutate((s) => { if (s.rows.length >= MAX_ROWS) return false; s.rows.splice(r + 1, 0, [...s.rows[r]]); }); }
   deleteRows(rows: number[]): void {
+    if (!this.canEditRows) return;
     const drop = new Set(rows);
     this.selected = new Set();
     this.mutate((s) => { s.rows = s.rows.filter((_, i) => !drop.has(i)); });
   }
   setCell(r: number, c: number, raw: unknown): void {
+    if (this.isRemote) {
+      const spec = this.spec;
+      const onEdit = this.host.options.onEdit;
+      if (!spec || !onEdit || this.readOnly || !spec.columns[c]) return;
+      const col = spec.columns[c];
+      const change = { source: spec.options.source, key: col.key, value: coerceCell(col.type, raw), row: asRecord(spec, this.rows, r), index: r };
+      Promise.resolve().then(() => onEdit(change)).then(() => this.refresh(), (err) => { this.loadError = err instanceof Error ? err.message : 'The change was not saved.'; this.paintRows(); });
+      return;
+    }
     this.mutate((s) => { if (!s.rows[r] || c >= s.columns.length) return false; s.rows[r][c] = coerceCell(s.columns[c].type, raw); });
   }
   moveColumn(i: number, dir: -1 | 1): void {
@@ -291,7 +363,72 @@ class DataTableView implements NodeView {
     this.state.sort = dir ? [...rest, { key, dir }] : rest;
     this.page = 0;
     this.paintHead();
+    this.refresh();
+  }
+  /** Group by this column (or add it as a sub-group); `null` stops grouping. */
+  groupBy(key: string | null, add = false): void {
+    this.collapsed.clear();
+    this.mutate((s) => { s.options.groupBy = key === null ? [] : add ? [...s.options.groupBy.filter((k) => k !== key), key] : [key]; });
+  }
+
+  // ---- data from a source
+
+  /** Reload now (a loaded table asks its source again; a stored one just redraws). */
+  refresh(): void {
+    clearTimeout(this.timer);
+    if (this.isRemote) void this.loadRemote(); else this.paintRows();
+  }
+  /** Reload soon: a box being typed in does not ask the source on every key. */
+  private changed(): void {
+    if (!this.isRemote) { this.paintRows(); return; }
+    clearTimeout(this.timer);
+    this.timer = setTimeout(() => void this.loadRemote(), 300);
+  }
+  private query(page = this.page, size = this.pageSize): DataQuery {
+    return { page, pageSize: size, search: this.state.search.trim(), filters: Object.fromEntries(Object.entries(this.state.filters).filter(([, v]) => v.trim())), sort: this.state.sort.map((s) => ({ ...s })), groupBy: [...this.spec!.options.groupBy] };
+  }
+  private async loadRemote(): Promise<void> {
+    const spec = this.spec;
+    if (!spec) return;
+    this.remoteLoaded = true;
+    const load = this.host.options.sources?.[spec.options.source];
+    if (!load) { this.remoteRows = []; this.remoteTotal = 0; this.remoteTotals = null; this.loadError = `There is no data source named “${spec.options.source}”.`; this.paintRows(); return; }
+    const seq = ++this.seq;
+    this.dom.setAttribute('aria-busy', 'true');
+    this.dom.classList.add('is-loading');
+    try {
+      const res = await load(this.query());
+      if (this.destroyed || seq !== this.seq) return;
+      this.remoteRows = normalizeRows(spec.columns, res?.rows);
+      this.remoteTotal = Math.max(0, Math.floor(Number(res?.total)) || this.remoteRows.length);
+      this.remoteTotals = res?.totals && typeof res.totals === 'object' ? res.totals : null;
+      this.loadError = '';
+    } catch (err) {
+      if (this.destroyed || seq !== this.seq) return;
+      this.remoteRows = []; this.remoteTotal = 0; this.remoteTotals = null;
+      this.loadError = err instanceof Error && err.message ? err.message : 'The data could not be loaded.';
+    }
+    this.dom.removeAttribute('aria-busy');
+    this.dom.classList.remove('is-loading');
+    this.selected.clear();
     this.paintRows();
+  }
+  /** Every row that passes the search and filters, for export. A loaded table asks its source for all of them, a page at a time. */
+  private async everything(): Promise<{ spec: DataTableSpec; rows: number[] } | null> {
+    const spec = this.spec;
+    if (!spec) return null;
+    if (!this.isRemote) return { spec, rows: this.index };
+    const load = this.host.options.sources?.[spec.options.source];
+    if (!load) return null;
+    const all: Cell[][] = [];
+    const size = 500;
+    for (let page = 0; all.length < MAX_ROWS; page++) {
+      const res = await load(this.query(page, size));
+      const got = normalizeRows(spec.columns, res?.rows);
+      all.push(...got);
+      if (!got.length || all.length >= Number(res?.total)) break;
+    }
+    return { spec: { ...spec, rows: all }, rows: all.map((_, i) => i) };
   }
 
   // ---- dialogs
@@ -375,16 +512,25 @@ class DataTableView implements NodeView {
   // ---- export
 
   exportAs(format: 'csv' | 'xlsx' | 'pdf', selectedOnly = this.selected.size > 0): void {
-    const blob = format === 'pdf' ? null : this.exportBlob(format, selectedOnly);
-    const name = slug(this.spec?.options.title || 'table');
-    if (blob) download(blob, `${name}.${format}`);
-    else if (format === 'pdf' && this.spec) void printPage(toPrintHTML(this.spec, { rows: this.exportRows(selectedOnly), locale: this.locale }));
+    void this.exportNow(format, selectedOnly);
+  }
+  private async exportNow(format: 'csv' | 'xlsx' | 'pdf', selectedOnly: boolean): Promise<void> {
+    // a selection is made of rows on screen; without one a loaded table fetches everything that matches
+    const source = selectedOnly && this.selected.size ? { spec: this.spec!, rows: this.exportRows(true) } : await this.everything().catch(() => null);
+    if (!source) return;
+    const name = slug(source.spec.options.title || 'table');
+    const o = { rows: source.rows, locale: this.locale };
+    if (format === 'pdf') await printPage(toPrintHTML(source.spec, o));
+    else if (format === 'csv') download(new Blob([toCSV(source.spec, o)], { type: 'text/csv;charset=utf-8' }), `${name}.csv`);
+    else download(new Blob([toXlsx(source.spec, o) as BlobPart], { type: MIME_XLSX }), `${name}.xlsx`);
   }
   private exportRows(selectedOnly: boolean): number[] { return selectedOnly && this.selected.size ? this.index.filter((r) => this.selected.has(r)) : this.index; }
+  /** The rows on screen as a file (a loaded table: this page only; use `exportAs` to get all of them). */
   exportBlob(format: 'csv' | 'xlsx', selectedOnly = false): Blob | null {
     if (!this.spec) return null;
+    const spec = this.isRemote ? { ...this.spec, rows: this.remoteRows } : this.spec;
     const o = { rows: this.exportRows(selectedOnly), locale: this.locale };
-    return format === 'csv' ? new Blob([toCSV(this.spec, o)], { type: 'text/csv;charset=utf-8' }) : new Blob([toXlsx(this.spec, o) as BlobPart], { type: MIME_XLSX });
+    return format === 'csv' ? new Blob([toCSV(spec, o)], { type: 'text/csv;charset=utf-8' }) : new Blob([toXlsx(spec, o) as BlobPart], { type: MIME_XLSX });
   }
 
   // ---- painting
@@ -398,12 +544,11 @@ class DataTableView implements NodeView {
     this.dom.classList.toggle('is-striped', o.striped);
     this.dom.classList.toggle('is-bordered', o.bordered);
     this.dom.classList.add(`is-${o.density}`);
-    this.scroll.style.maxHeight = o.height ? `${o.height}px` : '';
     this.titleEl.textContent = o.title;
     this.titleEl.hidden = !o.title;
     this.paintBar();
     this.paintHead();
-    this.paintRows();
+    if (this.isRemote && !this.remoteLoaded) void this.loadRemote(); else this.paintRows();
   }
 
   private paintBar() {
@@ -419,29 +564,34 @@ class DataTableView implements NodeView {
       input.placeholder = 'Search…';
       input.setAttribute('aria-label', 'Search the table');
       input.value = this.state.search;
-      input.addEventListener('input', () => { this.state.search = input.value; this.page = 0; this.paintRows(); });
+      input.addEventListener('input', () => { this.state.search = input.value; this.page = 0; this.changed(); });
       this.bar.append(input);
     }
     this.bar.append(el('span', 'wy-dt-spacer'));
     this.customBtns = [];
+    if (this.isRemote) this.bar.append(button('Refresh', 'wy-dt-btn', () => this.refresh()));
     for (const def of this.host.options.buttons ?? []) {
       const b = button(def.label, 'wy-dt-btn', () => def.onClick(this.context()), def.title);
       b.disabled = !!def.needsSelection && !this.selected.size;
       this.customBtns.push({ b, def });
       this.bar.append(b);
     }
+    this.deleteBtn = null;
     if (!ro) {
-      this.bar.append(button('Add row', 'wy-dt-btn', () => this.addRow()));
-      this.deleteBtn = button('', 'wy-dt-btn is-danger', () => this.deleteRows([...this.selected]));
-      this.bar.append(this.deleteBtn);
+      if (!this.isRemote) {
+        this.bar.append(button('Add row', 'wy-dt-btn', () => this.addRow()));
+        this.deleteBtn = button('', 'wy-dt-btn is-danger', () => this.deleteRows([...this.selected]));
+        this.bar.append(this.deleteBtn);
+      }
       const cols = button('Columns ▾', 'wy-dt-btn', (e) => popMenu(e.currentTarget as HTMLElement, this.dom, [
         ...spec.columns.map((c, i): MenuItem => ({ label: c.title || `Column ${i + 1}`, checked: !c.hidden, run: () => this.setHidden(i, !c.hidden) })),
         '-',
         { label: 'Add column…', disabled: spec.columns.length >= MAX_COLUMNS, run: () => this.editColumn(null) },
+        ...(spec.options.groupBy.length ? ['-' as const, { label: 'Stop grouping', run: () => this.groupBy(null) }] : []),
       ]));
       cols.setAttribute('aria-haspopup', 'menu');
       this.bar.append(cols);
-    } else this.deleteBtn = null;
+    }
     const exp = button('Export ▾', 'wy-dt-btn', (e) => popMenu(e.currentTarget as HTMLElement, this.dom, [
       { label: 'CSV', run: () => this.exportAs('csv') },
       { label: 'Excel (.xlsx)', run: () => this.exportAs('xlsx') },
@@ -506,7 +656,7 @@ class DataTableView implements NodeView {
         }
         input.value = this.state.filters[c.key] ?? '';
         input.setAttribute('aria-label', `Filter ${c.title}`);
-        input.addEventListener(input instanceof HTMLSelectElement ? 'change' : 'input', () => { this.state.filters[c.key] = input.value; this.page = 0; this.paintRows(); });
+        input.addEventListener(input instanceof HTMLSelectElement ? 'change' : 'input', () => { this.state.filters[c.key] = input.value; this.page = 0; this.changed(); });
         th.append(input); f.append(th);
       }
       if (this.host.options.rowActions?.length) f.append(el('td'));
@@ -518,19 +668,67 @@ class DataTableView implements NodeView {
     const spec = this.spec;
     if (!spec) return;
     this.finishEdit(false);
-    this.index = queryRows(spec, this.state, this.locale);
-    const total = this.index.length;
-    const pages = this.pageSize ? Math.max(1, Math.ceil(total / this.pageSize)) : 1;
+    const remote = this.isRemote;
+    const rows = this.rows;
+    this.index = remote ? rows.map((_, i) => i) : queryRows(spec, this.state, this.locale);
+    this.display = groupDisplay(spec, this.index, this.collapsed, this.locale, rows);
+    const total = remote ? this.remoteTotal : this.index.length;
+    const size = this.pageSize;
+    const pages = size ? Math.max(1, Math.ceil(total / size)) : 1;
     this.page = Math.max(0, Math.min(this.page, pages - 1));
-    const shown = this.pageSize ? this.index.slice(this.page * this.pageSize, (this.page + 1) * this.pageSize) : this.index;
+    // a loaded table was already given just this page; a stored one is cut here
+    const shown = remote || !size ? this.display : this.display.slice(this.page * size, (this.page + 1) * size);
+    this.virtual = !remote && !size && this.display.length > VIRTUAL_MIN;
+    // in a long table every line has the same fixed height, so any line can be placed without drawing the ones above it
+    this.rowH = ROW_HEIGHT[spec.options.density];
+    this.table.style.setProperty('--wy-dt-row', `${this.rowH}px`);
+    this.lines = buildLines(shown);
+    this.rowLines = [];
+    this.lines.forEach((l, i) => { if (l.kind === 'row') this.rowLines.push(i); });
+    const cols = this.shownColumns();
+    this.active.row = Math.min(this.active.row, Math.max(0, this.rowLines.length - 1));
+    this.active.col = Math.min(this.active.col, Math.max(0, cols.length - 1));
+    this.dom.classList.toggle('is-virtual', this.virtual);
+    this.scroll.style.maxHeight = this.virtual ? `${spec.options.height || 480}px` : spec.options.height ? `${spec.options.height}px` : '';
+    if (this.virtual) this.scroll.scrollTop = Math.min(this.scroll.scrollTop, Math.max(0, this.lines.length * this.rowH));
+    this.rendered = { from: -1, to: -1 };
+    this.renderLines();
+    this.paintTotals();
+    const sel = this.thead.querySelector<HTMLInputElement>('[data-role="select-page"]');
+    if (sel) { const ids = this.lines.filter((l): l is Extract<Line, { kind: 'row' }> => l.kind === 'row').map((l) => l.r); sel.checked = ids.length > 0 && ids.every((r) => this.selected.has(r)); }
+    this.paintFoot(total, pages);
+    this.paintSelection();
+  }
+
+  private colspan() { return this.shownColumns().length + (this.spec!.options.selectable ? 1 : 0) + (this.host.options.rowActions?.length ? 1 : 0); }
+
+  /** Draws the lines (all of them, or only those in view when the table is long and not paged). */
+  private renderLines() {
+    const spec = this.spec!;
+    const lines = this.lines;
     const cols = this.shownColumns();
     const ro = this.readOnly;
     const actions = this.host.options.rowActions ?? [];
-    this.active.row = Math.min(this.active.row, Math.max(0, shown.length - 1));
-    this.active.col = Math.min(this.active.col, Math.max(0, cols.length - 1));
-    const rows: HTMLElement[] = shown.map((r, n) => {
+    let from = 0;
+    let to = lines.length;
+    if (this.virtual) {
+      const h = this.rowH;
+      const top = this.scroll.scrollTop;
+      from = Math.max(0, Math.floor(top / h) - OVERSCAN);
+      to = Math.min(lines.length, Math.ceil((top + (this.scroll.clientHeight || 480)) / h) + OVERSCAN);
+    }
+    this.rendered = { from, to };
+    const activeLine = this.rowLines[this.active.row];
+    const out: HTMLElement[] = [];
+    const pad = (n: number) => { const tr = el('tr', 'wy-dt-pad'); tr.setAttribute('aria-hidden', 'true'); const td = el('td'); td.colSpan = this.colspan(); td.style.height = `${n}px`; td.style.padding = '0'; td.style.border = '0'; tr.append(td); return tr; };
+    if (this.virtual && from > 0) out.push(pad(from * this.rowH));
+    for (let k = from; k < to; k++) {
+      const line = lines[k];
+      if (line.kind === 'group') { out.push(this.groupRow(line, k, cols)); continue; }
+      const r = line.r;
       const tr = el('tr');
       tr.dataset.row = String(r);
+      tr.dataset.line = String(k);
       tr.setAttribute('aria-selected', String(this.selected.has(r)));
       if (this.selected.has(r)) tr.classList.add('is-selected');
       if (spec.options.selectable) {
@@ -538,15 +736,15 @@ class DataTableView implements NodeView {
         const cb = el('input'); cb.type = 'checkbox'; cb.checked = this.selected.has(r); cb.dataset.role = 'select-row'; cb.setAttribute('aria-label', 'Select row');
         td.append(cb); tr.append(td);
       }
-      cols.forEach(({ c, i }, k) => {
+      cols.forEach(({ c, i }, n) => {
         const td = el('td');
         td.dataset.col = String(i);
         td.style.textAlign = this.alignOf(c);
-        td.tabIndex = n === this.active.row && k === this.active.col ? 0 : -1;
+        td.tabIndex = k === activeLine && n === this.active.col ? 0 : -1;
         td.setAttribute('role', 'gridcell');
-        const v = spec.rows[r][i];
+        const v = this.rows[r]?.[i] ?? null;
         if (c.type === 'boolean') {
-          const cb = el('input'); cb.type = 'checkbox'; cb.checked = v === true; cb.disabled = ro; cb.dataset.role = 'toggle'; cb.setAttribute('aria-label', c.title);
+          const cb = el('input'); cb.type = 'checkbox'; cb.checked = v === true; cb.disabled = ro || !this.canEditCells; cb.dataset.role = 'toggle'; cb.setAttribute('aria-label', c.title);
           td.append(cb);
         } else td.textContent = formatCell(c, v, this.locale);
         tr.append(td);
@@ -556,54 +754,101 @@ class DataTableView implements NodeView {
         actions.forEach((a, ai) => { const b = el('button', 'wy-dt-btn', a.label); b.type = 'button'; b.title = a.title ?? ''; b.dataset.role = 'row-action'; b.dataset.action = String(ai); td.append(b); });
         tr.append(td);
       }
-      return tr;
-    });
-    if (!rows.length) {
+      out.push(tr);
+    }
+    if (this.virtual && to < lines.length) out.push(pad((lines.length - to) * this.rowH));
+    if (!lines.length) {
       const tr = el('tr', 'wy-dt-empty');
-      const td = el('td', undefined, spec.rows.length ? 'No rows match.' : 'No rows yet.');
-      td.colSpan = cols.length + (spec.options.selectable ? 1 : 0) + (actions.length ? 1 : 0);
-      tr.append(td); rows.push(tr);
+      const td = el('td');
+      td.colSpan = this.colspan();
+      if (this.loadError) {
+        td.append(el('span', 'wy-dt-error', this.loadError), ' ', button('Try again', 'wy-dt-btn', () => this.refresh()));
+        td.setAttribute('role', 'alert');
+      } else td.textContent = this.isRemote && !this.remoteLoaded ? 'Loading…' : this.rows.length || (this.isRemote && this.remoteTotal) ? 'No rows match.' : 'No rows yet.';
+      tr.append(td); out.push(tr);
     }
-    this.tbody.replaceChildren(...rows);
-    // footer with totals
+    this.tbody.replaceChildren(...out);
+    if (!this.tbody.querySelector('td[tabindex="0"]')) this.tbody.querySelector<HTMLElement>('tr[data-row] td[data-col]')?.setAttribute('tabindex', '0');
+  }
+
+  private groupRow(line: Extract<Line, { kind: 'group' }>, k: number, cols: { c: DataColumn; i: number }[]): HTMLElement {
+    const { g, folded } = line;
+    const tr = el('tr', 'wy-dt-group');
+    tr.dataset.line = String(k);
+    tr.dataset.group = g.key;
+    const td = el('td');
+    td.colSpan = this.colspan();
+    td.style.paddingLeft = `${10 + g.depth * 18}px`;
+    const toggle = el('button', 'wy-dt-gtoggle', `${folded ? '▸' : '▾'} ${g.label}`);
+    toggle.type = 'button';
+    toggle.dataset.role = 'group-toggle';
+    toggle.setAttribute('aria-expanded', String(!folded));
+    const parts = [`${g.rows.length} row${g.rows.length === 1 ? '' : 's'}`];
+    for (const { c, i } of cols) {
+      if (!c.total) continue;
+      const t = aggregate(c, c.total, this.rows, g.rows, i);
+      if (t !== null) parts.push(`${c.title}: ${formatCell(c.total === 'count' ? { ...c, type: 'number', decimals: 0 } : c, t, this.locale)}`);
+    }
+    td.append(toggle, el('span', 'wy-dt-gmeta', parts.join(' · ')));
+    tr.append(td);
+    return tr;
+  }
+
+  private paintTotals() {
+    const spec = this.spec!;
+    const cols = this.shownColumns();
+    const actions = this.host.options.rowActions ?? [];
     this.tfoot.replaceChildren();
-    if (cols.some(({ c }) => c.total)) {
-      const tr = el('tr');
-      if (spec.options.selectable) tr.append(el('td'));
-      cols.forEach(({ c, i }, k) => {
-        const td = el('td');
-        td.style.textAlign = this.alignOf(c);
-        const t = c.total ? aggregate(c, c.total, spec.rows, this.index, i) : null;
-        td.textContent = t === null ? (k === 0 ? 'Total' : '') : formatCell(c.total === 'count' ? { ...c, type: 'number', decimals: 0 } : c, t, this.locale);
-        tr.append(td);
-      });
-      if (actions.length) tr.append(el('td'));
-      this.tfoot.append(tr);
-    }
-    const sel = this.thead.querySelector<HTMLInputElement>('[data-role="select-page"]');
-    if (sel) { sel.checked = shown.length > 0 && shown.every((r) => this.selected.has(r)); }
-    this.paintFoot(total, pages);
-    this.paintSelection();
+    if (!cols.some(({ c }) => c.total)) return;
+    if (this.isRemote && !this.remoteTotals) return; // the page alone cannot give a total
+    const tr = el('tr');
+    if (spec.options.selectable) tr.append(el('td'));
+    cols.forEach(({ c, i }, k) => {
+      const td = el('td');
+      td.style.textAlign = this.alignOf(c);
+      const t = !c.total ? null : this.isRemote ? this.remoteTotals![c.key] ?? null : aggregate(c, c.total, this.rows, this.index, i);
+      td.textContent = t === null ? (k === 0 ? 'Total' : '') : formatCell(c.total === 'count' ? { ...c, type: 'number', decimals: 0 } : c, t, this.locale);
+      tr.append(td);
+    });
+    if (actions.length) tr.append(el('td'));
+    this.tfoot.append(tr);
   }
 
   private paintFoot(total: number, pages: number) {
     const spec = this.spec!;
+    const remote = this.isRemote;
     this.foot.replaceChildren();
-    const from = total ? this.page * (this.pageSize || total) + 1 : 0;
-    const to = this.pageSize ? Math.min(total, (this.page + 1) * this.pageSize) : total;
-    const filtered = total !== spec.rows.length;
-    const info = el('span', 'wy-dt-info', total ? `${from}–${to} of ${total}${filtered ? ` (filtered from ${spec.rows.length})` : ''}` : filtered ? `0 of ${spec.rows.length}` : '0 rows');
+    const size = this.pageSize;
+    const from = total ? this.page * (size || total) + 1 : 0;
+    const to = size ? Math.min(total, (this.page + 1) * size) : total;
+    const stored = spec.rows.length;
+    const filtered = !remote && total !== stored;
+    const text = this.loadError && !total ? 'Not loaded' : total ? `${from}–${to} of ${total}${filtered ? ` (filtered from ${stored})` : ''}` : filtered ? `0 of ${stored}` : '0 rows';
+    const info = el('span', 'wy-dt-info', text);
     info.setAttribute('aria-live', 'polite');
     this.foot.append(info, el('span', 'wy-dt-spacer'));
-    if (this.pageSize === 0 && !spec.options.pageSize) return;
-    const size = el('select', 'wy-dt-size');
-    size.setAttribute('aria-label', 'Rows per page');
-    const sizes = PAGE_SIZES.includes(this.pageSize) ? PAGE_SIZES : [...PAGE_SIZES, this.pageSize];
-    for (const n of sizes) size.add(new Option(n ? `${n} / page` : 'All', String(n), false, n === this.pageSize));
-    size.addEventListener('change', () => { this.pageSize = Number(size.value); this.page = 0; this.paintRows(); });
-    const go = (label: string, aria: string, to: number, disabled: boolean) => { const b = button(label, 'wy-dt-btn wy-dt-page', () => { this.page = to; this.paintRows(); }); b.setAttribute('aria-label', aria); b.disabled = disabled; return b; };
-    this.foot.append(size);
-    if (this.pageSize) this.foot.append(go('«', 'First page', 0, this.page === 0), go('‹', 'Previous page', this.page - 1, this.page === 0), el('span', 'wy-dt-info', `Page ${this.page + 1} of ${pages}`), go('›', 'Next page', this.page + 1, this.page >= pages - 1), go('»', 'Last page', pages - 1, this.page >= pages - 1));
+    if (!size && !spec.options.pageSize && !remote) return;
+    const sel = el('select', 'wy-dt-size');
+    sel.setAttribute('aria-label', 'Rows per page');
+    const sizes = (remote ? PAGE_SIZES.filter(Boolean) : PAGE_SIZES);
+    for (const n of sizes.includes(size) ? sizes : [...sizes, size]) sel.add(new Option(n ? `${n} / page` : 'All', String(n), false, n === size));
+    sel.addEventListener('change', () => { this.pageSize = Number(sel.value); this.page = 0; this.refresh(); });
+    const go = (label: string, aria: string, to: number, disabled: boolean) => { const b = button(label, 'wy-dt-btn wy-dt-page', () => { this.page = to; this.refresh(); }); b.setAttribute('aria-label', aria); b.disabled = disabled; return b; };
+    this.foot.append(sel);
+    if (size) this.foot.append(go('«', 'First page', 0, this.page === 0), go('‹', 'Previous page', this.page - 1, this.page === 0), el('span', 'wy-dt-info', `Page ${this.page + 1} of ${pages}`), go('›', 'Next page', this.page + 1, this.page >= pages - 1), go('»', 'Last page', pages - 1, this.page >= pages - 1));
+  }
+
+  private onScroll() {
+    if (!this.virtual || this.scrollFrame) return;
+    this.scrollFrame = requestAnimationFrame(() => {
+      this.scrollFrame = 0;
+      if (this.destroyed || !this.virtual) return;
+      const h = this.rowH || 36;
+      const first = Math.floor(this.scroll.scrollTop / h);
+      const last = Math.ceil((this.scroll.scrollTop + (this.scroll.clientHeight || 480)) / h);
+      // only draw again when the view is about to run past what is drawn
+      if (first < this.rendered.from + 4 && this.rendered.from > 0 || last > this.rendered.to - 4 && this.rendered.to < this.lines.length) this.renderLines();
+    });
   }
 
   // ---- interaction
@@ -628,11 +873,17 @@ class DataTableView implements NodeView {
       this.paintSelection();
     } else if (role === 'select-page') {
       const on = (t as HTMLInputElement).checked;
-      this.tbody.querySelectorAll<HTMLElement>('tr[data-row]').forEach((tr) => { const r = Number(tr.dataset.row); if (on) this.selected.add(r); else this.selected.delete(r); });
+      for (const l of this.lines) if (l.kind === 'row') { if (on) this.selected.add(l.r); else this.selected.delete(l.r); }
       this.paintRows();
+    } else if (role === 'group-toggle') {
+      const key = t.closest<HTMLElement>('tr')!.dataset.group!;
+      if (this.collapsed.has(key)) this.collapsed.delete(key); else this.collapsed.add(key);
+      this.paintRows();
+    } else if (role === 'retry') {
+      this.refresh();
     } else if (role === 'row-action') {
       const r = Number(t.closest<HTMLElement>('tr')!.dataset.row);
-      this.host.options.rowActions?.[Number((t.closest('[data-action]') as HTMLElement).dataset.action)]?.onClick(asRecord(this.spec!, r), r, this.context());
+      this.host.options.rowActions?.[Number((t.closest('[data-action]') as HTMLElement).dataset.action)]?.onClick(asRecord(this.spec!, this.rows, r), r, this.context());
     } else if (role === 'toggle') {
       const { r, c } = this.cellAt(t.closest('td')!);
       this.setCell(r, c, (t as HTMLInputElement).checked);
@@ -647,7 +898,7 @@ class DataTableView implements NodeView {
     const t = e.target as HTMLInputElement;
     if (t.dataset?.role === 'toggle' && this.spec) {
       const { r, c } = this.cellAt(t.closest('td')!);
-      if ((this.spec.rows[r][c] === true) !== t.checked) this.setCell(r, c, t.checked);
+      if ((this.rows[r]?.[c] === true) !== t.checked) this.setCell(r, c, t.checked);
     }
   }
 
@@ -658,6 +909,9 @@ class DataTableView implements NodeView {
       { label: 'Sort ascending', run: () => this.sortBy(col.key, 'asc') },
       { label: 'Sort descending', run: () => this.sortBy(col.key, 'desc') },
       { label: 'Clear sort', disabled: !this.state.sort.length, run: () => this.sortBy(col.key, null) },
+      '-',
+      { label: col.key && spec.options.groupBy[0] === col.key && spec.options.groupBy.length === 1 ? 'Stop grouping' : 'Group by this column', run: () => this.groupBy(spec.options.groupBy[0] === col.key && spec.options.groupBy.length === 1 ? null : col.key) },
+      { label: 'Then group by this column', disabled: !spec.options.groupBy.length || spec.options.groupBy.includes(col.key) || spec.options.groupBy.length >= 3, run: () => this.groupBy(col.key, true) },
       '-',
       { label: 'Edit column…', run: () => this.editColumn(i) },
       { label: 'Insert column after…', run: () => this.editColumn(null, i) },
@@ -672,14 +926,27 @@ class DataTableView implements NodeView {
     this.tbody.querySelectorAll<HTMLElement>('td[tabindex="0"]').forEach((x) => { x.tabIndex = -1; });
     td.tabIndex = 0;
     td.focus({ preventScroll: false });
-    const rows = [...this.tbody.querySelectorAll('tr')];
-    this.active.row = Math.max(0, rows.indexOf(td.parentElement as HTMLTableRowElement));
+    const line = Number((td.parentElement as HTMLElement).dataset.line);
+    this.active.row = Math.max(0, this.rowLines.indexOf(line));
     this.active.col = Math.max(0, [...td.parentElement!.querySelectorAll('td[data-col]')].indexOf(td));
   }
 
+  /** The cell at this data row (counting rows only) and column, drawing it first if the table is long and it is out of view. */
   private cellEl(row: number, col: number): HTMLElement | null {
-    const tr = this.tbody.querySelectorAll('tr')[row];
-    return (tr?.querySelectorAll<HTMLElement>('td[data-col]')[col]) ?? null;
+    const line = this.rowLines[row];
+    if (line === undefined) return null;
+    if (this.virtual && (line < this.rendered.from || line >= this.rendered.to)) {
+      const h = this.rowH || 36;
+      this.scroll.scrollTop = Math.max(0, line * h - (this.scroll.clientHeight || 480) / 2);
+      this.renderLines();
+    }
+    return this.tbody.querySelector<HTMLElement>(`tr[data-line="${line}"]`)?.querySelectorAll<HTMLElement>('td[data-col]')[col] ?? null;
+  }
+
+  private moveTo(row: number, col: number) {
+    this.active = { row, col };
+    const next = this.cellEl(row, col);
+    if (next) this.focusCell(next);
   }
 
   private onKey(e: KeyboardEvent) {
@@ -687,9 +954,10 @@ class DataTableView implements NodeView {
     if (this.editing && this.editing.td.contains(t)) return; // handled by the editor itself
     const td = t.closest<HTMLElement>('td[data-col]');
     if (!td || t !== td) return;
-    const rows = this.tbody.querySelectorAll('tr[data-row]').length;
+    const rows = this.rowLines.length;
     const cols = this.shownColumns().length;
     let { row, col } = this.active;
+    const jump = this.virtual ? Math.max(1, Math.floor((this.scroll.clientHeight || 480) / this.rowH) - 1) : 0;
     switch (e.key) {
       case 'ArrowDown': row = Math.min(rows - 1, row + 1); break;
       case 'ArrowUp': row = Math.max(0, row - 1); break;
@@ -697,8 +965,14 @@ class DataTableView implements NodeView {
       case 'ArrowLeft': col = Math.max(0, col - 1); break;
       case 'Home': col = 0; if (e.ctrlKey || e.metaKey) row = 0; break;
       case 'End': col = cols - 1; if (e.ctrlKey || e.metaKey) row = rows - 1; break;
-      case 'PageDown': if (this.pageSize && this.page < Math.ceil(this.index.length / this.pageSize) - 1) { this.page++; this.paintRows(); this.cellEl(0, col)?.focus(); e.preventDefault(); } return;
-      case 'PageUp': if (this.page > 0) { this.page--; this.paintRows(); this.cellEl(0, col)?.focus(); e.preventDefault(); } return;
+      case 'PageDown':
+        if (jump) { row = Math.min(rows - 1, row + jump); break; }
+        if (this.pageSize && this.page < Math.ceil((this.isRemote ? this.remoteTotal : this.index.length) / this.pageSize) - 1) { this.page++; this.refresh(); this.cellEl(0, col)?.focus(); e.preventDefault(); }
+        return;
+      case 'PageUp':
+        if (jump) { row = Math.max(0, row - jump); break; }
+        if (this.page > 0) { this.page--; this.refresh(); this.cellEl(0, col)?.focus(); e.preventDefault(); }
+        return;
       case 'Enter': case 'F2': e.preventDefault(); this.startEdit(td); return;
       case ' ': {
         const cb = td.querySelector<HTMLInputElement>('input[data-role="toggle"]');
@@ -706,7 +980,7 @@ class DataTableView implements NodeView {
         return;
       }
       case 'Delete': case 'Backspace': {
-        if (this.readOnly) return;
+        if (!this.canEditCells) return;
         e.preventDefault();
         const { r, c } = this.cellAt(td);
         this.setCell(r, c, null);
@@ -715,18 +989,16 @@ class DataTableView implements NodeView {
       default: return;
     }
     e.preventDefault();
-    this.active = { row, col };
-    const next = this.cellEl(row, col);
-    if (next) this.focusCell(next);
+    this.moveTo(row, col);
   }
 
   startEdit(td: HTMLElement) {
-    if (this.readOnly || !this.spec) return;
+    if (!this.canEditCells || !this.spec) return;
     const { r, c } = this.cellAt(td);
     const col = this.spec.columns[c];
     if (col.type === 'boolean') return;
     this.finishEdit(true);
-    const value = this.spec.rows[r][c];
+    const value = this.rows[r]?.[c] ?? null;
     let input: HTMLInputElement | HTMLSelectElement;
     if (col.type === 'select') {
       const s = el('select');
@@ -753,11 +1025,9 @@ class DataTableView implements NodeView {
         k.preventDefault(); k.stopPropagation();
         const dir = k.key === 'Tab' ? (k.shiftKey ? [0, -1] : [0, 1]) : [k.shiftKey ? -1 : 1, 0];
         this.finishEdit(true);
-        const rows = this.tbody.querySelectorAll('tr[data-row]').length;
-        const row = Math.max(0, Math.min(rows - 1, this.active.row + dir[0]));
+        const row = Math.max(0, Math.min(this.rowLines.length - 1, this.active.row + dir[0]));
         const colN = Math.max(0, Math.min(this.shownColumns().length - 1, this.active.col + dir[1]));
-        this.active = { row, col: colN };
-        const next = this.cellEl(row, colN); if (next) this.focusCell(next);
+        this.moveTo(row, colN);
       }
     });
     input.addEventListener('blur', () => this.finishEdit(true));
@@ -772,17 +1042,17 @@ class DataTableView implements NodeView {
     const raw = input?.value;
     if (save && raw !== undefined && this.spec) {
       const col = this.spec.columns[ed.c];
-      const before = this.spec.rows[ed.r]?.[ed.c];
+      const before = this.rows[ed.r]?.[ed.c];
       const after = coerceCell(col.type, raw);
       if (before !== after) { this.setCell(ed.r, ed.c, raw); return; } // the update repaints the row
     }
-    if (this.spec && ed.td.isConnected) { const col = this.spec.columns[ed.c]; ed.td.textContent = formatCell(col, this.spec.rows[ed.r]?.[ed.c] ?? null, this.locale); }
+    if (this.spec && ed.td.isConnected) { const col = this.spec.columns[ed.c]; ed.td.textContent = formatCell(col, this.rows[ed.r]?.[ed.c] ?? null, this.locale); }
   }
 }
 
 /** The data table node, its plugin and the commands around it. */
 export function DataTable(options: DataTablePluginOptions = {}): EditorPlugin {
-  const host: Host = { editor: undefined as unknown as Editor, options: { ...options, buttons: [...(options.buttons ?? [])], rowActions: [...(options.rowActions ?? [])] }, views: new Map(), last: null };
+  const host: Host = { editor: undefined as unknown as Editor, options: { ...options, buttons: [...(options.buttons ?? [])], rowActions: [...(options.rowActions ?? [])], sources: { ...options.sources } }, views: new Map(), last: null };
 
   const activeView = (): DataTableView | null => {
     const { view } = host.editor;
@@ -867,25 +1137,51 @@ export function DataTable(options: DataTablePluginOptions = {}): EditorPlugin {
         if (rows.length < 1) return false;
         return put(e, specFromRows(rows));
       };
-      editor.registerCommand('dataTableFromCSV', (e, text?: string) => {
-        if (typeof text === 'string') return importText(e, text);
+      const fail = (message: string) => { editor.emit('dataTableError', { message }); };
+      /** Opens a CSV, TSV or Excel file (or reads one that is handed over) and inserts it as a data table. */
+      const importFile = async (e: Editor, file: File | Blob, name = (file as File).name ?? '') => {
+        if (file.size > 30 * 1024 * 1024) return fail('That file is too large to import.');
+        try {
+          const bytes = await readBytes(file);
+          const isXlsx = /\.xlsx$/i.test(name) || (bytes[0] === 0x50 && bytes[1] === 0x4b);
+          const rows = isXlsx ? (await parseXlsx(bytes)).rows : parseCSV(new TextDecoder().decode(bytes));
+          if (!rows.length) return fail('There is nothing to import in that file.');
+          const spec = specFromRows(rows);
+          if (name) spec.options.title = name.replace(/\.[^.]+$/, '');
+          put(e, spec);
+        } catch (err) { fail(err instanceof Error ? err.message : 'That file could not be read.'); }
+      };
+      const pick = (e: Editor, accept: string) => {
         const input = document.createElement('input');
         input.type = 'file';
-        input.accept = '.csv,.tsv,.txt,text/csv,text/plain,text/tab-separated-values';
-        input.addEventListener('change', async () => {
-          const f = input.files?.[0];
-          if (!f || f.size > 20 * 1024 * 1024) return;
-          importText(e, await f.text());
-        });
+        input.accept = accept;
+        input.addEventListener('change', () => { const f = input.files?.[0]; if (f) void importFile(e, f); });
         input.click();
+      };
+      editor.registerCommand('dataTableFromCSV', (e, text?: string) => {
+        if (typeof text === 'string') return importText(e, text);
+        pick(e, '.csv,.tsv,.txt,text/csv,text/plain,text/tab-separated-values');
         return true;
       });
+      editor.registerCommand('dataTableFromExcel', (e, file?: File | Blob) => {
+        if (file) { void importFile(e, file); return true; }
+        pick(e, '.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        return true;
+      });
+      editor.registerCommand('dataTableFromFile', (e, file?: File | Blob) => {
+        if (file) { void importFile(e, file); return true; }
+        pick(e, '.csv,.tsv,.txt,.xlsx,text/csv,text/plain,text/tab-separated-values,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        return true;
+      });
+      editor.registerCommand('refreshDataTable', () => { const v = activeView(); if (!v) return false; v.refresh(); return true; });
       editor.registerCommand('exportDataTable', (_e, format: 'csv' | 'xlsx' | 'pdf' = 'csv') => { const v = activeView(); if (!v?.data) return false; v.exportAs(format); return true; });
       editor.registerCommand('dataTableOptions', () => { const v = activeView(); if (!v) return false; v.editOptions(); return true; });
       editor.registerCommand('addDataTableRow', () => { const v = activeView(); if (!v) return false; v.addRow(); return true; });
       const api: DataTableApi = {
         addButton: (b) => { host.options.buttons!.push(b); },
         addRowAction: (a) => { host.options.rowActions!.push(a); },
+        addSource: (name, load) => { host.options.sources![name] = load; for (const v of host.views.values()) if (v.data?.options.source === name) v.refresh(); },
+        refresh: () => { activeView()?.refresh(); },
         active: () => { const v = activeView(); return v?.data ? { spec: v.data, selected: () => v.selectedRows(), visible: () => v.visibleRows() } : null; },
         export: (format, o) => activeView()?.exportBlob(format, o?.selectedOnly) ?? null,
       };
@@ -904,9 +1200,9 @@ export function DataTable(options: DataTablePluginOptions = {}): EditorPlugin {
         const th = target!.closest<HTMLElement>('th[data-col]');
         const col = td ? Number(td.dataset.col) : th ? Number(th.dataset.col) : -1;
         const row = td ? Number((td.parentElement as HTMLElement).dataset.row) : -1;
-        if (!readonly && td && row >= 0) {
+        if (td && row >= 0 && v.canEditCells) items.push({ label: 'Edit cell', run: () => v.startEdit(td) });
+        if (td && row >= 0 && v.canEditRows) {
           items.push(
-            { label: 'Edit cell', run: () => v.startEdit(td) },
             { label: 'Insert row below', run: () => v.addRow(row) },
             { label: 'Duplicate row', run: () => v.duplicateRow(row) },
             { label: 'Delete row', danger: true, run: () => v.deleteRows([row]) },
@@ -942,7 +1238,7 @@ export function DataTable(options: DataTablePluginOptions = {}): EditorPlugin {
             { label: 'New data table', command: 'insertDataTable' },
             { label: 'Convert table to data table', command: 'tableToDataTable' },
             { label: 'Convert data table to table', command: 'dataTableToTable' },
-            { label: 'From a CSV file…', command: 'dataTableFromCSV' },
+            { label: 'From a CSV or Excel file…', command: 'dataTableFromFile' },
             { label: 'Export', heading: true },
             { label: 'CSV', command: 'exportDataTable', args: ['csv'] },
             { label: 'Excel (.xlsx)', command: 'exportDataTable', args: ['xlsx'] },

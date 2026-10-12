@@ -876,3 +876,14 @@ del.wy-diff-del, .wy-diff-legend .wy-diff-del { background: #fee2e2; color: #7f1
 .wy-content figure.wy-dt-static { margin: 1em 0; }
 .wy-content figure.wy-dt-static figcaption { font-weight: 600; margin-bottom: 4px; }
 @media print { .wy-dt-bar, .wy-dt-foot, .wy-dt-colmenu, .wy-dt-filters, .wy-dt-sel { display: none !important; } .wy-dt-scroll { overflow: visible; max-height: none !important; } }
+.wy-content .wy-dt-table tr.wy-dt-group td { background: var(--wy-page-surface); border-bottom: 1px solid var(--wy-page-border); padding-top: 4px; padding-bottom: 4px; font-weight: 600; }
+.wy-dt-gtoggle { font: inherit; font-weight: 600; background: transparent; border: 0; color: inherit; cursor: pointer; padding: 2px 4px; border-radius: 3px; }
+.wy-dt-gtoggle:hover { background: var(--wy-hover); }
+.wy-dt-gmeta { margin-left: 10px; font-weight: 400; color: var(--wy-page-muted); font-size: 13px; }
+.wy-dt.is-virtual .wy-dt-table td { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 360px; }
+.wy-dt.is-virtual .wy-dt-scroll { overscroll-behavior: contain; }
+.wy-content .wy-dt.is-virtual .wy-dt-table tbody tr:not(.wy-dt-pad) { height: var(--wy-dt-row); }
+.wy-content .wy-dt.is-virtual .wy-dt-table tbody tr:not(.wy-dt-pad) td { box-sizing: border-box; padding-top: 0; padding-bottom: 0; line-height: 1.2; }
+.wy-dt.is-loading .wy-dt-scroll { opacity: .55; transition: opacity .15s; }
+.wy-dt-error { color: var(--wy-danger); }
+@media (prefers-reduced-motion: reduce) { .wy-dt.is-loading .wy-dt-scroll { transition: none; } }

@@ -1,7 +1,7 @@
 import axe from 'axe-core';
 import { afterEach, describe, expect, it } from 'vitest';
 import { TextSelection } from 'prosemirror-state';
-import { Comments, Editor, Pages, Outline, Templates, TrackChanges, Versions, defaultPlugins } from '../src';
+import { Comments, DataTable, Editor, Pages, Outline, Templates, TrackChanges, Versions, defaultPlugins } from '../src';
 
 const editors: Editor[] = [];
 afterEach(() => editors.splice(0).forEach((e) => e.destroy()));
@@ -38,6 +38,18 @@ describe('accessibility (axe-core)', () => {
     expect(await audit(e.root)).toEqual([]);
     e.setReadOnly(true);
     e.root.querySelector('.wy-dt')!.dispatchEvent(new Event('pointerenter'));
+    expect(await audit(e.root)).toEqual([]);
+  });
+
+  it('grouped, long and loaded data tables have no violations', async () => {
+    const e = make({}, [DataTable({ sources: { fail: async () => { throw new Error('nope'); } } })]);
+    const cols = [{ key: 'k', title: 'Kind', type: 'text' }, { key: 'n', title: 'N', type: 'number', total: 'sum' }];
+    e.execute('insertDataTable', { columns: cols, rows: [['a', 1], ['b', 2], ['a', 3]], options: { groupBy: ['k'], pageSize: 0 } });
+    e.execute('insertDataTable', { columns: cols, rows: Array.from({ length: 400 }, (_, i) => ['x', i]), options: { pageSize: 0 } });
+    e.execute('insertDataTable', { columns: cols, rows: [], options: { source: 'fail' } });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(e.root.querySelectorAll('.wy-dt-group').length).toBe(2);
+    expect(e.root.querySelector('.wy-dt-error')).not.toBeNull();
     expect(await audit(e.root)).toEqual([]);
   });
 

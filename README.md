@@ -494,13 +494,30 @@ editor.execute('insertDataTable', {
 - **Columns** are `text`, `number`, `currency`, `date`, `boolean` or `select`, each with its own editor, format, alignment and an optional footer total (`sum`, `avg`, `count`, `min`, `max`). Add, edit, move, hide and delete them from the heading menu.
 - **Search and filter:** a search box, and an optional filter row. Text filters match "contains"; number and date filters take `>5`, `>=5`, `<5`, `5..10`, `=5`, `!=5`.
 - **Sort** by clicking a heading (Shift+click for a second column). Empty values always come last.
-- **Paging** with 10, 25, 50, 100 or all rows per page. Nothing is drawn beyond the page.
+- **Paging** with 10, 25, 50, 100 or all rows per page. Nothing is drawn beyond the page. With paging off, a table of more than about 200 rows draws only the rows in view and scrolls (20,000 rows stay smooth).
+- **Group by** one to three columns from the heading menu (or `options.groupBy`). Each group has a heading with its row count and the footer totals of its columns, and can be folded. A page that starts inside a group repeats the heading.
 - **Editing:** double-click or press Enter on a cell, Enter or Tab to save and move, Esc to cancel. Arrow keys move between cells. Every edit is one undo step.
 - **Buttons:** your own toolbar buttons (`needsSelection` keeps one disabled until rows are ticked) and a button on every row.
 - **Export:** CSV, Excel (.xlsx) and PDF from the Export menu, using what is shown (filtered, sorted, visible columns), or only the ticked rows. The .xlsx file is written by the editor itself, with no library: a bold frozen header, filter buttons, number, currency and date formats. CSV text that starts with `=`, `+`, `-` or `@` is quoted so a spreadsheet does not run it. PDF uses the print dialog (choose "Save as PDF"), so every script and font works.
 - **Convert both ways:** `tableToDataTable` turns the table at the cursor into a data table (the first row names the columns, types are guessed from the values), and `dataTableToTable` turns the selected data table back into an ordinary table. Also in the right-click menu.
 - **Look:** follows the colour theme. Options: striped rows, cell borders, row height, a fixed height with a sticky heading. The block is exported to Word as a real table, to Markdown as a table, and to HTML with a plain table inside.
-- **CSV in:** `editor.execute('dataTableFromCSV')` opens a file picker (or pass the text). Quoted fields and comma, semicolon or tab separators are handled.
+- **Import:** `editor.execute('dataTableFromFile')` opens a file picker for CSV, TSV or Excel (.xlsx); `dataTableFromCSV(text)` and `dataTableFromExcel(file)` take the content directly. The first row names the columns and each column's type is guessed (dates stay dates). The .xlsx reader is also written here, with no library, and reads the first visible sheet.
+- **Rows from a server:** set `options.source` to a name and give the plugin a function for it. The table then asks for one page at a time and stores no rows in the document.
+
+```ts
+DataTable({
+  sources: {
+    orders: async ({ page, pageSize, search, filters, sort }) => {
+      const r = await fetch(`/api/orders?${new URLSearchParams({ page, pageSize, search, sort: JSON.stringify(sort) })}`).then((x) => x.json());
+      return { rows: r.items, total: r.total, totals: { amount: r.sumAmount } };   // rows as arrays or { columnKey: value }
+    },
+  },
+  onEdit: async ({ key, value, row }) => api.patch(row.id, { [key]: value }),      // optional: without it the table is read-only
+});
+editor.execute('insertDataTable', { columns: [...], rows: [], options: { source: 'orders', pageSize: 25, filters: true } });
+```
+
+  Search is sent after a short pause, only the newest answer is shown, a failure shows its message with a "Try again" button, and Export asks the source for every matching row. Ticked rows are those on the current page. Groups show the rows of the current page.
 
 The pure parts (`dataTableToCSV`, `dataTableToXlsx`, `dataTableToPrintHTML`, `queryDataRows`, `cleanDataTable`) are exported too, so a server can build the same files.
 

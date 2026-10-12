@@ -37,6 +37,10 @@ export interface DataTableOptions {
   density: 'compact' | 'normal' | 'comfortable';
   /** Height in pixels after which the table scrolls with a fixed header; 0 for none. */
   height: number;
+  /** Column keys to group the rows by (up to three levels). */
+  groupBy: string[];
+  /** Name of a data source given to the plugin: the rows are then loaded page by page instead of stored in the document. Empty = the rows are in the document. */
+  source: string;
 }
 
 export interface DataTableSpec {
@@ -52,7 +56,7 @@ export const COLUMN_TYPES: ColumnType[] = ['text', 'number', 'currency', 'date',
 export const AGGREGATES: Aggregate[] = ['sum', 'avg', 'count', 'min', 'max'];
 export const PAGE_SIZES = [10, 25, 50, 100, 0];
 
-export const defaultOptions = (): DataTableOptions => ({ title: '', pageSize: 10, search: true, filters: false, striped: true, bordered: false, selectable: false, density: 'normal', height: 0 });
+export const defaultOptions = (): DataTableOptions => ({ title: '', pageSize: 10, search: true, filters: false, striped: true, bordered: false, selectable: false, density: 'normal', height: 0, groupBy: [], source: '' });
 
 // ---- values
 
@@ -189,6 +193,8 @@ export function cleanSpec(raw: unknown): DataTableSpec | null {
     selectable: o.selectable === true,
     density: oneOf(o.density, ['compact', 'normal', 'comfortable'] as const, 'normal'),
     height: Number.isFinite(height) && height >= 120 && height <= 4000 ? height : 0,
+    groupBy: (Array.isArray(o.groupBy) ? o.groupBy : []).filter((k: unknown) => typeof k === 'string' && columns.some((c) => c.key === k)).filter((k: string, i: number, a: string[]) => a.indexOf(k) === i).slice(0, 3),
+    source: cleanString(o.source, 60).replace(/[^\w.-]/g, ''),
   };
   return { columns, rows, options };
 }
@@ -291,7 +297,10 @@ export function queryRows(spec: DataTableSpec, view: ViewState, locale?: string)
     if (q && !visible.some((i) => formatCell(cols[i], row[i], locale).toLowerCase().includes(q) || String(row[i] ?? '').toLowerCase().includes(q))) return;
     out.push(r);
   });
-  const keys = view.sort.map((s) => ({ i: cols.findIndex((c) => c.key === s.key), dir: s.dir === 'desc' ? -1 : 1 })).filter((k) => k.i >= 0);
+  // grouped rows keep each group together: the group columns sort first (in the direction chosen for them, else ascending)
+  const groups = spec.options.groupBy.map((key) => view.sort.find((s) => s.key === key) ?? { key, dir: 'asc' as const });
+  const effective = [...groups, ...view.sort.filter((s) => !spec.options.groupBy.includes(s.key))];
+  const keys = effective.map((s) => ({ i: cols.findIndex((c) => c.key === s.key), dir: s.dir === 'desc' ? -1 : 1 })).filter((k) => k.i >= 0);
   if (keys.length) {
     out = out
       .map((r, n) => ({ r, n }))
@@ -321,6 +330,86 @@ export function aggregate(col: DataColumn, kind: Aggregate, rows: Cell[][], inde
     case 'min': return Math.min(...xs);
     default: return Math.max(...xs);
   }
+}
+
+// ---- groups
+
+export interface GroupInfo {
+  /** Unique id of this group (path of column and value), used to remember which are collapsed. */
+  key: string;
+  depth: number;
+  col: number;
+  value: Cell;
+  label: string;
+  /** Every row of the group (not only those on the current page). */
+  rows: number[];
+}
+
+/** One line of the table body: a data row with the groups it sits in, or (r = -1) a whole group that is folded away. */
+export interface DisplayRow { r: number; path: GroupInfo[] }
+
+/** Splits the ordered rows into groups (the order of `index` is kept) and drops the rows of folded groups. */
+export function groupDisplay(spec: DataTableSpec, index: number[], collapsed: ReadonlySet<string> = new Set(), locale?: string, rows: Cell[][] = spec.rows): DisplayRow[] {
+  const by = spec.options.groupBy.map((k) => spec.columns.findIndex((c) => c.key === k)).filter((i) => i >= 0);
+  if (!by.length) return index.map((r) => ({ r, path: [] }));
+  const groups = new Map<string, GroupInfo>();
+  const paths = index.map((r) => {
+    const path: GroupInfo[] = [];
+    let id = '';
+    by.forEach((col, depth) => {
+      const v = rows[r][col];
+      id += `${depth}:${spec.columns[col].key}=${JSON.stringify(v)}|`;
+      let g = groups.get(id);
+      if (!g) { g = { key: id, depth, col, value: v, label: `${spec.columns[col].title}: ${formatCell(spec.columns[col], v, locale) || '(empty)'}`, rows: [] }; groups.set(id, g); }
+      g.rows.push(r);
+      path.push(g);
+    });
+    return path;
+  });
+  const out: DisplayRow[] = [];
+  let folded: string | null = null;
+  index.forEach((r, n) => {
+    const path = paths[n];
+    const hit = path.find((g) => collapsed.has(g.key));
+    if (hit) {
+      if (folded === hit.key) return;
+      folded = hit.key;
+      out.push({ r: -1, path: path.slice(0, hit.depth + 1) });
+      return;
+    }
+    folded = null;
+    out.push({ r, path });
+  });
+  return out;
+}
+
+// ---- remote data
+
+/** What a data source is asked for. Filters are the text typed in each column's filter box, by column key. */
+export interface DataQuery {
+  page: number;
+  pageSize: number;
+  search: string;
+  filters: Record<string, string>;
+  sort: { key: string; dir: 'asc' | 'desc' }[];
+  groupBy: string[];
+}
+
+/** What a data source answers: one page of rows (arrays in column order, or objects by column key) and the total matching rows. */
+export interface DataPage {
+  rows: unknown[];
+  total: number;
+  /** Footer values by column key, over all matching rows (the page alone cannot give a sum). */
+  totals?: Record<string, number | null>;
+}
+
+/** Turns a data source's rows into cells of the right type; rows from outside are never trusted. */
+export function normalizeRows(columns: DataColumn[], rows: unknown): Cell[][] {
+  if (!Array.isArray(rows)) return [];
+  return rows.slice(0, MAX_ROWS).map((r) => {
+    const get = (c: DataColumn, i: number) => (Array.isArray(r) ? r[i] : r && typeof r === 'object' ? (r as Record<string, unknown>)[c.key] : undefined);
+    return columns.map((c, i) => coerceCell(c.type, get(c, i)));
+  });
 }
 
 // ---- export
@@ -528,4 +617,138 @@ export function toPrintHTML(spec: DataTableSpec, o: ExportOptions = {}): string 
     : '';
   const title = o.title ?? spec.options.title;
   return `<!doctype html><html><head><meta charset="utf-8"><title>${esc(title || 'Table')}</title><style>@page{margin:14mm}body{font:12px/1.4 system-ui,sans-serif;color:#111;margin:0}h1{font-size:16px;margin:0 0 8px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #888;padding:4px 8px;vertical-align:top}th{background:#e7ecf3;font-weight:600}thead{display:table-header-group}tfoot{display:table-footer-group;font-weight:600}tr{break-inside:avoid}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}</style></head><body>${title ? `<h1>${esc(title)}</h1>` : ''}<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody>${totals}</table></body></html>`;
+}
+
+// ---- reading .xlsx (also with no library: a zip reader, the browser's own inflate, and a few XML parts)
+
+const MAX_UNZIPPED = 64 * 1024 * 1024;
+
+async function inflateRaw(data: Uint8Array, limit: number): Promise<Uint8Array> {
+  if (typeof DecompressionStream === 'undefined') throw new Error('This browser cannot unpack compressed files.');
+  const ds = new DecompressionStream('deflate-raw');
+  const writer = ds.writable.getWriter();
+  writer.write(data as BufferSource).catch(() => {});
+  writer.close().catch(() => {});
+  const reader = ds.readable.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.length;
+    if (size > limit) { await reader.cancel(); throw new Error('The file is too large to open.'); }
+    chunks.push(value);
+  }
+  const out = new Uint8Array(size);
+  let at = 0;
+  for (const c of chunks) { out.set(c, at); at += c.length; }
+  return out;
+}
+
+/** Reads the entries of a zip archive. Entries are unpacked on demand, and each one is size-checked. */
+function openZip(bytes: Uint8Array): { names: string[]; read(name: string): Promise<string | null> } {
+  const v = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  let end = -1;
+  for (let i = bytes.length - 22; i >= Math.max(0, bytes.length - 22 - 65535); i--) if (v.getUint32(i, true) === 0x06054b50) { end = i; break; }
+  if (end < 0) throw new Error('This is not a spreadsheet file.');
+  const count = v.getUint16(end + 10, true);
+  let at = v.getUint32(end + 16, true);
+  const entries = new Map<string, { method: number; csize: number; usize: number; offset: number }>();
+  let total = 0;
+  for (let i = 0; i < count && at + 46 <= bytes.length; i++) {
+    if (v.getUint32(at, true) !== 0x02014b50) break;
+    const method = v.getUint16(at + 10, true), csize = v.getUint32(at + 20, true), usize = v.getUint32(at + 24, true);
+    const nl = v.getUint16(at + 28, true), el = v.getUint16(at + 30, true), cl = v.getUint16(at + 32, true), offset = v.getUint32(at + 42, true);
+    const name = new TextDecoder().decode(bytes.subarray(at + 46, at + 46 + nl));
+    total += usize;
+    if (usize > MAX_UNZIPPED || total > MAX_UNZIPPED * 2) throw new Error('The file is too large to open.');
+    entries.set(name, { method, csize, usize, offset });
+    at += 46 + nl + el + cl;
+  }
+  return {
+    names: [...entries.keys()],
+    async read(name) {
+      const e = entries.get(name);
+      if (!e) return null;
+      const start = e.offset + 30 + v.getUint16(e.offset + 26, true) + v.getUint16(e.offset + 28, true);
+      const raw = bytes.subarray(start, start + e.csize);
+      const data = e.method === 0 ? raw : e.method === 8 ? await inflateRaw(raw, Math.min(MAX_UNZIPPED, e.usize + 1024)) : null;
+      if (!data) throw new Error('This spreadsheet uses a compression method that is not supported.');
+      return new TextDecoder().decode(data);
+    },
+  };
+}
+
+const BUILTIN_DATE_FORMATS = new Set([14, 15, 16, 17, 18, 19, 20, 21, 22, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 45, 46, 47, 50, 51, 52, 53, 54, 55, 56, 57, 58]);
+const isDateFormat = (id: number, custom: Map<number, string>) => BUILTIN_DATE_FORMATS.has(id) || /[dmyhs]/i.test((custom.get(id) ?? '').replace(/"[^"]*"|\[[^\]]*\]|\\./g, ''));
+const colIndex = (ref: string) => { let n = 0; for (const ch of /^[A-Z]+/i.exec(ref)?.[0] ?? '') n = n * 26 + (ch.toUpperCase().charCodeAt(0) - 64); return n - 1; };
+const fromSerial = (n: number) => new Date(Date.UTC(1899, 11, 30) + Math.floor(n) * 86400000).toISOString().slice(0, 10);
+
+/**
+ * The first visible sheet of an .xlsx file as plain rows: text, numbers, true/false and dates (as YYYY-MM-DD). Formulas give their last
+ * calculated value. Needs `DOMParser` and `DecompressionStream`, which every current browser has.
+ */
+export async function parseXlsx(input: ArrayBuffer | Uint8Array): Promise<{ rows: unknown[][]; sheet: string }> {
+  const zip = openZip(input instanceof Uint8Array ? input : new Uint8Array(input));
+  const parse = (xmlText: string | null) => {
+    if (xmlText === null) return null;
+    const doc = new DOMParser().parseFromString(xmlText, 'application/xml');
+    return doc.getElementsByTagName('parsererror').length ? null : doc;
+  };
+  const all = (node: ParentNode, tag: string) => Array.from((node as Element).getElementsByTagName(tag));
+  const book = parse(await zip.read('xl/workbook.xml'));
+  if (!book) throw new Error('This is not a spreadsheet file.');
+  const sheets = all(book, 'sheet').filter((s) => s.getAttribute('state') !== 'hidden' && s.getAttribute('state') !== 'veryHidden');
+  const first = sheets[0];
+  if (!first) throw new Error('The workbook has no sheets.');
+  const rid = first.getAttribute('r:id') ?? first.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships', 'id');
+  const rels = parse(await zip.read('xl/_rels/workbook.xml.rels'));
+  const target = rels && all(rels, 'Relationship').find((r) => r.getAttribute('Id') === rid)?.getAttribute('Target');
+  const path = target ? (target.startsWith('/') ? target.slice(1) : `xl/${target}`) : 'xl/worksheets/sheet1.xml';
+  const sheet = parse(await zip.read(path));
+  if (!sheet) throw new Error('The first sheet could not be read.');
+
+  const strings: string[] = [];
+  const sst = parse(await zip.read('xl/sharedStrings.xml'));
+  if (sst) for (const si of all(sst, 'si')) strings.push(all(si, 't').filter((t) => !t.closest('rPh')).map((t) => t.textContent ?? '').join(''));
+
+  const custom = new Map<number, string>();
+  const dateStyle: boolean[] = [];
+  const styles = parse(await zip.read('xl/styles.xml'));
+  if (styles) {
+    for (const n of all(styles, 'numFmt')) custom.set(Number(n.getAttribute('numFmtId')), n.getAttribute('formatCode') ?? '');
+    const xfs = all(styles, 'cellXfs')[0];
+    if (xfs) for (const xf of Array.from(xfs.children)) dateStyle.push(isDateFormat(Number(xf.getAttribute('numFmtId')), custom));
+  }
+
+  const rows: unknown[][] = [];
+  let next = 0;
+  for (const row of all(sheet, 'row')) {
+    const at = Number(row.getAttribute('r')) - 1;
+    const r = Number.isInteger(at) && at >= 0 ? at : next;
+    if (r > MAX_ROWS) break;
+    while (rows.length < r) rows.push([]);
+    const cells: unknown[] = [];
+    let col = 0;
+    for (const c of Array.from(row.children).filter((x) => x.tagName === 'c')) {
+      const ref = c.getAttribute('r');
+      col = ref ? colIndex(ref) : col;
+      if (col >= MAX_COLUMNS) { col++; continue; }
+      const v = c.getElementsByTagName('v')[0]?.textContent ?? '';
+      const type = c.getAttribute('t');
+      let value: unknown = '';
+      if (type === 's') value = strings[Number(v)] ?? '';
+      else if (type === 'str') value = v;
+      else if (type === 'inlineStr') value = all(c, 't').map((t) => t.textContent ?? '').join('');
+      else if (type === 'b') value = v === '1';
+      else if (type === 'e') value = '';
+      else if (type === 'd') value = parseDate(v) ?? v;
+      else if (v !== '') { const n = Number(v); value = Number.isFinite(n) ? (dateStyle[Number(c.getAttribute('s'))] && n >= 1 && n < 2958466 ? fromSerial(n) : n) : v; }
+      cells[col] = value;
+      col++;
+    }
+    rows.push(Array.from(cells, (x) => x ?? ''));
+    next = r + 1;
+  }
+  return { rows, sheet: first.getAttribute('name') ?? 'Sheet1' };
 }

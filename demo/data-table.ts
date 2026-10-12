@@ -1,4 +1,4 @@
-import { createEditor, defaultPlugins, DataTable, download } from '../src';
+import { cleanDataTable, createEditor, defaultPlugins, DataTable, download, queryDataRows, type DataPage, type DataQuery } from '../src';
 import { $, button, codePanel, el } from './samples';
 
 const names = ['Oolong tea', 'Green tea', 'Black tea', 'Espresso beans', 'Filter coffee', 'Matcha', 'Chai mix', 'Hot chocolate', 'Cold brew', 'Rooibos', 'Earl Grey', 'Jasmine pearls'];
@@ -24,6 +24,27 @@ const spec = {
   options: { title: 'Products', pageSize: 10, search: true, filters: true, striped: true, selectable: true },
 };
 
+// A pretend server: 5,000 orders, answering after a short delay, with real searching, filtering, sorting and paging.
+const orderColumns = [
+  { key: 'id', title: 'Order', type: 'number' },
+  { key: 'customer', title: 'Customer', type: 'text' },
+  { key: 'region', title: 'Region', type: 'select', options: ['North', 'South', 'East', 'West'] },
+  { key: 'amount', title: 'Amount', type: 'currency', currency: 'USD', total: 'sum' },
+  { key: 'placed', title: 'Placed', type: 'date' },
+  { key: 'paid', title: 'Paid', type: 'boolean' },
+];
+const people = ['Ada', 'Budi', 'Chen', 'Dewi', 'Eko', 'Farah', 'Gita', 'Hana', 'Ilham', 'Joko'];
+const orders = cleanDataTable({
+  columns: orderColumns,
+  rows: Array.from({ length: 5000 }, (_, i) => [i + 1, `${people[i % 10]} ${String.fromCharCode(65 + (i % 26))}.`, ['North', 'South', 'East', 'West'][i % 4], 20 + ((i * 37) % 900) + (i % 7) / 10, `2026-${String((i % 12) + 1).padStart(2, '0')}-${String((i % 27) + 1).padStart(2, '0')}`, i % 3 === 0]),
+})!;
+async function loadOrders(q: DataQuery): Promise<DataPage> {
+  await new Promise((r) => setTimeout(r, 300));
+  const hits = queryDataRows(orders, { search: q.search, filters: q.filters, sort: q.sort }, 'en-US');
+  const page = hits.slice(q.page * q.pageSize, (q.page + 1) * q.pageSize);
+  return { rows: page.map((r) => orders.rows[r]), total: hits.length, totals: { amount: hits.reduce((n, r) => n + (orders.rows[r][3] as number), 0) } };
+}
+
 const status = el('div', { class: 'demo-note' }, 'Search, click a heading to sort (Shift+click for a second sort), type in the filter row (for numbers try >10, 5..20), double-click or press Enter on a cell to edit.');
 
 $('#app').append(
@@ -32,7 +53,14 @@ $('#app').append(
     button('Convert to regular table', () => { select(); editor.execute('dataTableToTable'); }),
     button('Convert table back', () => editor.execute('tableToDataTable')),
     button('New data table', () => editor.execute('insertDataTable')),
-    button('Import CSV…', () => editor.execute('dataTableFromCSV')),
+    button('Import CSV or Excel…', () => editor.execute('dataTableFromFile')),
+    button('Group by category', () => editor.execute('insertDataTable', { ...spec, options: { ...spec.options, title: 'Products by category', groupBy: ['cat'], pageSize: 0, filters: false } })),
+    button('20,000 rows (scrolls)', () => editor.execute('insertDataTable', {
+      columns: [{ key: 'n', title: '#', type: 'number' }, { key: 'code', title: 'Code', type: 'text' }, { key: 'v', title: 'Value', type: 'number', decimals: 2, total: 'sum' }, { key: 'd', title: 'Date', type: 'date' }],
+      rows: Array.from({ length: 20000 }, (_, i) => [i + 1, `ITEM-${String(i * 7919 % 100000).padStart(5, '0')}`, (i * 31) % 1000 / 7, `2026-${String((i % 12) + 1).padStart(2, '0')}-${String((i % 27) + 1).padStart(2, '0')}`]),
+      options: { title: '20,000 rows, only the visible ones are drawn', pageSize: 0, filters: true, height: 360 },
+    })),
+    button('Load from a server', () => editor.execute('insertDataTable', { columns: orderColumns, rows: [], options: { title: 'Orders (loaded 25 at a time)', source: 'orders', pageSize: 25, filters: true, selectable: true } })),
     button('Download .xlsx', () => { const b = (editor.extensions.dataTable as { export(f: string): Blob | null }).export('xlsx'); if (b) download(b, 'products.xlsx'); }),
   ),
   el('div', { class: 'panel' }, el('div', { id: 'editor' })),
@@ -43,6 +71,7 @@ const editor = createEditor({
   ribbon: true,
   plugins: [...defaultPlugins.filter((p) => p.name !== 'dataTable'), DataTable({
     locale: 'en-US',
+    sources: { orders: loadOrders },
     buttons: [
       { id: 'restock', label: 'Mark inactive', needsSelection: true, onClick: ({ selected }) => { status.textContent = `Would mark ${selected.length} product${selected.length === 1 ? '' : 's'} inactive.`; } },
       { id: 'count', label: 'How many?', onClick: ({ visible, spec: s }) => { status.textContent = `${visible.length} of ${s.rows.length} rows match right now.`; } },
@@ -58,7 +87,9 @@ plugins: [...defaultPlugins, DataTable({
   buttons: [{ id: 'ship', label: 'Ship', needsSelection: true, onClick: ({ selected }) => api.ship(selected) }],
   rowActions: [{ label: 'View', onClick: (row, index) => open(row.id) }],
 })],
-editor.execute('insertDataTable', { columns: [...], rows: [...], options: { pageSize: 25, filters: true } });
+editor.execute('insertDataTable', { columns: [...], rows: [...], options: { pageSize: 25, filters: true, groupBy: ['category'] } });
+// rows from a server instead of the document: options.source names a function you give the plugin
+DataTable({ sources: { orders: async ({ page, pageSize, search, filters, sort }) => ({ rows, total, totals: { amount } }) } })
 editor.execute('tableToDataTable');           // the table at the cursor
 editor.execute('dataTableToTable');           // the selected data table
 editor.execute('exportDataTable', 'xlsx');    // 'csv' | 'xlsx' | 'pdf'

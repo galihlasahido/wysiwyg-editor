@@ -371,3 +371,46 @@ test('data table: search, sort, page, edit, export and convert', async ({ page }
   await page.locator('.ProseMirror table td').first().click().catch(() => {});
   expect(problems).toEqual([]);
 });
+
+test('data table: groups, long tables, a server source and importing Excel', async ({ page }) => {
+  const problems = await openDemo(page, 'data-table');
+
+  // grouping
+  await page.getByRole('button', { name: 'Group by category' }).click();
+  await expect(page.locator('.wy-dt-group').first()).toBeVisible();
+  const toggle = page.locator('.wy-dt-group [data-role="group-toggle"]').first();
+  const before = await page.locator('.wy-dt tbody tr[data-row]').count();
+  await toggle.click();
+  expect(await page.locator('.wy-dt tbody tr[data-row]').count()).toBeLessThan(before);
+
+  // 20,000 rows: only some are drawn, and the last one is reachable by scrolling
+  await page.getByRole('button', { name: '20,000 rows (scrolls)' }).click();
+  const big = page.locator('.wy-dt.is-virtual');
+  await expect(big.locator('.wy-dt-info').first()).toContainText('20000');
+  expect(await big.locator('tbody tr[data-row]').count()).toBeLessThan(120);
+  await big.locator('.wy-dt-scroll').evaluate((el) => { el.scrollTop = el.scrollHeight; });
+  await expect(big.locator('tbody tr[data-row][data-row="19999"]')).toHaveCount(1);
+  await page.screenshot({ path: 'test-results/data-table-virtual.png' });
+
+  // a server source: pages of 25, and the search is sent to the "server"
+  await page.getByRole('button', { name: 'Load from a server' }).click();
+  const remote = page.locator('.wy-dt').filter({ hasText: 'Orders (loaded 25 at a time)' });
+  await expect(remote.locator('tbody tr[data-row]')).toHaveCount(25);
+  await expect(remote.locator('.wy-dt-info').first()).toContainText('1–25 of 5000');
+  await remote.getByRole('button', { name: 'Next page' }).click();
+  await expect(remote.locator('.wy-dt-info').first()).toContainText('26–50 of 5000');
+  await remote.getByLabel('Search the table').fill('Ada A.');
+  await expect(remote.locator('.wy-dt-info').first()).not.toContainText('of 5000');
+  await expect(remote.locator('tbody tr[data-row]').first()).toContainText('Ada A.');
+  const [file] = await Promise.all([page.waitForEvent('download'), (async () => { await remote.getByRole('button', { name: 'Export ▾' }).click(); await page.getByRole('menuitem', { name: 'CSV' }).click(); })()]);
+  expect(file.suggestedFilename()).toBe('orders-loaded-25-at-a-time.csv');
+
+  // importing an Excel file made by a real spreadsheet program
+  const [chooser] = await Promise.all([page.waitForEvent('filechooser'), page.getByRole('button', { name: 'Import CSV or Excel…' }).click()]);
+  await chooser.setFiles('e2e/fixtures/stock.xlsx');
+  const imported = page.locator('.wy-dt').filter({ has: page.locator('.wy-dt-title', { hasText: /^stock$/ }) });
+  await expect(imported.locator('tbody tr[data-row]')).toHaveCount(3);
+  await expect(imported.locator('tbody tr').first()).toContainText('Oolong');
+  await expect(imported.locator('tbody tr').nth(1)).toContainText('Feb 9, 2026');
+  expect(problems).toEqual([]);
+});
