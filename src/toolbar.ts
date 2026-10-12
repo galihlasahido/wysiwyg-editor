@@ -98,7 +98,8 @@ export class Toolbar {
     const movable = () => [...this.bar.children].filter((c) => !c.classList.contains('wy-tb-break'));
     const moved: Element[] = [];
     while (!fits() && movable().length > 1) {
-      const last = movable().at(-1)!;
+      const moving = movable();
+      const last = moving[moving.length - 1]!;
       moved.unshift(last);
       pop.prepend(last);
     }

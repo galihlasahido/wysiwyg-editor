@@ -228,7 +228,7 @@ export function cleanSpec(raw: unknown): DataTableSpec | null {
   const rows: Cell[][] = [];
   for (const r of (Array.isArray(data.rows) ? data.rows : []).slice(0, MAX_ROWS)) {
     // a row is an array in column order, or an object by column key (handy when some columns are calculated)
-    const src: unknown[] = Array.isArray(r) ? r : r && typeof r === 'object' ? columns.map((c) => (Object.hasOwn(r, c.key) ? (r as Record<string, unknown>)[c.key] : undefined)) : [];
+    const src: unknown[] = Array.isArray(r) ? r : r && typeof r === 'object' ? columns.map((c) => (Object.prototype.hasOwnProperty.call(r, c.key) ? (r as Record<string, unknown>)[c.key] : undefined)) : [];
     rows.push(columns.map((c, i) => coerceCell(c.type, src[i])));
   }
   const o = data.options && typeof data.options === 'object' ? data.options : {};

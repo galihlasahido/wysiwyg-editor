@@ -528,3 +528,18 @@ test('data table: add, edit and delete in dialogs, guarded by role', async ({ pa
   await expect(dt.locator('tbody tr[data-row]')).toHaveCount(0);
   expect(problems).toEqual([]);
 });
+
+test('data table: progress bars and highlights show on every row, striped or not', async ({ page }) => {
+  const problems = await openDemo(page, 'data-table-finance', '#table .wy-dt');
+  const bars = page.locator('#table .wy-dt-barcell');
+  expect(await bars.count()).toBe(12);
+  // a shorthand `background` on striped, hovered or selected rows used to wipe the bar out
+  const drawn = await bars.evaluateAll((els) => els.map((e) => /gradient/.test(getComputedStyle(e).backgroundImage)));
+  expect(drawn.every(Boolean)).toBe(true);
+  await bars.nth(1).hover();
+  expect(await bars.nth(1).evaluate((e) => /gradient/.test(getComputedStyle(e).backgroundImage))).toBe(true);
+  const looks = await page.locator("#table td[data-look]:not([data-look='bold'])").evaluateAll((els) => els.map((e) => getComputedStyle(e).backgroundColor));
+  expect(looks.length).toBeGreaterThan(5);
+  expect(looks.every((c) => c !== 'rgba(0, 0, 0, 0)' && c !== 'transparent')).toBe(true);
+  expect(problems).toEqual([]);
+});

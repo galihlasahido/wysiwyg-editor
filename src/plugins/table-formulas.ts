@@ -150,7 +150,7 @@ function evaluateExpression(src: string, resolve: Resolve, bounds: [number, numb
     if (t.t === 'ref') { take(); const [c, r] = refToCell(t.v); return dead ? 0 : resolve(c, r); }
     if (t.t === 'id') {
       take();
-      const f = Object.hasOwn(FUNCS, t.v) ? FUNCS[t.v] : undefined;
+      const f = Object.prototype.hasOwnProperty.call(FUNCS, t.v) ? FUNCS[t.v] : undefined;
       if (!f) throw new FormulaError('#NAME?');
       if (t.v === 'IF') {
         take('(');

@@ -4,6 +4,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## Unreleased
 
+- Added: a **browser support** section on the demo site: 17 real browser builds (Chrome / Edge 94 to 141, Firefox 91 to 142, Safari 16.4 to 26) each ran the same 34 checks, and every one passes. The runner is in `scripts/compat` (`probe.cjs`, `run-matrix.sh`, `aggregate.mjs`).
+- Fixed: progress bars in a data table (`bar: true`) were wiped out on striped, hovered and selected rows, and under a highlight; the row styles now set only the background colour.
+- Fixed: the data table's highlights and bars had no colour in browsers without `color-mix()` (before Chrome 111, Firefox 113, Safari 16.2); they now have plain-colour fallbacks.
+- Changed: no longer uses `Object.hasOwn` or `Array.prototype.at`, which lowers the oldest working browsers (Chrome 93 and Safari 15.4 were the floor; the oldest tested builds are now Chrome 94, Firefox 91 and Safari 16.4).
 - Added: **add, edit and delete from dialogs** for the data table (`crud` option, in the editor plugin and in `createDataTable`): a "New…" button, Edit and Delete buttons on every row, a confirmation before deleting, and the same in the right-click menu. `onCreate`, `onUpdate` and `onDelete` save to your server first (an error shows in the dialog; the server may return the saved row), and they also work for tables that load rows from a source.
 - Added: **a guard by role or permission** for those actions (`crud.user`, `crud.access`, `setUser`, `hasDataTableAccess`): a rule is a role, a permission (`'orders.*'` wildcards), a list, `{ roles, permissions }` or a function that sees the row. Buttons a person may not use are not drawn, and cell editing, the keyboard and the API are refused too. This is a convenience for the interface; enforce the same rules on your server.
 - Added: `DataTableRowAction.when` (show a row button only on some rows).

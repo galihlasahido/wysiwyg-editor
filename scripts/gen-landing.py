@@ -3,7 +3,7 @@
 
 Run from the repository root:  python3 scripts/gen-landing.py
 """
-import html, os, sys
+import html, json, os, sys
 
 GROUPS = [
  ('Editors', 'Complete editors in different shapes.', [
@@ -89,6 +89,64 @@ FEATURES = [
  ('Accessible and modular', 'ARIA roles, keyboard operation, axe-core in the tests, RTL; everything is a plugin on a small core.'),
 ]
 
+
+# ---- browser support table (from scripts/compat/results.json, written by scripts/compat/aggregate.mjs) ----
+
+BROWSER_NAMES = {'chromium': 'Chrome / Edge (Chromium)', 'firefox': 'Firefox', 'webkit': 'Safari (WebKit)'}
+# What the library uses that old browsers lack. Versions are the first release that has it (MDN); the "tested" table below shows what really ran.
+NEEDS = [
+ ('color-mix()', 'Tints: focus ring, locked sections, formula cells, minimap (the data table highlights and bars have a plain-colour fallback)', '111', '113', '16.2', 'Those tints are not drawn'),
+ ('DecompressionStream', 'Opening an .xlsx file in the data table', '80', '113', '16.4', 'Excel import says it cannot read the file; CSV still works'),
+ ('AbortSignal.timeout', 'Fetching remote images for Word export', '103', '100', '16', 'Word export of remote images fails; local images are fine'),
+ ('BroadcastChannel', 'Two tabs editing together (collaboration demo)', '54', '38', '15.4', 'Tabs do not see each other'),
+]
+DIFFERENCES = [
+ ('Dictation', 'Chrome, Edge and Safari. Firefox has no speech recognition.'),
+ ('Running headers and footers in print / PDF', 'Chrome and Edge 131+ draw them; other browsers print the pages without them.'),
+ ('Pagination', 'Measured in the browser, so page breaks can differ by a line between engines.'),
+]
+
+def short(r):
+    # 94.0.4595.0 -> 94, 91.0 -> 91, WebKit 16.4 -> 16.4
+    return r['version'] if r['browser'] == 'webkit' else str(r['major'])
+
+def browsers():
+    path = 'scripts/compat/results.json'
+    if not os.path.exists(path):
+        return ''
+    data = json.load(open(path))
+    runs = data['runs']
+    total = runs[0]['total'] if runs else 0
+    out = ['<section id="browsers"><h2>Browser support</h2>']
+    cards = ''
+    for b in ('chromium', 'firefox', 'webkit'):
+        ok = [r for r in runs if r['browser'] == b and not r['failed']]
+        if ok:
+            low = min(ok, key=lambda r: r['major'] * 100 + float(r['version'].split('.')[1] or 0) if b == 'webkit' else r['major'])
+            cards += f'<div class="feat"><h3>{html.escape(BROWSER_NAMES[b])} {short(low)}+</h3><p>The oldest build tested; every check passes from here up to the newest.</p></div>'
+    out.append(f'<p class="lead">The editor and the data table were run in real browsers, from old releases to the newest. Each build drove the same {total} checks: the demo pages load without an error, typing, undo, bold, the paged layout, search, sort, edit, export, themes and highlights. A green version passed all of them.</p>')
+    out.append(f'<div class="features">{cards}</div>')
+    out.append('<h3>Tested builds</h3><table class="spec"><thead><tr><th>Browser</th><th>Versions tested</th></tr></thead><tbody>')
+    for b in ('chromium', 'firefox', 'webkit'):
+        pills = ''
+        for r in (x for x in runs if x['browser'] == b):
+            if r['failed']:
+                title = html.escape(f'{r["passed"]} of {r["total"]}: ' + '; '.join(f['name'] for f in r['failed']))
+                pills += f'<span class="ver bad" title="{title}">✗ {short(r)}</span>'
+            else:
+                pills += f'<span class="ver ok" title="All {r["total"]} checks pass">✓ {short(r)}</span>'
+        out.append(f'<tr><td>{html.escape(BROWSER_NAMES[b])}</td><td>{pills}</td></tr>')
+    out.append('</tbody></table>')
+    out.append(f'<p class="note">Run {html.escape(data["generated"])} with Playwright 1.14 to 1.56 (headless, desktop, macOS). Older builds could not be started on this machine, and there is no test build of Safari before 16.4, so nothing below those versions was run. Phones and tablets use the same engines but were not tested separately.</p>')
+    out.append('<h3>What older browsers are missing</h3><p>Below the tested versions, these are the functions the library uses that arrived later (from the browsers\' compatibility data, not from a run). Everything else it uses is older than the oldest tested build.</p><table class="spec"><thead><tr><th>Needs</th><th>Used for</th><th>Chrome / Edge</th><th>Firefox</th><th>Safari</th><th>Without it</th></tr></thead><tbody>')
+    for name, use, c, f, sa, lack in NEEDS:
+        out.append(f'<tr><td><code>{html.escape(name)}</code></td><td>{html.escape(use)}</td><td>{c}</td><td>{f}</td><td>{sa}</td><td>{html.escape(lack)}</td></tr>')
+    out.append('</tbody></table>')
+    out.append('<h3>What cannot use it</h3><ul class="tips"><li>Internet Explorer and the old Edge (EdgeHTML): the build uses modern JavaScript and CSS.</li><li>Anything older than Chrome 87, Edge 88, Firefox 78 or Safari 14: the files do not even parse.</li><li>Between those and the tested builds (for example Chrome 87 to 93, Safari 14 to 16.3): not tested, so no promise. They should load, with the gaps in the table above.</li></ul>')
+    out.append('<h3>Differences between browsers (not bugs)</h3><ul class="tips">' + ''.join(f'<li><strong>{html.escape(a)}:</strong> {html.escape(b)}</li>' for a, b in DIFFERENCES) + '</ul>')
+    out.append('<p>Run it yourself: <code>pnpm build:demo</code>, serve <code>demo-dist</code>, then <code>scripts/compat/run-matrix.sh</code> (see <code>scripts/compat</code> in the repository).</p></section>')
+    return ''.join(out)
+
 def card(n, t, d, tags):
     return (f'<a class="card" href="./demo/{n}.html"><h3>{html.escape(t)}</h3><p>{html.escape(d)}</p>'
             f'<div class="tags">{"".join(f"<span class=tag>{html.escape(x)}</span>" for x in tags)}</div></a>')
@@ -108,7 +166,7 @@ def main():
     </section>''' for g, sub, cards in groups)
     feat = ''.join(f'<div class="feat"><h3>{html.escape(t)}</h3><p>{html.escape(d)}</p></div>' for t, d in FEATURES)
     template = open('scripts/landing.template.html').read()
-    page = template.replace('{{FEATURES}}', feat).replace('{{SECTIONS}}', sections).replace('{{TOTAL}}', str(total))
+    page = template.replace('{{FEATURES}}', feat).replace('{{SECTIONS}}', sections).replace('{{TOTAL}}', str(total)).replace('{{BROWSERS}}', browsers())
     open('index.html', 'w').write(page)
     print(f'index.html: {total} demos')
 

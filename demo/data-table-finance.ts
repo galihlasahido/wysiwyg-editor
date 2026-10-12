@@ -22,9 +22,9 @@ const demo = mountTable({
     ],
     rows: lines.map(([dept, item, budget, actual]) => [dept, item, budget, actual, null, null, null]),
     rules: [
-      { column: 'state', test: '="Over budget"', look: 'red', row: false },
-      { column: 'state', test: '="Under"', look: 'blue' },
-      { column: 'state', test: '="On track"', look: 'green' },
+      { column: 'state', test: 'Over budget', look: 'red', row: false },
+      { column: 'state', test: 'Under', look: 'blue' },
+      { column: 'state', test: 'On track', look: 'green' },
       { column: 'diff', test: '>5000', look: 'bold' },
     ],
     views: [{ name: 'Over budget only', search: '', filters: { state: 'Over budget' }, sort: [{ key: 'diff', dir: 'desc' }], groupBy: [], hidden: [], pageSize: 0 }],
@@ -40,6 +40,6 @@ columns: [
   { key: 'pct',   title: 'Used', type: 'number', formula: 'ROUND([Actual] / [Budget] * 100)', bar: true },
   { key: 'state', title: 'State', formula: 'IF([Actual] > [Budget] * 1.05, "Over budget", IF([Actual] < [Budget] * 0.9, "Under", "On track"))' },
 ],
-rules: [{ column: 'state', test: '="Over budget"', look: 'red' }, { column: 'state', test: '="On track"', look: 'green' }],
+rules: [{ column: 'state', test: 'Over budget', look: 'red' }, { column: 'state', test: 'On track', look: 'green' }],
 options: { groupBy: ['dept'], search: true, filters: true }
 `));
