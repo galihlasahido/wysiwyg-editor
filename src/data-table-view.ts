@@ -1,3 +1,4 @@
+import { crudAllows, openConfirm, openRowForm, type DataTableCrud } from './data-table-crud';
 import { openDialog } from './dialog';
 import { checkFormula, FORMULA_FUNCTIONS } from './data-table-formula';
 import type { Editor } from './editor';
@@ -30,6 +31,8 @@ export interface DataTableButton {
 export interface DataTableRowAction {
   label: string;
   title?: string;
+  /** Show the button only on rows where this returns true. */
+  when?: (row: Record<string, Cell>, index: number) => boolean;
   onClick(row: Record<string, Cell>, index: number, ctx: DataTableContext): void;
 }
 
@@ -50,6 +53,11 @@ export interface DataTableViewOptions {
    * fields are listed, including the hidden columns.
    */
   detail?: (row: Record<string, Cell>, index: number, ctx: DataTableContext) => Node | string | Promise<Node | string>;
+  /**
+   * Create, edit and delete rows from dialogs, guarded by the person's roles or permissions. Adds a "New…" button, an Edit and a Delete
+   * button on every row they may change, and asks before deleting. See `DataTableCrud`.
+   */
+  crud?: DataTableCrud;
   /** Called when a cell of a loaded table is edited. Without it, loaded tables cannot be edited. The table reloads afterwards. */
   onEdit?: (change: { source: string; key: string; value: Cell; row: Record<string, Cell>; index: number }) => Promise<unknown> | unknown;
 }
@@ -257,8 +265,25 @@ export class DataTableView {
   private get isRemote() { return !!this.spec?.options.source; }
   /** The rows that are being shown from: the document's, or the page the data source sent. */
   private get rows(): Cell[][] { return this.eff?.rows ?? []; }
-  get canEditCells() { return !this.readOnly && (!this.isRemote || !!this.host.options.onEdit); }
+  get canEditCells() { return !this.readOnly && (!this.isRemote || !!this.host.options.onEdit) && this.allowed('update'); }
   get canEditRows() { return !this.readOnly && !this.isRemote; }
+  private get crud() { return this.host.options.crud; }
+  /** May the person do this (to this row)? Without `crud` everything is allowed. Without a row, a rule that needs one counts as allowed. */
+  allowed(action: 'create' | 'update' | 'delete', r?: number): boolean {
+    const crud = this.crud;
+    if (!crud) return true;
+    if (r === undefined) return crudAllows(crud, action);
+    return crudAllows(crud, action, this.spec ? asRecord(this.spec, this.rows, r) : undefined);
+  }
+  /** The buttons at the end of every row: Edit and Delete (when `crud` is set), then the ones you added. */
+  private rowActionList(): DataTableRowAction[] {
+    const own = this.host.options.rowActions ?? [];
+    if (!this.crud || this.readOnly) return own;
+    const auto: DataTableRowAction[] = [];
+    if (this.allowed('update')) auto.push({ label: 'Edit', title: 'Edit this row', when: (_r, i) => this.allowed('update', i), onClick: (_r, i) => this.editRow(i) });
+    if (this.allowed('delete')) auto.push({ label: 'Delete', title: 'Delete this row', when: (_r, i) => this.allowed('delete', i), onClick: (_r, i) => this.requestDelete([i]) });
+    return [...auto, ...own];
+  }
 
   private load(raw: string) {
     this.raw = raw;
@@ -310,7 +335,7 @@ export class DataTableView {
   }
 
   addRow(after?: number): void {
-    if (!this.canEditRows) return;
+    if (!this.canEditRows || !this.allowed('create')) return;
     if (after !== undefined) this.expanded.clear();
     this.mutate((s) => {
       if (s.rows.length >= MAX_ROWS) return false;
@@ -319,9 +344,9 @@ export class DataTableView {
     });
     if (after === undefined && this.spec && this.pageSize) { this.page = Math.floor(this.index.length / this.pageSize); this.paintRows(); }
   }
-  duplicateRow(r: number): void { if (!this.canEditRows) return; this.expanded.clear(); this.mutate((s) => { if (s.rows.length >= MAX_ROWS) return false; s.rows.splice(r + 1, 0, [...s.rows[r]]); }); }
+  duplicateRow(r: number): void { if (!this.canEditRows || !this.allowed('create')) return; this.expanded.clear(); this.mutate((s) => { if (s.rows.length >= MAX_ROWS) return false; s.rows.splice(r + 1, 0, [...s.rows[r]]); }); }
   deleteRows(rows: number[]): void {
-    if (!this.canEditRows) return;
+    if (!this.canEditRows || !rows.every((r) => this.allowed('delete', r))) return;
     const drop = new Set(rows);
     this.selected = new Set();
     this.expanded.clear();
@@ -329,6 +354,7 @@ export class DataTableView {
   }
   setCell(r: number, c: number, raw: unknown): void {
     if (this.spec?.columns[c]?.formula) return; // calculated, not typed
+    if (!this.allowed('update', r)) return;
     if (this.isRemote) {
       const spec = this.spec;
       const onEdit = this.host.options.onEdit;
@@ -340,6 +366,69 @@ export class DataTableView {
     }
     this.mutate((s) => { if (!s.rows[r] || c >= s.columns.length) return false; s.rows[r][c] = coerceCell(s.columns[c].type, raw); });
   }
+  // ---- create, edit and delete from dialogs (the `crud` option)
+
+  /** Opens the dialog for a new row. */
+  newRow(): void {
+    const spec = this.spec;
+    const crud = this.crud;
+    if (!spec || this.readOnly || !this.allowed('create') || (this.isRemote ? !crud?.onCreate : false)) return;
+    const values: Record<string, Cell> = {};
+    for (const c of spec.columns) values[c.key] = coerceCell(c.type, null);
+    openRowForm(this.env.root, {
+      title: 'New row', columns: spec.columns, values, submitLabel: 'Add',
+      submit: async (v) => {
+        if (!this.allowed('create')) throw new Error('You are not allowed to add rows.');
+        let row: Record<string, Cell> = v;
+        if (crud?.onCreate) { const saved = await crud.onCreate(v); if (saved === false) return false; if (saved) row = { ...v, ...saved }; }
+        if (this.isRemote) { this.refresh(); return; }
+        this.mutate((s) => {
+          if (s.rows.length >= MAX_ROWS) return false;
+          s.rows.push(s.columns.map((c) => (c.formula ? coerceCell(c.type, null) : coerceCell(c.type, row[c.key] ?? null))));
+        });
+        if (this.pageSize) { this.page = Math.floor(this.index.length / this.pageSize); this.paintRows(); }
+      },
+    });
+  }
+  /** Opens the dialog to change row `r` (a row index of the table, or of the page on screen when the rows are loaded). */
+  editRow(r: number): void {
+    const spec = this.spec;
+    const crud = this.crud;
+    if (!spec || this.readOnly || !this.rows[r] || !this.allowed('update', r) || (this.isRemote ? !crud?.onUpdate : false)) return;
+    const previous = asRecord(spec, this.rows, r);
+    openRowForm(this.env.root, {
+      title: 'Edit row', columns: spec.columns, values: previous, submitLabel: 'Save',
+      submit: async (v) => {
+        if (!this.allowed('update', r)) throw new Error('You are not allowed to change this row.');
+        let row: Record<string, Cell> = v;
+        if (crud?.onUpdate) { const saved = await crud.onUpdate(v, previous, r); if (saved === false) return false; if (saved) row = { ...v, ...saved }; }
+        if (this.isRemote) { this.refresh(); return; }
+        this.mutate((s) => {
+          if (!s.rows[r]) return false;
+          s.columns.forEach((c, i) => { if (!c.formula) s.rows[r][i] = coerceCell(c.type, row[c.key] ?? null); });
+        });
+      },
+    });
+  }
+  /** Deletes rows after asking (unless `crud.confirmDelete` is false). */
+  requestDelete(rows: number[]): void {
+    const spec = this.spec;
+    const crud = this.crud;
+    if (!spec || this.readOnly || !rows.length || !rows.every((r) => this.allowed('delete', r)) || (this.isRemote ? !crud?.onDelete : !this.canEditRows)) return;
+    const records = rows.map((r) => asRecord(spec, this.rows, r));
+    const run = async () => {
+      if (!rows.every((r) => this.allowed('delete', r))) throw new Error('You are not allowed to delete this.');
+      if (crud?.onDelete && (await crud.onDelete(records, rows)) === false) return;
+      if (this.isRemote) { this.selected = new Set(); this.refresh(); return; }
+      this.deleteRows(rows);
+    };
+    if (crud?.confirmDelete === false) { void run().catch((err) => { this.loadError = err instanceof Error ? err.message : 'The change was not saved.'; this.paintRows(); }); return; }
+    const label = spec.columns.find((c) => (c.type ?? 'text') === 'text' && !c.formula && records[0][c.key] !== null && records[0][c.key] !== '') ?? spec.columns[0];
+    const first = label ? records[0][label.key] : null;
+    const what = rows.length === 1 ? (first === null || first === undefined || first === '' ? 'this row' : `“${String(first)}”`) : `${rows.length} rows`;
+    openConfirm(this.env.root, { title: rows.length === 1 ? 'Delete row' : 'Delete rows', text: `Delete ${what}? ${this.isRemote ? 'This cannot be undone.' : ''}`.trim(), confirmLabel: 'Delete', confirm: run });
+  }
+
   /** Moves a row so it ends up before row `to` (a row index; `rows.length` puts it last). */
   moveRow(from: number, to: number): void {
     if (!this.canReorder) return;
@@ -527,16 +616,40 @@ export class DataTableView {
   editOptions(): void {
     if (!this.spec || this.readOnly) return;
     const o = this.spec.options;
-    const form = el('div', 'wy-dt-form');
-    const row = (label: string, input: HTMLElement, check = false) => { const l = el('label', check ? 'wy-dt-field wy-dt-check' : 'wy-dt-field'); if (check) l.append(input, el('span', undefined, label)); else l.append(el('span', undefined, label), input); form.append(l); };
-    const title = el('input'); title.value = o.title; title.maxLength = 300;
+    const form = el('div', 'wy-dt-form wy-dt-form-grid');
+    const field = (label: string, input: HTMLElement, wide = false, hint?: string) => {
+      const l = el('label', wide ? 'wy-dt-field is-wide' : 'wy-dt-field');
+      l.append(el('span', 'wy-dt-label', label), input);
+      if (hint) l.append(el('small', 'wy-dt-hint', hint));
+      form.append(l);
+    };
+    const group = (name: string) => { const g = el('fieldset', 'wy-dt-group-box'); g.append(el('legend', undefined, name)); form.append(g); return g; };
+    const toggle = (box: HTMLElement, label: string, input: HTMLInputElement, hint: string) => {
+      const l = el('label', 'wy-dt-check');
+      const t = el('span', 'wy-dt-check-text'); t.append(el('span', undefined, label), el('small', 'wy-dt-hint', hint));
+      l.append(input, t);
+      box.append(l);
+    };
+    const title = el('input'); title.value = o.title; title.maxLength = 300; title.placeholder = 'Shown above the table';
     const size = el('select'); for (const n of PAGE_SIZES) size.add(new Option(n ? `${n} rows` : 'All rows (no paging)', String(n), false, n === o.pageSize)); if (!PAGE_SIZES.includes(o.pageSize)) size.add(new Option(`${o.pageSize} rows`, String(o.pageSize), true, true));
     const density = el('select'); for (const d of ['compact', 'normal', 'comfortable']) density.add(new Option(d[0].toUpperCase() + d.slice(1), d, false, d === o.density));
-    const height = el('input'); height.type = 'number'; height.min = '0'; height.step = '10'; height.value = o.height ? String(o.height) : '';
+    const height = el('input'); height.type = 'number'; height.min = '0'; height.step = '10'; height.value = o.height ? String(o.height) : ''; height.placeholder = 'Grow with the rows';
     const check = (v: boolean) => { const c = el('input'); c.type = 'checkbox'; c.checked = v; return c; };
     const [search, filters, striped, bordered, selectable, detail, reorder] = [check(o.search), check(o.filters), check(o.striped), check(o.bordered), check(o.selectable), check(o.detail), check(o.reorder)];
-    row('Title', title); row('Rows per page', size); row('Row height', density); row('Scroll after this height in pixels (empty = grow)', height);
-    row('Search box', search, true); row('Filter row under the headings', filters, true); row('Striped rows', striped, true); row('Cell borders', bordered, true); row('Tick boxes to select rows', selectable, true); row('Rows open to show their details', detail, true); row('Rows can be dragged into a new order', reorder, true);
+    field('Title', title, true);
+    field('Rows per page', size);
+    field('Row height', density);
+    field('Scroll after this height (pixels)', height, true, 'Leave empty to let the table grow.');
+    const look = group('Look');
+    toggle(look, 'Striped rows', striped, 'Alternate the row shading.');
+    toggle(look, 'Cell borders', bordered, 'Draw lines between cells.');
+    const tools = group('Tools');
+    toggle(tools, 'Search box', search, 'Search every column.');
+    toggle(tools, 'Filter row', filters, 'A filter under each heading.');
+    const rows = group('Rows');
+    toggle(rows, 'Select rows', selectable, 'A tick box on every row.');
+    toggle(rows, 'Row details', detail, 'Open a row to see all its fields.');
+    toggle(rows, 'Drag to reorder', reorder, 'Move rows by their handle.');
     openDialog(this.env.root, {
       title: 'Table options',
       body: form,
@@ -620,7 +733,14 @@ export class DataTableView {
     }
     this.deleteBtn = null;
     if (!ro) {
-      if (!this.isRemote) {
+      const crud = this.crud;
+      if (crud) {
+        if (this.allowed('create') && (!this.isRemote || crud.onCreate)) this.bar.append(button('New…', 'wy-dt-btn is-primary', () => this.newRow(), 'Add a row in a dialog'));
+        if (this.allowed('delete') && (!this.isRemote || crud.onDelete)) {
+          this.deleteBtn = button('', 'wy-dt-btn is-danger', () => this.requestDelete([...this.selected]));
+          this.bar.append(this.deleteBtn);
+        }
+      } else if (!this.isRemote) {
         this.bar.append(button('Add row', 'wy-dt-btn', () => this.addRow()));
         this.deleteBtn = button('', 'wy-dt-btn is-danger', () => this.deleteRows([...this.selected]));
         this.bar.append(this.deleteBtn);
@@ -707,7 +827,7 @@ export class DataTableView {
       }
       tr.append(th);
     }
-    if (this.host.options.rowActions?.length) tr.append(el('th', 'wy-dt-actions', 'Actions'));
+    if (this.rowActionList().length) tr.append(el('th', 'wy-dt-actions', 'Actions'));
     this.thead.replaceChildren(tr);
     if (spec.options.filters) {
       const f = el('tr', 'wy-dt-filters');
@@ -728,7 +848,7 @@ export class DataTableView {
         input.addEventListener(input instanceof HTMLSelectElement ? 'change' : 'input', () => { this.state.filters[c.key] = input.value; this.page = 0; this.changed(); });
         th.append(input); f.append(th);
       }
-      if (this.host.options.rowActions?.length) f.append(el('td'));
+      if (this.rowActionList().length) f.append(el('td'));
       this.thead.append(f);
     }
   }
@@ -784,7 +904,7 @@ export class DataTableView {
     const s = this.spec;
     return !!s?.options.reorder && this.canEditRows && !this.state.search.trim() && !this.state.sort.length && !s.options.groupBy.length && !Object.values(this.state.filters).some((v) => v.trim());
   }
-  private colspan() { return this.shownColumns().length + this.leads().length + (this.host.options.rowActions?.length ? 1 : 0); }
+  private colspan() { return this.shownColumns().length + this.leads().length + (this.rowActionList().length ? 1 : 0); }
 
   /** Draws the lines (all of them, or only those in view when the table is long and not paged). */
   private renderLines() {
@@ -792,7 +912,7 @@ export class DataTableView {
     const lines = this.lines;
     const cols = this.shownColumns();
     const ro = this.readOnly;
-    const actions = this.host.options.rowActions ?? [];
+    const actions = this.rowActionList();
     let from = 0;
     let to = lines.length;
     if (this.virtual) {
@@ -858,7 +978,7 @@ export class DataTableView {
       });
       if (actions.length) {
         const td = el('td', 'wy-dt-actions');
-        actions.forEach((a, ai) => { const b = el('button', 'wy-dt-btn', a.label); b.type = 'button'; b.title = a.title ?? ''; b.dataset.role = 'row-action'; b.dataset.action = String(ai); td.append(b); });
+        actions.forEach((a, ai) => { if (a.when && !a.when(asRecord(spec, this.rows, r), r)) return; const b = el('button', 'wy-dt-btn', a.label); b.type = 'button'; b.title = a.title ?? ''; b.dataset.role = 'row-action'; b.dataset.action = String(ai); td.append(b); });
         tr.append(td);
       }
       out.push(tr);
@@ -927,7 +1047,7 @@ export class DataTableView {
 
   private paintTotals() {
     const cols = this.shownColumns();
-    const actions = this.host.options.rowActions ?? [];
+    const actions = this.rowActionList();
     this.tfoot.replaceChildren();
     if (!cols.some(({ c }) => c.total)) return;
     if (this.isRemote && !this.remoteTotals) return; // the page alone cannot give a total
@@ -993,7 +1113,11 @@ export class DataTableView {
     const row = td ? Number((td.parentElement as HTMLElement).dataset.row) : -1;
     const items: (MenuItem | '-')[] = [];
     if (td && row >= 0 && this.canEditCells) items.push({ label: 'Edit cell', run: () => this.startEdit(td) });
-    if (td && row >= 0 && this.canEditRows) items.push({ label: 'Insert row below', run: () => this.addRow(row) }, { label: 'Duplicate row', run: () => this.duplicateRow(row) }, { label: 'Delete row', run: () => this.deleteRows([row]) });
+    if (td && row >= 0 && this.crud && !this.readOnly) {
+      if (this.allowed('update', row)) items.push({ label: 'Edit row…', run: () => this.editRow(row) });
+      if (this.canEditRows && this.allowed('create')) items.push({ label: 'Insert row below', run: () => this.addRow(row) }, { label: 'Duplicate row', run: () => this.duplicateRow(row) });
+      if (this.allowed('delete', row)) items.push({ label: 'Delete row…', run: () => this.requestDelete([row]) });
+    } else if (td && row >= 0 && this.canEditRows) items.push({ label: 'Insert row below', run: () => this.addRow(row) }, { label: 'Duplicate row', run: () => this.duplicateRow(row) }, { label: 'Delete row', run: () => this.deleteRows([row]) });
     if (items.length) items.push('-');
     if (col >= 0) { const m = this.columnMenu(col); items.push(...(this.readOnly ? m.slice(0, 3) : m), '-'); }
     items.push({ label: 'Export CSV', run: () => this.exportAs('csv') }, { label: 'Export Excel (.xlsx)', run: () => this.exportAs('xlsx') }, { label: 'Export PDF (print)…', run: () => this.exportAs('pdf') });
@@ -1227,7 +1351,7 @@ export class DataTableView {
       this.tbody.querySelector<HTMLElement>(`tr[data-row="${r}"] [data-role="detail-toggle"]`)?.focus();
     } else if (role === 'row-action') {
       const r = Number(t.closest<HTMLElement>('tr')!.dataset.row);
-      this.host.options.rowActions?.[Number((t.closest('[data-action]') as HTMLElement).dataset.action)]?.onClick(asRecord(this.spec!, this.rows, r), r, this.context());
+      this.rowActionList()[Number((t.closest('[data-action]') as HTMLElement).dataset.action)]?.onClick(asRecord(this.spec!, this.rows, r), r, this.context());
     } else if (role === 'toggle') {
       const { r, c } = this.cellAt(t.closest('td')!);
       this.setCell(r, c, (t as HTMLInputElement).checked);

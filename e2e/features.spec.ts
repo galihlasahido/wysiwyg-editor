@@ -493,3 +493,38 @@ test('data table on its own: no editor, edit, undo, theme and export', async ({ 
   await expect(page.locator('wysiwyg-data-table .wy-dt tbody tr[data-row]')).toHaveCount(3);
   expect(problems).toEqual([]);
 });
+
+test('data table: add, edit and delete in dialogs, guarded by role', async ({ page }) => {
+  const problems = await openDemo(page, 'data-table-crud', '#table .wy-dt');
+  const dt = page.locator('#table .wy-dt');
+  await expect(dt.getByRole('button', { name: 'New…' })).toHaveCount(0);           // a guest may only look
+  await expect(dt.locator('button[data-role="row-action"]')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Eka (editor)' }).click();
+  await expect(dt.getByRole('button', { name: 'New…' })).toBeVisible();
+  await expect(dt.locator('tbody tr[data-row]').first().getByRole('button', { name: 'Delete' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Adi (admin)' }).click();
+
+  await dt.getByRole('button', { name: 'New…' }).click();
+  const dlg = page.getByRole('dialog');
+  await dlg.getByLabel('Title').fill('');
+  await dlg.getByRole('button', { name: 'Add' }).click();
+  await expect(dlg.getByRole('alert')).toHaveText('A ticket needs a title.');       // the server said no
+  await dlg.getByLabel('Title').fill('Printer on fire');
+  await dlg.getByRole('button', { name: 'Add' }).click();
+  await expect(dlg).toHaveCount(0);
+  await dt.getByLabel('Search the table').fill('Printer on fire');
+  await expect(dt.locator('tbody tr[data-row]')).toHaveCount(1);
+  await expect(dt.locator('tbody tr[data-row] td[data-col="0"]')).toHaveText('2,000');   // the id the server made
+
+  await dt.getByRole('button', { name: 'Edit' }).click();
+  await page.getByRole('dialog').getByLabel('Title').fill('Printer replaced');
+  await page.getByRole('dialog').getByRole('button', { name: 'Save' }).click();
+  await dt.getByLabel('Search the table').fill('Printer replaced');                 // the old search no longer matches the new title
+  await expect(dt.locator('tbody tr[data-row] td[data-col="1"]')).toHaveText('Printer replaced');
+
+  await dt.getByRole('button', { name: 'Delete', exact: true }).first().click();
+  await expect(page.getByRole('dialog')).toContainText('Printer replaced');
+  await page.getByRole('dialog').getByRole('button', { name: 'Delete' }).click();
+  await expect(dt.locator('tbody tr[data-row]')).toHaveCount(0);
+  expect(problems).toEqual([]);
+});

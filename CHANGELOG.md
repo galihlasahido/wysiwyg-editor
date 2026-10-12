@@ -2,6 +2,14 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/). Before 1.0.0 minor versions could contain breaking changes. From 1.0.0 on, only a major version may break the public API (see "Stability and versioning" in the README); changes are listed under "Changed" or "Removed".
 
+## Unreleased
+
+- Added: **add, edit and delete from dialogs** for the data table (`crud` option, in the editor plugin and in `createDataTable`): a "New…" button, Edit and Delete buttons on every row, a confirmation before deleting, and the same in the right-click menu. `onCreate`, `onUpdate` and `onDelete` save to your server first (an error shows in the dialog; the server may return the saved row), and they also work for tables that load rows from a source.
+- Added: **a guard by role or permission** for those actions (`crud.user`, `crud.access`, `setUser`, `hasDataTableAccess`): a rule is a role, a permission (`'orders.*'` wildcards), a list, `{ roles, permissions }` or a function that sees the row. Buttons a person may not use are not drawn, and cell editing, the keyboard and the API are refused too. This is a convenience for the interface; enforce the same rules on your server.
+- Added: `DataTableRowAction.when` (show a row button only on some rows).
+- Changed: the "Table options" dialog is tidier: labelled fields in a grid and the switches grouped under Look, Tools and Rows, each with a short explanation.
+- Added: a "Data table" section on the demo site with six new examples (roles, 5,000 rows from a server, budget, stock, directory, import and export).
+
 ## 1.0.0
 
 The first stable release. The public API (the exported names, the plugin contract, the stored document formats and the `--wy-*` colour variables) now follows semantic versioning, and tests guard it. New since 0.4.0: the data table and its stand-alone version.

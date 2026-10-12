@@ -28,8 +28,8 @@ export function createEditor(
   return new Editor({ ...rest, plugins });
 }
 export { exportHTML, download } from './export';
-export { createDataTable, defineDataTableElement } from './data-table-app';
-export type { DataTableApp, DataTableAppOptions, DataTableElement } from './data-table-app';
+export { createDataTable, defineDataTableElement, hasDataTableAccess } from './data-table-app';
+export type { DataTableAccessRule, DataTableApp, DataTableAppOptions, DataTableCrud, DataTableCrudAction, DataTableElement, DataTableUser } from './data-table-app';
 export type { PageSettings } from './plugins/pages';
 export { DocumentClient, ApiError, ConflictError, createHttpSaver, createEndpointSaver } from './storage';
 export type { RemoteDocument, ShareRole, EndpointSaverOptions } from './storage';

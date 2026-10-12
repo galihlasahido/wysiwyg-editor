@@ -6,10 +6,13 @@
  */
 import './styles.css';
 import { cleanSpec, withFormulas, type Cell, type DataTableSpec } from './data-table';
+import type { DataTableUser } from './data-table-crud';
 import { DataTableView, createFetchDataSource, type DataTableButton, type DataTableContext, type DataTableEnv, type DataTableRowAction, type DataTableViewHost, type DataTableViewOptions } from './data-table-view';
 import { defaultThemes, themeVars, type Theme } from './plugins/themes';
 
 export { createFetchDataSource };
+export { hasAccess as hasDataTableAccess } from './data-table-crud';
+export type { AccessRule as DataTableAccessRule, CrudAction as DataTableCrudAction, DataTableCrud, DataTableUser } from './data-table-crud';
 export type { DataTableButton, DataTableContext, DataTableRowAction };
 export type {
   Aggregate as DataTableAggregate, Cell as DataTableCell, ColumnType as DataTableColumnType, DataColumn as DataTableColumn, DataPage as DataTablePage,
@@ -65,6 +68,8 @@ export interface DataTableApp {
   export(format: 'csv' | 'xlsx', options?: { selectedOnly?: boolean }): Blob | null;
   /** Downloads the table as a file; `'pdf'` opens the print dialog. */
   download(format: 'csv' | 'xlsx' | 'pdf'): void;
+  /** Who is using the table (for the `crud` guard). Buttons the person may not use disappear. */
+  setUser(user: DataTableUser | null): void;
   addButton(button: DataTableButton): void;
   addRowAction(action: DataTableRowAction): void;
   addSource(name: string, load: NonNullable<DataTableViewOptions['sources']>[string]): void;
@@ -185,6 +190,7 @@ export function createDataTable(options: DataTableAppOptions): DataTableApp {
     refresh: () => view.refresh(),
     export: (format, o) => view.exportBlob(format, o?.selectedOnly),
     download: (format) => view.exportAs(format),
+    setUser(user) { if (host.options.crud) { host.options.crud = { ...host.options.crud, user }; view.repaint(); } },
     addButton(button) { host.options.buttons!.push(button); view.repaint(); },
     addRowAction(action) { host.options.rowActions!.push(action); view.repaint(); },
     addSource(name, load) { host.options.sources![name] = load; if (view.data?.options.source === name) view.refresh(); },

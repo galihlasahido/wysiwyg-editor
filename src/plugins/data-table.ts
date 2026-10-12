@@ -10,10 +10,13 @@ import {
   cleanSpec, formatCell, parseCSV, parseXlsx, specFromRows,
   type Cell, type DataPage, type DataQuery, type DataTableSpec,
 } from '../data-table';
+import type { DataTableUser } from '../data-table-crud';
 import type { ContextMenuEntry, EditorPlugin } from '../types';
 
 export type { DataTableButton, DataTableContext, DataTableOptions, DataTableRowAction };
 export { createFetchDataSource };
+export { hasAccess as hasDataTableAccess } from '../data-table-crud';
+export type { AccessRule as DataTableAccessRule, CrudAction as DataTableCrudAction, DataTableCrud, DataTableUser } from '../data-table-crud';
 export type {
   Aggregate as DataTableAggregate, Cell as DataTableCell, ColumnType as DataTableColumnType, DataColumn as DataTableColumn, DataPage as DataTablePage,
   DataQuery as DataTableQuery, DataTableOptions as DataTableSettings, DataTableSpec, FormatRule as DataTableRule, Look as DataTableLook, SavedView as DataTableSavedView,
@@ -25,6 +28,8 @@ export {
 
 /** The API on `editor.extensions.dataTable`. */
 export interface DataTableApi {
+  /** Who is using the tables (for the `crud` guard); redraws every table. */
+  setUser(user: DataTableUser | null): void;
   addButton(button: DataTableButton): void;
   addRowAction(action: DataTableRowAction): void;
   /** Register or replace a data source for loaded tables. */
@@ -217,6 +222,7 @@ export function DataTable(options: DataTableOptions = {}): EditorPlugin {
       editor.registerCommand('dataTableOptions', () => { const v = activeView(); if (!v) return false; v.editOptions(); return true; });
       editor.registerCommand('addDataTableRow', () => { const v = activeView(); if (!v) return false; v.addRow(); return true; });
       const api: DataTableApi = {
+        setUser: (user) => { if (host.options.crud) { host.options.crud = { ...host.options.crud, user }; for (const v of host.views.values()) v.repaint(); } },
         addButton: (b) => { host.options.buttons!.push(b); },
         addRowAction: (a) => { host.options.rowActions!.push(a); },
         addSource: (name, load) => { host.options.sources![name] = load; for (const v of host.views.values()) if (v.data?.options.source === name) v.refresh(); },

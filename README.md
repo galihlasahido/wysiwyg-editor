@@ -537,6 +537,28 @@ editor.execute('insertDataTable', { columns: [...], rows: [], options: { source:
 
 The pure parts (`dataTableToCSV`, `dataTableToXlsx`, `dataTableToPrintHTML`, `queryDataTable`, `cleanDataTable`, `dataTableWithFormulas`, `parseXlsx`) are exported too, so a server can build the same files.
 
+### Add, edit and delete, with a guard
+
+```ts
+createDataTable({
+  element, table,
+  crud: {
+    user: { id: 'eka', roles: ['editor'], permissions: ['tickets.create'] },   // or a function that returns the person
+    access: {
+      create: ['editor', 'admin'],                         // a role or a permission; 'tickets.*' matches a family
+      update: (user, row) => hasDataTableAccess('admin', user) || row?.owner === user?.id,
+      delete: { roles: ['admin'] },                        // roles: one of them; permissions: all of them
+    },
+    onCreate: async (row) => (await api.post('/tickets', row)).data,       // return the saved row (its new id)
+    onUpdate: (row, before) => api.put(`/tickets/${before.id}`, row),
+    onDelete: (rows) => api.delete('/tickets', rows.map((r) => r.id)),     // throw to refuse: the message shows in the dialog
+  },
+});
+app.setUser(otherUser);   // after sign-in or sign-out (`editor.extensions.dataTable.setUser` in the editor)
+```
+
+`crud` adds a **New…** button, **Edit** and **Delete** on every row and a confirmation before anything is deleted; the dialogs have a field for every column that is not calculated. Without a rule an action is open to everyone; `create: false`, `update: false` or `delete: false` remove it altogether, and `confirmDelete: false` skips the question. A button the person may not use is not drawn, and typing in a cell, the keyboard and the API are refused as well. A save that fails keeps the dialog open with the message. This only shapes the interface: enforce the same rules on your server. The examples are on the demo site under "Data table" (roles, 5,000 rows from a server, budget, stock, directory, import and export).
+
 ### Without the editor
 
 The same table works on its own: no editor, no ProseMirror. Import `wysiwygido/data-table` (a small entry point that pulls in nothing else; the build checks that) and the stylesheet.
