@@ -1,7 +1,7 @@
 import axe from 'axe-core';
 import { afterEach, describe, expect, it } from 'vitest';
 import { TextSelection } from 'prosemirror-state';
-import { Comments, DataTable, Editor, Pages, Outline, Templates, TrackChanges, Versions, defaultPlugins } from '../src';
+import { Comments, DataTable, Editor, createDataTable, Pages, Outline, Templates, TrackChanges, Versions, defaultPlugins } from '../src';
 
 const editors: Editor[] = [];
 afterEach(() => editors.splice(0).forEach((e) => e.destroy()));
@@ -51,6 +51,15 @@ describe('accessibility (axe-core)', () => {
     expect(e.root.querySelectorAll('.wy-dt-group').length).toBe(2);
     expect(e.root.querySelector('.wy-dt-error')).not.toBeNull();
     expect(await audit(e.root)).toEqual([]);
+  });
+
+  it('the data table on its own has no violations', async () => {
+    document.body.innerHTML = '<main></main>';
+    const app = createDataTable({ element: document.querySelector('main')!, table: { columns: [{ key: 'a', title: 'A' }, { key: 'n', title: 'N', type: 'number', total: 'sum' }], rows: [['x', 1], ['y', 2]], options: { filters: true, selectable: true, detail: true, reorder: true, title: 'T' } }, theme: 'dark' });
+    expect(await audit(document.body)).toEqual([]);
+    app.setReadOnly(true);
+    expect(await audit(document.body)).toEqual([]);
+    app.destroy();
   });
 
   it('read-only and RTL editors have no violations', async () => {

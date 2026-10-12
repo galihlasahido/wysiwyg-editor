@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createEditor, defaultPlugins, DataTable } from '../src';
-import type { DataPage, DataQuery } from '../src';
+import type { DataTablePage, DataTableQuery } from '../src';
 import { toXlsx, cleanSpec } from '../src/data-table';
 
 const roots: HTMLElement[] = [];
@@ -129,7 +129,7 @@ describe('long tables without paging', () => {
 describe('a table that loads its rows', () => {
   const columns = [{ key: 'id', title: 'Id', type: 'number' }, { key: 'name', title: 'Name', type: 'text' }, { key: 'amount', title: 'Amount', type: 'number', total: 'sum' }];
   const all = Array.from({ length: 95 }, (_, i) => ({ id: i + 1, name: `Order ${i + 1}`, amount: (i + 1) * 2 }));
-  const makeSource = () => vi.fn(async (q: DataQuery): Promise<DataPage> => {
+  const makeSource = () => vi.fn(async (q: DataTableQuery): Promise<DataTablePage> => {
     let rows = all.filter((r) => !q.search || r.name.toLowerCase().includes(q.search.toLowerCase()));
     if (q.filters.amount) rows = rows.filter((r) => r.amount > Number(q.filters.amount.replace('>', '')));
     if (q.sort[0]) { const { key, dir } = q.sort[0]; rows = [...rows].sort((a, b) => ((a as never)[key] > (b as never)[key] ? 1 : -1) * (dir === 'desc' ? -1 : 1)); }
@@ -176,7 +176,7 @@ describe('a table that loads its rows', () => {
 
   it('shows the latest answer even when an earlier request finishes last', async () => {
     let n = 0;
-    const load = vi.fn(async (): Promise<DataPage> => { const mine = ++n; await tick(mine === 1 ? 60 : 5); return { rows: [[mine, `answer ${mine}`, 0]], total: 1 }; });
+    const load = vi.fn(async (): Promise<DataTablePage> => { const mine = ++n; await tick(mine === 1 ? 60 : 5); return { rows: [[mine, `answer ${mine}`, 0]], total: 1 }; });
     const e = make({ sources: { orders: load } }, spec);
     (dt(e).querySelector('.wy-dt-search') as HTMLInputElement).dispatchEvent(new Event('input'));
     e.execute('refreshDataTable');
@@ -188,7 +188,7 @@ describe('a table that loads its rows', () => {
 
   it('says so when the source fails, and tries again on request', async () => {
     let fail = true;
-    const load = vi.fn(async (): Promise<DataPage> => { if (fail) throw new Error('Server said no'); return { rows: [[1, 'ok', 1]], total: 1 }; });
+    const load = vi.fn(async (): Promise<DataTablePage> => { if (fail) throw new Error('Server said no'); return { rows: [[1, 'ok', 1]], total: 1 }; });
     const e = make({ sources: { orders: load } }, spec);
     await tick();
     expect(dt(e).querySelector('.wy-dt-error')!.textContent).toBe('Server said no');

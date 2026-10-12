@@ -2,6 +2,7 @@
   "$schema": "https://typedoc.org/schema.json",
   "entryPoints": [
     "src/index.ts",
+    "src/data-table-app.ts",
     "src/collab.ts",
     "src/docx.ts",
     "src/pdf.ts",

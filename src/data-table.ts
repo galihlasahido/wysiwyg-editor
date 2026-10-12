@@ -80,6 +80,10 @@ export interface DataTableOptions {
 }
 
 export interface DataTableSpec {
+  /** Version of the stored format; see `DATA_TABLE_VERSION`. */
+  v: number;
+  /** Saved by a newer version of the editor than this one: read-only here. */
+  future?: boolean;
   columns: DataColumn[];
   rows: Cell[][];
   options: DataTableOptions;
@@ -87,6 +91,12 @@ export interface DataTableSpec {
   views: SavedView[];
 }
 
+/**
+ * Version of the stored format of a data table (the JSON in the document). It only goes up when a change cannot be read by the earlier
+ * code. Every version stays readable: a table saved by this version or an older one always opens. A table saved by a *newer* version
+ * is shown but not edited (`future`), so that saving it here cannot drop what this version does not know.
+ */
+export const DATA_TABLE_VERSION = 1;
 export const MAX_ROWS = 20000;
 export const MAX_COLUMNS = 100;
 export const MAX_TEXT = 5000;
@@ -217,7 +227,8 @@ export function cleanSpec(raw: unknown): DataTableSpec | null {
   if (!columns.length) return null;
   const rows: Cell[][] = [];
   for (const r of (Array.isArray(data.rows) ? data.rows : []).slice(0, MAX_ROWS)) {
-    const src: unknown[] = Array.isArray(r) ? r : [];
+    // a row is an array in column order, or an object by column key (handy when some columns are calculated)
+    const src: unknown[] = Array.isArray(r) ? r : r && typeof r === 'object' ? columns.map((c) => (Object.hasOwn(r, c.key) ? (r as Record<string, unknown>)[c.key] : undefined)) : [];
     rows.push(columns.map((c, i) => coerceCell(c.type, src[i])));
   }
   const o = data.options && typeof data.options === 'object' ? data.options : {};
@@ -259,7 +270,9 @@ export function cleanSpec(raw: unknown): DataTableSpec | null {
       pageSize: Number.isFinite(size) && size >= 0 && size <= 1000 ? size : 10,
     }];
   });
-  return { columns, rows, options, rules, views };
+  const stored = Math.floor(Number(data.v));
+  const version = Number.isFinite(stored) && stored >= 1 ? stored : 1; // a table saved before versions existed is version 1
+  return version > DATA_TABLE_VERSION ? { v: version, future: true, columns, rows, options, rules, views } : { v: DATA_TABLE_VERSION, columns, rows, options, rules, views };
 }
 
 /** A new spec from plain rows: the first row names the columns and each column's type is guessed from its values. */

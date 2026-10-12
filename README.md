@@ -332,6 +332,17 @@ A provider is any `(req) => Promise<string> | AsyncIterable<string>`; stream chu
 Model output is parsed as Markdown with raw HTML disabled, so it cannot inject markup. What the endpoint must return is described in
 [Endpoints your app provides](#endpoints-your-app-provides).
 
+## Stability and versioning
+
+The package follows [semantic versioning](https://semver.org/). Until 1.0.0 a minor release (0.x) may change the API; from 1.0.0 only a major release may break it. What counts as the public API:
+
+- **Everything exported** from `wysiwygido` and its entry points (`/data-table`, `/docx`, `/pdf`, `/epub`, `/collab`, `/react`, `/vue`, `/svelte`, `/adapter`). The list of names is a test (`tests/api-surface.json`): removing or renaming one fails the build.
+- **The plugin contract**: the `EditorPlugin` hooks, `editor.registerCommand` / `execute` / `on`, command names, and the events the editor emits.
+- **What is stored in documents**: the HTML attributes (`data-data-table`, `data-chart`, `data-cover-page`…) and the JSON they hold. Each stored format is read by every later version; the data table's format carries a version number (`v`), and a table saved by a *newer* version than the one reading it is shown, kept untouched and not editable, so an older copy can never lose data. Golden files for these formats are tests (`tests/formats.test.ts`).
+- **The CSS custom properties** (`--wy-*`) used for theming.
+
+Not part of it: the `wy-*` class names and the exact DOM the editor builds, internal modules not exported from an entry point, and the exact wording of interface text and error messages. `defaultPlugins` may gain plugins in a minor release. Anything deprecated keeps working for at least one minor release and is listed in the changelog. Supported browsers are the current versions of Chrome, Edge, Firefox and Safari (all four are tested); the pure functions (`dataTableToCSV`, `dataTableToXlsx`, `queryDataTable`…) also run on Node 18+.
+
 ## Endpoints your app provides
 
 The editor calls your code at a few points. Each contract below is exercised by `server/examples/api.ts` (`pnpm server:examples`, port 8788),
@@ -524,7 +535,42 @@ editor.execute('insertDataTable', { columns: [...], rows: [], options: { source:
 
   Search is sent after a short pause, only the newest answer is shown, a failure shows its message with a "Try again" button, and Export asks the source for every matching row. Ticked rows are those on the current page. Groups show the rows of the current page.
 
-The pure parts (`dataTableToCSV`, `dataTableToXlsx`, `dataTableToPrintHTML`, `queryDataRows`, `cleanDataTable`, `dataTableWithFormulas`, `parseXlsx`) are exported too, so a server can build the same files.
+The pure parts (`dataTableToCSV`, `dataTableToXlsx`, `dataTableToPrintHTML`, `queryDataTable`, `cleanDataTable`, `dataTableWithFormulas`, `parseXlsx`) are exported too, so a server can build the same files.
+
+### Without the editor
+
+The same table works on its own: no editor, no ProseMirror. Import `wysiwygido/data-table` (a small entry point that pulls in nothing else; the build checks that) and the stylesheet.
+
+```ts
+import { createDataTable } from 'wysiwygido/data-table';
+import 'wysiwygido/style.css';
+
+const app = createDataTable({
+  element: document.querySelector('#grid')!,
+  table: { columns: [{ key: 'name', title: 'Name' }, { key: 'qty', title: 'Qty', type: 'number', total: 'sum' }], rows: [{ name: 'Tea', qty: 3 }], options: { pageSize: 25, filters: true } },
+  theme: 'nord',                       // 'light' | 'dark' | 'auto' | a theme name | a theme object
+  onChange: (table) => save(table),    // after every edit, new row, resized column…
+  buttons: [{ id: 'ship', label: 'Ship', needsSelection: true, onClick: ({ selected }) => ship(selected) }],
+  sources: { orders: createFetchDataSource('/api/orders') },   // for tables with options.source
+});
+
+app.getRows();  app.visibleRows();  app.selectedRows();
+app.undo();  app.redo();             // its own history (Ctrl/⌘+Z and Ctrl+Y work too)
+app.setTheme('dark');  app.setReadOnly(true);  app.setTable(newTable);
+app.export('xlsx');  app.download('csv');
+app.destroy();
+```
+
+Rows can be arrays in column order or objects by column key (objects are easier when some columns are calculated). Everything above (search, filters, sort, paging, groups, formulas, highlight rules, saved views, details, resizing, reordering, export, loading from a server) works the same way, and the table has its own right-click menu. As a custom element:
+
+```html
+<script type="module">import { defineDataTableElement } from 'wysiwygido/data-table'; defineDataTableElement();</script>
+<wysiwyg-data-table theme="nord" readonly>
+  <script type="application/json">{ "columns": [{ "title": "Language" }, { "title": "Year", "type": "number" }], "rows": [["C", 1972], ["TypeScript", 2012]] }</script>
+</wysiwyg-data-table>
+```
+
+Events `table-ready` and `table-change` (`detail.table`); the element's `table` property sets or reads the table.
 
 ## Themes
 

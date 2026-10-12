@@ -12,6 +12,10 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/wysiwygido.js"
     },
+    "./data-table": {
+      "types": "./dist/data-table-app.d.ts",
+      "import": "./dist/data-table.js"
+    },
     "./collab": {
       "types": "./dist/collab.d.ts",
       "import": "./dist/collab.js"
@@ -67,7 +71,7 @@
     "prepublishOnly": "pnpm typecheck && pnpm test && pnpm build && pnpm check:optional",
     "check:package": "pnpm build && pnpm check:optional && pnpm dlx publint && pnpm dlx @arethetypeswrong/cli --pack . --profile esm-only --ignore-rules cjs-resolves-to-esm no-resolution",
     "server:examples": "tsx server/examples/api.ts",
-    "check:optional": "node scripts/check-optional-peers.mjs dist"
+    "check:optional": "node scripts/check-optional-peers.mjs dist && node scripts/check-standalone.mjs dist"
   },
   "repository": {
     "type": "git",

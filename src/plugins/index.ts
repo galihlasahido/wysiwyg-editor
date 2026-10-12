@@ -94,6 +94,7 @@ export { PdfEpub } from './pdf-epub';
 export type { PdfEpubOptions } from './pdf-epub';
 export { Themes, defaultThemes, themeVars } from './themes';
 export type { Theme, ThemePalette, ThemesOptions, ThemeApi } from './themes';
-export { DataTable, createFetchDataSource, cleanDataTable, formatDataCell, queryDataRows, dataTableFromRows, dataTableWithFormulas, dataTableRuleLooks, dataTableToCSV, dataTableToPrintHTML, dataTableToXlsx, parseCSV, parseXlsx } from './data-table';
-export type { DataPage, DataQuery, FormatRule, Look, SavedView } from '../data-table';
-export type { DataTableApi, DataTableButton, DataTableContext, DataTablePluginOptions, DataTableRowAction } from './data-table';
+export { DataTable, createFetchDataSource, cleanDataTable, formatDataTableCell, queryDataTable, dataTableFromRows, dataTableWithFormulas, dataTableRuleLooks, dataTableToCSV, dataTableToPrintHTML, dataTableToXlsx, parseCSV, parseXlsx } from './data-table';
+export type {
+  DataTableAggregate, DataTableCell, DataTableColumn, DataTableColumnType, DataTableLook, DataTablePage, DataTableQuery, DataTableRule, DataTableSavedView, DataTableSettings, DataTableSpec,
+  DataTableApi, DataTableButton, DataTableContext, DataTableOptions, DataTableRowAction } from './data-table';

@@ -4,6 +4,11 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## Unreleased
 
+- Added: the data table on its own, with no editor: `createDataTable` and `<wysiwyg-data-table>` from the new entry point `wysiwygido/data-table` (it imports no package, checked by the build), with its own undo, themes, change events and right-click menu.
+- Added: the data table's stored format is versioned (`v`). A table saved by a newer version is shown but not edited, and is kept exactly as it was.
+- Added: rows of a data table may be objects by column key; `createFetchDataSource` and a `GET /api/orders` route in the example server.
+- Added: tests that guard the public API (`tests/api-surface.json`) and the stored formats (`tests/formats.test.ts`); a "Stability and versioning" section in the README.
+- Changed (data table names, before they were released): types are `DataTable*` (`DataTableOptions` is the plugin's options, `DataTableSettings` the table's own), `formatDataTableCell`, `queryDataTable`; `DataTableContext.editor` is `null` when the table stands alone.
 - Added: data table extras: formula columns (own safe parser), highlight rules and data bars (also written to .xlsx and PDF), saved views, openable row details (`DataTable({ detail })`), column resizing by mouse or keyboard, row reordering by drag or Alt+Up/Down, and charts from the rows on screen.
 - Fixed: a data table's heading did not stay in view while the table scrolled.
 - Added: data table at scale: group by up to three columns with folding and per-group totals, virtual scrolling for long tables without paging, rows loaded page by page from a data source (`DataTable({ sources, onEdit })`, `options.source`), and import of Excel (.xlsx) files read without a library (`dataTableFromFile`).

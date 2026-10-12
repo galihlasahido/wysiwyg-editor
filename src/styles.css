@@ -1,7 +1,7 @@
 /* ---- Theme variables ----------------------------------------------------------------------------------------
    Chrome (toolbar, panels) and the page are themed separately, like "Dark Mode" and "Switch Background" in Word:
    data-theme = light | dark (chrome), data-page = light | dark (the paper). */
-.wy-editor {
+.wy-editor, .wy-dt-root {
   --wy-bg: #fff; --wy-surface: #fafafa; --wy-surface-2: #f3f4f6; --wy-fg: #1a1a1a; --wy-fg-2: #374151; --wy-muted: #6b7280;
   --wy-border: #e3e3e3; --wy-border-2: #d1d5db; --wy-hover: #ececec; --wy-pressed: #e0e0e0;
   --wy-accent: #2563eb; --wy-accent-strong: #1d4ed8; --wy-accent-bg: #dbeafe; --wy-accent-bg-2: #eff6ff; --wy-accent-border: #93c5fd;
@@ -14,7 +14,7 @@
   --wy-code-bg: #f0f0f0; --wy-link: #2563eb; --wy-page-header: #6b7280;
   color-scheme: light;
 }
-.wy-editor[data-theme='dark'] {
+.wy-editor[data-theme='dark'], .wy-dt-root[data-theme='dark'] {
   --wy-bg: #2b2b2b; --wy-surface: #242424; --wy-surface-2: #2f2f2f; --wy-fg: #f3f3f3; --wy-fg-2: #e0e0e0; --wy-muted: #b0b0b0;
   --wy-border: #444; --wy-border-2: #555; --wy-hover: #3a3a3a; --wy-pressed: #484848;
   --wy-accent: #6ea8ff; --wy-accent-strong: #8ab8ff; --wy-accent-bg: #1f3a5f; --wy-accent-bg-2: #243447; --wy-accent-border: #3b6ea8;
@@ -24,11 +24,11 @@
   --wy-ins: #4ade80; --wy-del: #ff8a8a;
   color-scheme: dark;
 }
-.wy-editor[data-page='dark'] {
+.wy-editor[data-page='dark'], .wy-dt-root[data-page='dark'] {
   --wy-page-bg: #2a2a2a; --wy-page-fg: #ececec; --wy-page-border: #5a5a5a; --wy-page-surface: #333; --wy-page-muted: #b8b8b8;
   --wy-code-bg: #3b3b3b; --wy-link: #8ab8ff; --wy-page-header: #a0a0a0;
 }
-.wy-editor[data-page='light'] {
+.wy-editor[data-page='light'], .wy-dt-root[data-page='light'] {
   --wy-page-bg: #fff; --wy-page-fg: #1a1a1a; --wy-page-border: #ccc; --wy-page-surface: #fafafa; --wy-page-muted: #555;
   --wy-code-bg: #f0f0f0; --wy-link: #2563eb; --wy-page-header: #6b7280;
 }
@@ -922,3 +922,11 @@ del.wy-diff-del, .wy-diff-legend .wy-diff-del { background: #fee2e2; color: #7f1
 .wy-dt-rule { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .wy-dt-rule input:not([type='checkbox']), .wy-dt-rule select { font: inherit; padding: 4px 8px; border: 1px solid var(--wy-border-2); border-radius: 4px; background: var(--wy-bg); color: var(--wy-fg); }
 .wy-dt-rule input:not([type='checkbox']) { width: 130px; }
+.wy-dt-note { margin: 8px 10px 0; padding: 6px 10px; border-radius: 4px; background: var(--wy-accent-bg-2); border: 1px solid var(--wy-accent-border); font-size: 13px; color: var(--wy-fg); }
+.wy-dt-note[hidden] { display: none; }
+
+/* the data table on its own, without the editor around it */
+.wy-dt-root { position: relative; font-family: system-ui, sans-serif; }
+.wy-dt-root > figure.wy-dt { margin: 0; }
+.wy-dt-root .wy-dialog-backdrop { position: fixed; border-radius: 0; }
+wysiwyg-data-table { display: block; }

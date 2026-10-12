@@ -1,4 +1,4 @@
-import { Charts, cleanDataTable, createFetchDataSource, createEditor, defaultPlugins, DataTable, download, queryDataRows, type DataPage, type DataQuery } from '../src';
+import { Charts, cleanDataTable, createFetchDataSource, createEditor, defaultPlugins, DataTable, download, queryDataTable, type DataTablePage, type DataTableQuery } from '../src';
 import { $, button, codePanel, el } from './samples';
 
 const names = ['Oolong tea', 'Green tea', 'Black tea', 'Espresso beans', 'Filter coffee', 'Matcha', 'Chai mix', 'Hot chocolate', 'Cold brew', 'Rooibos', 'Earl Grey', 'Jasmine pearls'];
@@ -47,9 +47,9 @@ const orders = cleanDataTable({
   columns: orderColumns,
   rows: Array.from({ length: 5000 }, (_, i) => [i + 1, `${people[i % 10]} ${String.fromCharCode(65 + (i % 26))}.`, ['North', 'South', 'East', 'West'][i % 4], 20 + ((i * 37) % 900) + (i % 7) / 10, `2026-${String((i % 12) + 1).padStart(2, '0')}-${String((i % 27) + 1).padStart(2, '0')}`, i % 3 === 0]),
 })!;
-async function loadOrders(q: DataQuery): Promise<DataPage> {
+async function loadOrders(q: DataTableQuery): Promise<DataTablePage> {
   await new Promise((r) => setTimeout(r, 300));
-  const hits = queryDataRows(orders, { search: q.search, filters: q.filters, sort: q.sort }, 'en-US');
+  const hits = queryDataTable(orders, { search: q.search, filters: q.filters, sort: q.sort }, 'en-US');
   const page = hits.slice(q.page * q.pageSize, (q.page + 1) * q.pageSize);
   return { rows: page.map((r) => orders.rows[r]), total: hits.length, totals: { amount: hits.reduce((n, r) => n + (orders.rows[r][3] as number), 0) } };
 }

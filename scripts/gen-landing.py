@@ -47,6 +47,7 @@ GROUPS = [
    ('charts', 'Charts from tables', 'Bar, line and pie charts built from a table, stored as data and written to Word as pictures.', ['Charts']),
    ('columns', 'Columns', 'Newspaper-style columns: wrap blocks in two to four columns with an optional rule and gap.', ['Layout']),
    ('data-table', 'Data table', 'Search, sort, filter, page, edit and total a table of records; custom buttons; export to CSV, Excel and PDF; convert to and from a regular table.', ['Table', 'Excel', 'CSV']),
+   ('data-table-standalone', 'Data table on its own', 'The data table with no editor around it: createDataTable, undo, themes, change events and a custom element.', ['Table', 'Stand-alone']),
    ('themes', 'Themes', 'Ten colour themes for the toolbar, ribbon and paper, switched at run time, plus your own from a handful of colours.', ['Theme', 'Dark mode']),
    ('captions', 'Captions and cross-references', 'Numbered figure and table captions that renumber themselves, cross-references that follow them, and a list of figures.', ['Captions', 'References']),
    ('export-word-pdf', 'Export to Word and PDF', 'Download .docx with page setup, headers and footers, or print to PDF.', ['.docx', 'PDF']),

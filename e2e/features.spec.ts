@@ -464,3 +464,32 @@ test('data table: formulas, highlights, details, views, resizing, reordering and
   await expect(page.locator('.wy-chart')).toHaveCount(1);
   expect(problems).toEqual([]);
 });
+
+test('data table on its own: no editor, edit, undo, theme and export', async ({ page }) => {
+  const problems = await openDemo(page, 'data-table-standalone', '#table .wy-dt');
+  expect(await page.locator('.ProseMirror').count()).toBe(0);
+  const dt = page.locator('#table .wy-dt').first();
+  await expect(dt.locator('tbody tr[data-row]')).toHaveCount(10);
+  await page.screenshot({ path: 'test-results/data-table-standalone.png' });
+
+  await dt.locator('tbody tr[data-row] td[data-col="0"]').first().dblclick();
+  await dt.locator('.wy-dt-edit').fill('Edited customer');
+  await dt.locator('.wy-dt-edit').press('Enter');
+  await expect(dt.locator('tbody tr[data-row] td[data-col="0"]').first()).toHaveText('Edited customer');
+  await expect(page.locator('.demo-log')).toContainText('Change 1');
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await expect(dt.locator('tbody tr[data-row] td[data-col="0"]').first()).not.toHaveText('Edited customer');
+
+  // right-click menu of its own
+  await dt.locator('tbody tr[data-row] td[data-col="1"]').first().click({ button: 'right' });
+  await expect(page.getByRole('menuitem', { name: 'Insert row below' })).toBeVisible();
+  await page.keyboard.press('Escape');
+
+  await page.getByRole('button', { name: 'nord', exact: true }).click();
+  await expect(page.locator('#table .wy-dt-root')).toHaveAttribute('data-theme', 'dark');
+  const [file] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download .xlsx' }).click()]);
+  expect(file.suggestedFilename()).toBe('customers.xlsx');
+
+  await expect(page.locator('wysiwyg-data-table .wy-dt tbody tr[data-row]')).toHaveCount(3);
+  expect(problems).toEqual([]);
+});

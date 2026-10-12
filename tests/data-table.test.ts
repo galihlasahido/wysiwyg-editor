@@ -66,6 +66,10 @@ describe('cleanSpec', () => {
     const s = cleanSpec(JSON.stringify({ columns: [{ key: '"><img onerror=1>', title: 'T' }], rows: [] }))!;
     expect(s.columns[0].key).toMatch(/^[\w-]+$/);
   });
+  it('takes rows as objects by column key', () => {
+    const s = cleanSpec({ columns: [{ key: 'a', title: 'A' }, { key: 'n', title: 'N', type: 'number' }], rows: [{ a: 'x', n: '4' }, { n: 5, extra: 1 }, { __proto__: { a: 'bad' } }] })!;
+    expect(s.rows).toEqual([['x', 4], ['', 5], ['', null]]);
+  });
   it('builds a spec from rows with guessed types', () => {
     const s = specFromRows([['Item', 'Qty'], ['a', '3'], ['b', '4']]);
     expect(s.columns.map((c) => c.type)).toEqual(['text', 'number']);

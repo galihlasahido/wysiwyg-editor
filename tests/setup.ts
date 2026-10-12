@@ -6,3 +6,6 @@ if (typeof Range !== 'undefined') {
   Range.prototype.getClientRects = emptyRects;
   Range.prototype.getBoundingClientRect = zeroRect;
 }
+
+// jsdom has no hit testing; ProseMirror asks for the element under a point when a drag starts or the mouse is pressed.
+if (typeof document !== 'undefined' && !document.elementFromPoint) document.elementFromPoint = () => null;
