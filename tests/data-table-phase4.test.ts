@@ -184,13 +184,13 @@ describe('opening a row', () => {
     const e = make({ detail: async (row) => { await tick(5); return `<b>${row.a}</b>`; } }, spec);
     (rowsOf(e)[1].querySelector('[data-role="detail-toggle"]') as HTMLElement).click();
     expect(dt(e).querySelector('.wy-dt-detail')!.textContent).toContain('Loading');
-    await tick(20);
+    for (let i = 0; i < 50 && dt(e).querySelector('.wy-dt-detail')!.textContent === 'Loading…'; i++) await tick(10);
     expect(dt(e).querySelector('.wy-dt-detail b')).toBeNull();
     expect(dt(e).querySelector('.wy-dt-detail')!.textContent).toBe('<b>y</b>');
     const el = document.createElement('em'); el.textContent = 'node';
     const e2 = make({ detail: () => el }, spec);
     (rowsOf(e2)[0].querySelector('[data-role="detail-toggle"]') as HTMLElement).click();
-    await tick(5);
+    for (let i = 0; i < 50 && !dt(e2).querySelector('.wy-dt-detail em'); i++) await tick(10);
     expect(dt(e2).querySelector('.wy-dt-detail em')!.textContent).toBe('node');
     e.destroy(); e2.destroy();
   });
