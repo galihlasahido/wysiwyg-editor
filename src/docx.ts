@@ -8,6 +8,7 @@ import { cropBytes, cropToString, type Crop } from './crop';
 import { latexToDocx } from './latex-docx';
 import { rasterizeSVG } from './svg-raster';
 import { chartSVG, cleanChart } from './chart';
+import { cleanSpec as cleanDataTable, formatCell as formatDataCell } from './data-table';
 import type { Editor } from './editor';
 import type { PageSettings } from './plugins/pages';
 import type { CommentsPlugin, CommentThread } from './plugins/comments';
@@ -419,6 +420,22 @@ function blocks(node: PMNode, ctx: Ctx): Block[] {
       return [new D.TableOfContents('Table of Contents', { hyperlink: true, headingStyleRange: '1-4' })];
     case 'table':
       return [tableBlock(node, ctx), new D.Paragraph('')]; // Word needs a paragraph after a table
+    case 'data_table': {
+      // A data table is written as an ordinary Word table: the heading row (repeated on each page) and every row, in the shown columns.
+      const spec = cleanDataTable(node.attrs.spec);
+      if (!spec) return [];
+      const cols = spec.columns.map((c, i) => ({ c, i })).filter(({ c }) => !c.hidden);
+      const align = (c: (typeof cols)[number]['c']) => ((c.align ?? (c.type === 'number' || c.type === 'currency' ? 'right' : 'left')) === 'right' ? D.AlignmentType.RIGHT : c.align === 'center' ? D.AlignmentType.CENTER : D.AlignmentType.LEFT);
+      const cell = (text: string, c: (typeof cols)[number]['c'], bold = false, fill?: string) => new D.TableCell({ shading: fill ? { type: D.ShadingType.CLEAR, fill, color: 'auto' } : undefined, children: [new D.Paragraph({ alignment: align(c), children: [new D.TextRun({ text, bold })] })] });
+      const rows = [
+        new D.TableRow({ tableHeader: true, children: cols.map(({ c }) => cell(c.title, c, true, 'E7ECF3')) }),
+        ...spec.rows.map((r) => new D.TableRow({ children: cols.map(({ c, i }) => cell(formatDataCell(c, r[i]), c)) })),
+      ];
+      const out: Block[] = [];
+      if (spec.options.title) out.push(new D.Paragraph({ spacing: { after: 60 }, children: [new D.TextRun({ text: spec.options.title, bold: true })] }));
+      out.push(new D.Table({ rows, width: { size: 100, type: D.WidthType.PERCENTAGE } }), new D.Paragraph(''));
+      return out;
+    }
     default:
       return node.isTextblock ? [new D.Paragraph({ children: inlineChildren(node, ctx) })] : [];
   }

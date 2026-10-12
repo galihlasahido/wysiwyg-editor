@@ -342,3 +342,32 @@ test('colour themes restyle the editor and the ribbon menu lists them', async ({
   await expect(page.getByRole('menuitem', { name: 'Nord' })).toBeVisible();
   expect(problems).toEqual([]);
 });
+
+test('data table: search, sort, page, edit, export and convert', async ({ page }) => {
+  const problems = await openDemo(page, 'data-table');
+  const dt = page.locator('.wy-dt');
+  await expect(dt.locator('tbody tr[data-row]')).toHaveCount(10);
+  await page.screenshot({ path: 'test-results/data-table.png' });
+  await dt.getByLabel('Search the table').fill('matcha');
+  await expect(dt.locator('tbody tr[data-row]')).toHaveCount(5);
+  await dt.getByLabel('Search the table').fill('');
+  await dt.getByRole('button', { name: 'Stock' }).first().click();
+  await dt.getByRole('button', { name: 'Stock' }).first().click();
+  await expect(dt.locator('thead th[data-col="2"]')).toHaveAttribute('aria-sort', 'descending');
+  await dt.getByRole('button', { name: 'Next page' }).click();
+  await expect(dt.locator('.wy-dt-info').first()).toContainText('11–20 of 64');
+  const first = dt.locator('tbody tr[data-row] td[data-col="0"]').first();
+  await first.dblclick();
+  await dt.locator('.wy-dt-edit').fill('Renamed product');
+  await dt.locator('.wy-dt-edit').press('Enter');
+  await expect(dt.locator('tbody td[data-col="0"]').first()).toHaveText('Renamed product');
+  await dt.getByRole('button', { name: 'Export ▾' }).click();
+  const [file] = await Promise.all([page.waitForEvent('download'), page.getByRole('menuitem', { name: 'Excel (.xlsx)' }).click()]);
+  expect(file.suggestedFilename()).toBe('products.xlsx');
+  await page.getByRole('button', { name: 'Convert to regular table' }).click();
+  await expect(page.locator('.ProseMirror table:not(.wy-dt-table)')).toHaveCount(1);
+  await expect(page.locator('.wy-dt')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Convert table back' }).click();
+  await page.locator('.ProseMirror table td').first().click().catch(() => {});
+  expect(problems).toEqual([]);
+});

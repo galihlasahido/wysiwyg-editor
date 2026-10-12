@@ -1,6 +1,7 @@
 import MarkdownIt from 'markdown-it';
 import { MarkdownParser, MarkdownSerializer, type MarkdownSerializerState } from 'prosemirror-markdown';
 import { Fragment, type Node as PMNode, type Schema } from 'prosemirror-model';
+import { cleanSpec, formatCell } from './data-table';
 import { markdownUrl } from './url';
 
 const noMark = { open: '', close: '', mixable: true, expelEnclosingWhitespace: true };
@@ -56,6 +57,14 @@ const knownNodes: Record<string, (state: MarkdownSerializerState, node: PMNode, 
     },
     clip(state, node) {
       state.write(`[${state.esc(node.attrs.name || `${node.attrs.kind} recording`)}](${node.attrs.src.startsWith('data:') ? '#' : markdownUrl(node.attrs.src)})`);
+      state.closeBlock(node);
+    },
+    data_table(state, node) {
+      const spec = cleanSpec(node.attrs.spec);
+      if (!spec) return;
+      const cols = spec.columns.map((c, i) => ({ c, i })).filter(({ c }) => !c.hidden);
+      const rows: string[][] = [cols.map(({ c }) => c.title), ...spec.rows.map((r) => cols.map(({ c, i }) => formatCell(c, r[i])))];
+      rows.forEach((r, n) => { state.write(`| ${r.map((c) => c.replace(/\|/g, '\\|').replace(/\r?\n/g, ' ')).join(' | ')} |\n`); if (n === 0) state.write(`| ${r.map(() => '---').join(' | ')} |\n`); });
       state.closeBlock(node);
     },
     chart(state, node) {

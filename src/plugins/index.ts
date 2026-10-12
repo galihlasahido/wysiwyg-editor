@@ -94,3 +94,5 @@ export { PdfEpub } from './pdf-epub';
 export type { PdfEpubOptions } from './pdf-epub';
 export { Themes, defaultThemes, themeVars } from './themes';
 export type { Theme, ThemePalette, ThemesOptions, ThemeApi } from './themes';
+export { DataTable } from './data-table';
+export type { DataTableApi, DataTableButton, DataTableContext, DataTablePluginOptions, DataTableRowAction } from './data-table';

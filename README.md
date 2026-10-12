@@ -469,6 +469,41 @@ tOGGLE cASE (`Ctrl/⌘+Alt+G`), snake_case (`Ctrl/⌘+Alt+S`), camelCase (`Ctrl/
 in the right-click menu. Upper/lower/toggle/title/sentence keep every bold, link and colour in place; snake/camel/kebab join the words into one
 identifier that takes the formatting of its first letter. From code: `editor.execute('changeCase', 'snake')` or the pure `convertCase(text, 'camel')`.
 
+## Data table
+
+A table of records that people can search, sort, filter, page through, edit and export, in the middle of a document. It is a separate block from the ordinary table: the rows are stored as data, so sorting or filtering changes only what is shown, never the document.
+
+```ts
+import { createEditor, defaultPlugins, DataTable } from 'wysiwygido';
+
+const editor = createEditor({
+  element,
+  plugins: [...defaultPlugins, DataTable({
+    buttons: [{ id: 'ship', label: 'Ship', needsSelection: true, onClick: ({ selected }) => ship(selected) }],
+    rowActions: [{ label: 'View', onClick: (row, index) => open(row.id) }],
+  })],
+});
+
+editor.execute('insertDataTable', {
+  columns: [{ key: 'name', title: 'Product', type: 'text' }, { key: 'price', title: 'Price', type: 'currency', currency: 'USD', total: 'sum' }],
+  rows: [['Tea', 4.5], ['Cake', 6]],
+  options: { title: 'Menu', pageSize: 25, filters: true, selectable: true },
+});
+```
+
+- **Columns** are `text`, `number`, `currency`, `date`, `boolean` or `select`, each with its own editor, format, alignment and an optional footer total (`sum`, `avg`, `count`, `min`, `max`). Add, edit, move, hide and delete them from the heading menu.
+- **Search and filter:** a search box, and an optional filter row. Text filters match "contains"; number and date filters take `>5`, `>=5`, `<5`, `5..10`, `=5`, `!=5`.
+- **Sort** by clicking a heading (Shift+click for a second column). Empty values always come last.
+- **Paging** with 10, 25, 50, 100 or all rows per page. Nothing is drawn beyond the page.
+- **Editing:** double-click or press Enter on a cell, Enter or Tab to save and move, Esc to cancel. Arrow keys move between cells. Every edit is one undo step.
+- **Buttons:** your own toolbar buttons (`needsSelection` keeps one disabled until rows are ticked) and a button on every row.
+- **Export:** CSV, Excel (.xlsx) and PDF from the Export menu, using what is shown (filtered, sorted, visible columns), or only the ticked rows. The .xlsx file is written by the editor itself, with no library: a bold frozen header, filter buttons, number, currency and date formats. CSV text that starts with `=`, `+`, `-` or `@` is quoted so a spreadsheet does not run it. PDF uses the print dialog (choose "Save as PDF"), so every script and font works.
+- **Convert both ways:** `tableToDataTable` turns the table at the cursor into a data table (the first row names the columns, types are guessed from the values), and `dataTableToTable` turns the selected data table back into an ordinary table. Also in the right-click menu.
+- **Look:** follows the colour theme. Options: striped rows, cell borders, row height, a fixed height with a sticky heading. The block is exported to Word as a real table, to Markdown as a table, and to HTML with a plain table inside.
+- **CSV in:** `editor.execute('dataTableFromCSV')` opens a file picker (or pass the text). Quoted fields and comma, semicolon or tab separators are handled.
+
+The pure parts (`dataTableToCSV`, `dataTableToXlsx`, `dataTableToPrintHTML`, `queryDataRows`, `cleanDataTable`) are exported too, so a server can build the same files.
+
 ## Themes
 
 Ten colour themes ship with the editor: `light`, `dark`, `sepia`, `ocean`, `forest`, `rose`, `solarized`, `midnight`, `nord` and `high-contrast`. A theme restyles the toolbar, ribbon, panels and the paper, and only inside the editor.

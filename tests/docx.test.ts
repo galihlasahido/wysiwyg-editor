@@ -22,6 +22,18 @@ async function parts(editor: Editor, options = {}) {
   return { zip, doc: await read('word/document.xml'), read, names: Object.keys(zip.files) };
 }
 
+describe('data table in Word', () => {
+  it('is written as a real table with a repeating heading row', async () => {
+    const e = make('<p>x</p>');
+    e.execute('insertDataTable', { columns: [{ title: 'Item', type: 'text' }, { title: 'Price', type: 'currency', currency: 'USD' }], rows: [['Tea', 4.5], ['Cake', 6]], options: { title: 'Menu' } });
+    const { doc } = await parts(e);
+    expect(doc).toContain('<w:tbl>');
+    expect(doc).toContain('<w:tblHeader');
+    for (const t of ['Menu', 'Item', 'Price', 'Tea', 'Cake', '$4.50', '$6.00']) expect(doc).toContain(t);
+    e.destroy();
+  });
+});
+
 describe('imageInfo', () => {
   it('reads PNG, GIF and JPEG headers and rejects junk', () => {
     const png = Uint8Array.from(atob(PNG.split(',')[1]), (c) => c.charCodeAt(0));

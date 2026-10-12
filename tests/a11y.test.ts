@@ -30,6 +30,17 @@ describe('accessibility (axe-core)', () => {
     expect(await audit(e.root)).toEqual([]);
   });
 
+  it('a data table with filters, selection and an open menu has no violations', async () => {
+    const e = make();
+    e.execute('insertDataTable', { columns: [{ title: 'Name', type: 'text' }, { title: 'Qty', type: 'number', total: 'sum' }, { title: 'Done', type: 'boolean' }, { title: 'Kind', type: 'select', options: ['a', 'b'] }], rows: [['x', 1, true, 'a'], ['y', 2, false, 'b']], options: { filters: true, selectable: true, title: 'Stock' } });
+    expect(await audit(e.root)).toEqual([]);
+    [...e.root.querySelectorAll<HTMLButtonElement>('.wy-dt-bar button')].find((b) => b.textContent?.startsWith('Export'))!.click();
+    expect(await audit(e.root)).toEqual([]);
+    e.setReadOnly(true);
+    e.root.querySelector('.wy-dt')!.dispatchEvent(new Event('pointerenter'));
+    expect(await audit(e.root)).toEqual([]);
+  });
+
   it('read-only and RTL editors have no violations', async () => {
     expect(await audit(make({ readOnly: true }).root)).toEqual([]);
     expect(await audit(make({ direction: 'rtl', locale: 'ar' }).root)).toEqual([]);

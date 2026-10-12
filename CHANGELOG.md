@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/). Until 1.0, minor versions may contain breaking changes; they are listed under "Changed" or "Removed".
 
+## Unreleased
+
+- Added: data table (`DataTable` plugin): a block of records with typed columns, search, column filters, multi-column sort, paging, cell editing, selection, footer totals, custom toolbar buttons and row actions, right-click and heading menus, and keyboard navigation. Export to CSV, Excel (.xlsx, written without a library) and PDF; import from CSV; convert to and from a regular table. Written to Word and Markdown as a table.
+
 ## 0.4.0
 
 - Added: colour themes (`Themes` plugin): light, dark, sepia, ocean, forest, rose, solarized, midnight, nord and high-contrast, a View → Themes menu, `colorTheme` / `cycleColorTheme` / `clearColorTheme` commands, your own theme from a handful of colours, and `<wysiwyg-editor theme="sepia">`.
