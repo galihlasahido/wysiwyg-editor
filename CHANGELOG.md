@@ -2,7 +2,9 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/). Before 1.0.0 minor versions could contain breaking changes. From 1.0.0 on, only a major version may break the public API (see "Stability and versioning" in the README); changes are listed under "Changed" or "Removed".
 
-## Unreleased
+## 1.1.0
+
+The first release published to npm since 0.4.0: it contains everything in 1.0.0 below plus the following.
 
 - Added: a **browser support** section on the demo site: 17 real browser builds (Chrome / Edge 94 to 141, Firefox 91 to 142, Safari 16.4 to 26) each ran the same 34 checks, and every one passes. The runner is in `scripts/compat` (`probe.cjs`, `run-matrix.sh`, `aggregate.mjs`).
 - Fixed: progress bars in a data table (`bar: true`) were wiped out on striped, hovered and selected rows, and under a highlight; the row styles now set only the background colour.
