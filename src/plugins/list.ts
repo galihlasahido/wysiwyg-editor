@@ -26,7 +26,7 @@ export const List: EditorPlugin = {
       } }],
       toDOM: (n) => ['ol', { ...(n.attrs.order === 1 ? {} : { start: n.attrs.order }), ...(n.attrs.type === '1' ? {} : { type: n.attrs.type }) }, 0],
     },
-    list_item: { content: 'paragraph block*', defining: true, parseDOM: [{ tag: 'li' }], toDOM: () => ['li', 0] },
+    list_item: { content: 'listLead block*', defining: true, parseDOM: [{ tag: 'li' }], toDOM: () => ['li', 0] },
   },
   setup(editor) {
     const { bullet_list, ordered_list, list_item } = editor.schema.nodes;

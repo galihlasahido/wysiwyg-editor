@@ -34,6 +34,18 @@ describe('data table in Word', () => {
   });
 });
 
+describe('a heading in a list', () => {
+  it('keeps its heading style and gets the number in Word', async () => {
+    const e = make('<ol><li><h2>Plan</h2><p>details</p></li><li><h2>Build</h2></li></ol>');
+    const { doc } = await parts(e);
+    const para = doc.split('<w:p>').filter((x) => x.includes('>Plan<'))[0] ?? '';
+    expect(para).toContain('Heading2');
+    expect(para).toContain('<w:numPr>');
+    expect(doc).toContain('details');
+    e.destroy();
+  });
+});
+
 describe('imageInfo', () => {
   it('reads PNG, GIF and JPEG headers and rejects junk', () => {
     const png = Uint8Array.from(atob(PNG.split(',')[1]), (c) => c.charCodeAt(0));

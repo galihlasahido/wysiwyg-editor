@@ -288,8 +288,10 @@ function listBlocks(list: PMNode, ctx: Ctx, depth: number): Block[] {
     let first = true;
     const taskRef = name === 'task_list' ? newNumbering(ctx, 'bullet', item.attrs.checked ? '☑' : '☐') : null;
     item.forEach((child) => {
-      if (child.type.name === 'paragraph' && first) {
-        out.push(new D.Paragraph({ children: inlineChildren(child, ctx), numbering: { reference: (ref ?? taskRef)!, level: depth }, ...paragraphOptions(child, ctx) }));
+      if ((child.type.name === 'paragraph' || child.type.name === 'heading') && first) {
+        // a heading in a list keeps its Word heading style and gets the bullet or number (numbered headings)
+        const heading = child.type.name === 'heading' ? { heading: D.HeadingLevel[`HEADING_${Math.min(6, child.attrs.level)}` as 'HEADING_1'] } : {};
+        out.push(new D.Paragraph({ ...heading, children: inlineChildren(child, ctx), numbering: { reference: (ref ?? taskRef)!, level: depth }, ...paragraphOptions(child, ctx) }));
       } else if (/_list$/.test(child.type.name)) {
         out.push(...listBlocks(child, ctx, depth + 1));
       } else {

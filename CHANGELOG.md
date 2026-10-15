@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/). Before 1.0.0 minor versions could contain breaking changes. From 1.0.0 on, only a major version may break the public API (see "Stability and versioning" in the README); changes are listed under "Changed" or "Removed".
 
+## 1.2.1
+
+- Fixed: bullets and numbering did nothing on a heading (the "Bulleted list" and "Numbered list" buttons, and the commands). A list item had to start with a paragraph, so a heading could not be wrapped. An item may now start with a heading, which keeps its heading style and gets the bullet or number (numbered headings, as in Word); turning the list off gives the heading back, and switching between bullets and numbers works. Word export writes such an item with the heading style and the numbering.
+
 ## 1.2.0
 
 - Added: **collapsible headings** (`CollapsibleHeadings`, in `defaultPlugins`): an arrow in the margin of every top-level heading hides the text under it up to the next heading of the same or a higher level, like Word. Commands `toggleHeadingFold`, `collapseHeadings`, `expandHeadings`, `showHeadingLevel(n)`; right-click menu, ribbon (View → Headings) and shortcuts included. The document is not changed and the pages are laid out again without the hidden text.

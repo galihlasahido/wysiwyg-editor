@@ -38,3 +38,18 @@ test('the paged layout splits the document into pages with a header', async ({ p
   expect(await page.locator('.wy-page-header').count()).toBeGreaterThanOrEqual(2);
   await expect(page.locator('.wy-ruler').first()).toBeVisible();
 });
+
+test('a heading can become a bulleted or numbered item and stays a heading', async ({ page }) => {
+  const problems = await openDemo(page, 'feature-rich');
+  await editorReady(page);
+  await page.waitForSelector('.wy-page-header');
+  await placeCursor(page, 'Background');
+  await page.getByRole('button', { name: 'Bulleted list' }).first().click();
+  expect(await html(page)).toMatch(/<ul><li><h2>Background<\/h2>/);
+  await page.getByRole('button', { name: 'Numbered list' }).first().click();                // the same item becomes a numbered one
+  expect(await html(page)).toMatch(/<ol[^>]*><li><h2>Background<\/h2>/);
+  await page.getByRole('button', { name: 'Numbered list' }).first().click();                // and back to a plain heading
+  expect(await html(page)).toContain('<h2>Background</h2>');
+  expect(await html(page)).not.toMatch(/<li><h2>Background/);
+  expect(problems).toEqual([]);
+});

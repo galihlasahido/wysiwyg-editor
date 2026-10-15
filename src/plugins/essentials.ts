@@ -15,7 +15,7 @@ export const Essentials: EditorPlugin = {
   nodes: {
     paragraph: {
       content: 'inline*',
-      group: 'block',
+      group: 'block listLead', // a list item starts with a paragraph (or a heading)
       attrs: blockAttrDefs(),
       parseDOM: [{ tag: 'p', getAttrs: blockAttrs }],
       toDOM: (n) => ['p', blockDOM(n.attrs), 0],

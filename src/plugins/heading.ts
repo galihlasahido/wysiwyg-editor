@@ -10,7 +10,7 @@ export const Heading: EditorPlugin = {
     heading: {
       attrs: { level: { default: 1 }, ...blockAttrDefs() },
       content: 'inline*',
-      group: 'block',
+      group: 'block listLead', // may start a list item (a numbered heading)
       defining: true,
       parseDOM: LEVELS.map((level) => ({ tag: `h${level}`, getAttrs: (n) => ({ level, ...blockAttrs(n) }) })),
       toDOM: (node) => [`h${node.attrs.level}`, blockDOM(node.attrs), 0],
