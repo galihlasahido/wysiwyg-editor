@@ -53,3 +53,36 @@ test('a heading can become a bulleted or numbered item and stays a heading', asy
   expect(await html(page)).not.toMatch(/<li><h2>Background/);
   expect(problems).toEqual([]);
 });
+
+test('the number of a numbered heading is as big as the heading', async ({ page }) => {
+  const problems = await openDemo(page, 'feature-rich');
+  await editorReady(page);
+  await page.waitForSelector('.wy-page-header');
+  await placeCursor(page, 'Project proposal');
+  await page.getByRole('button', { name: 'Numbered list' }).first().click();
+  const sizes = await page.evaluate(() => {
+    const li = document.querySelector('.ProseMirror ol > li')!;
+    const h = li.querySelector('h1')!;
+    return { marker: parseFloat(getComputedStyle(li, '::marker').fontSize), heading: parseFloat(getComputedStyle(h).fontSize), weight: getComputedStyle(li, '::marker').fontWeight };
+  });
+  expect(sizes.marker).toBeCloseTo(sizes.heading, 0);                    // not the small body size
+  expect(Number(sizes.weight)).toBeGreaterThanOrEqual(600);
+  expect(problems).toEqual([]);
+});
+
+test('picture styles: pick a look from the gallery, see it, and clear it', async ({ page }) => {
+  const problems = await openDemo(page, 'images', '.ProseMirror img');
+  await page.locator('.ProseMirror img').first().click();
+  await page.getByRole('tab', { name: 'Picture' }).click();                // the tab for a selected picture
+  await page.getByRole('button', { name: 'Picture Styles' }).click();
+  expect(await page.getByRole('menuitemradio').count()).toBe(28);
+  await page.getByRole('menuitemradio', { name: 'Metal oval' }).click();
+  const img = page.locator('.ProseMirror img').first();
+  await expect(img).toHaveCSS('border-radius', /50%|[0-9.]+px/);
+  expect(await img.evaluate((e) => getComputedStyle(e).borderTopWidth)).toBe('8px');
+  await page.getByRole('button', { name: 'Picture Styles' }).click();
+  await expect(page.getByRole('menuitemradio', { name: 'Metal oval' })).toHaveAttribute('aria-checked', 'true');
+  await page.getByRole('menuitem', { name: 'Clear Style' }).click();
+  expect(await img.evaluate((e) => getComputedStyle(e).borderTopWidth)).toBe('0px');
+  expect(problems).toEqual([]);
+});

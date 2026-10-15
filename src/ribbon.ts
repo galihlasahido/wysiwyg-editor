@@ -1,6 +1,7 @@
 import { NodeSelection, type EditorState } from 'prosemirror-state';
 import type { Editor } from './editor';
 import { hasIcon, icon } from './icons';
+import { PICTURE_STYLES, pictureStyleId } from './picture-styles';
 import { SPECIAL_CHARACTERS } from './plugins/special-characters';
 import { CASE_ITEMS } from './plugins/text-case';
 import { restrictedKey } from './plugins/restricted-editing';
@@ -10,6 +11,7 @@ import type { RibbonContribution, ToolbarItem } from './types';
 // ---- layout description ---------------------------------------------------------------------------------------
 
 type Size = 'large' | 'small';
+export interface GalleryItem { id: string; label: string; css: string }
 export interface MenuEntry { label: string; command?: string; args?: unknown[]; icon?: string; checked?: (e: Editor) => boolean; heading?: boolean }
 
 /** One control in a ribbon group. Controls whose command (or toolbar item) is not available are hidden. */
@@ -19,6 +21,8 @@ export type RibbonControl =
   | { kind: 'command'; id: string; command: string; args?: unknown[]; label: string; icon: string; size?: Size; iconOnly?: boolean; active?: (e: Editor) => boolean }
   | { kind: 'menu'; id: string; label: string; icon: string; need: string; size?: Size; iconOnly?: boolean; entries: (e: Editor) => MenuEntry[] }
   | { kind: 'palette'; id: string; label: string; icon: string; command: string; colors: string[]; none: string; size?: Size; iconOnly?: boolean }
+  /** A grid of look-alike thumbnails (picture styles): each item's `css` is applied to a small copy of the `preview` picture. */
+  | { kind: 'gallery'; id: string; label: string; icon: string; command: string; items: (e: Editor) => GalleryItem[]; current: (s: EditorState) => string | null; preview: (s: EditorState) => string | null; clear: string; size?: Size }
   | { kind: 'chars'; id: string; label: string; icon: string; need: string; chars: string[]; size?: Size }
   | { kind: 'select'; item: string; width?: number }
   | { kind: 'zoom' }
@@ -286,6 +290,16 @@ export const DEFAULT_RIBBON: RibbonTab[] = [
           { kind: 'spin', id: 'imageWidth', label: 'Width', icon: 'size', command: 'imageWidth', get: (s) => (imageSelected(s) ? ((s.selection as NodeSelection).node.attrs.width ?? 0) : 0), set: (v) => [v], min: 24, max: 2000, step: 10, unit: 'px', spread: true },
         ],
       },
+      {
+        id: 'imgstyle',
+        label: 'Picture Styles',
+        controls: [{
+          kind: 'gallery', id: 'pictureStyles', label: 'Picture Styles', icon: 'image', command: 'pictureStyle', size: 'large', clear: 'Clear Style',
+          items: () => PICTURE_STYLES,
+          current: (st) => (imageSelected(st) ? pictureStyleId((st.selection as NodeSelection).node.attrs.pictureStyle) : null),
+          preview: (st) => (imageSelected(st) ? ((st.selection as NodeSelection).node.attrs.src as string) : null),
+        }],
+      },
       { id: 'imgtext', label: 'Text', controls: [it('imageCaption', { size: 'large', label: 'Caption', icon: 'imageCaption' }), it('imageAlt', { size: 'large', label: 'Alt Text', icon: 'alt' })] },
     ],
   },
@@ -521,6 +535,13 @@ export class Ribbon {
         btn.setAttribute('aria-expanded', 'false');
         return btn;
       }
+      case 'gallery': {
+        if (!ed.hasCommand(c.command)) return null;
+        const btn = this.button({ label: this.label(c.id, c.label), icon: c.icon, size: c.size ?? defaultSize ?? 'small', chevron: true, onClick: () => this.toggleMenu(btn, () => this.galleryBody(c)) });
+        btn.setAttribute('aria-haspopup', 'menu');
+        btn.setAttribute('aria-expanded', 'false');
+        return btn;
+      }
       case 'palette': {
         if (!ed.hasCommand(c.command)) return null;
         const btn = this.button({ label: this.label(c.id, c.label), icon: c.icon, size: c.size ?? defaultSize ?? 'small', iconOnly: c.iconOnly, chevron: true, onClick: () => this.toggleMenu(btn, () => this.paletteBody(c)) });
@@ -636,6 +657,8 @@ export class Ribbon {
     const root = this.editor.root.getBoundingClientRect();
     const a = anchor.getBoundingClientRect();
     menu.style.top = `${a.bottom - root.top + 2}px`;
+    menu.style.maxHeight = `${Math.max(180, root.height - (a.bottom - root.top) - 8)}px`; // a tall menu (a gallery) scrolls instead of being cut off by the editor's edge
+    menu.style.overflowY = 'auto';
     menu.style.left = `${Math.max(0, Math.min(a.left - root.left, root.width - menu.offsetWidth - 4))}px`;
     anchor.setAttribute('aria-expanded', 'true');
     this.openMenu = { el: menu, anchor };
@@ -653,7 +676,7 @@ export class Ribbon {
   private menuKeys(e: KeyboardEvent, menu: HTMLElement): void {
     const items = [...menu.querySelectorAll<HTMLElement>('button')];
     const i = items.indexOf(document.activeElement as HTMLElement);
-    const cols = menu.querySelector('.wy-palette, .wy-charpad') ? Number(getComputedStyle(menu.querySelector('.wy-palette, .wy-charpad')!).gridTemplateColumns.split(' ').length) || 1 : 1;
+    const cols = menu.querySelector('.wy-palette, .wy-charpad, .wy-gallery') ? Number(getComputedStyle(menu.querySelector('.wy-palette, .wy-charpad, .wy-gallery')!).gridTemplateColumns.split(' ').length) || 1 : 1;
     const step = e.key === 'ArrowDown' ? cols : e.key === 'ArrowUp' ? -cols : e.key === 'ArrowRight' && cols > 1 ? 1 : e.key === 'ArrowLeft' && cols > 1 ? -1 : 0;
     if (e.key === 'Escape') {
       const anchor = this.openMenu?.anchor;
@@ -724,6 +747,42 @@ export class Ribbon {
       grid.append(b);
     }
     box.append(none, grid);
+    return box;
+  }
+
+  private galleryBody(c: Extract<RibbonControl, { kind: 'gallery' }>): HTMLElement {
+    const box = document.createElement('div');
+    const state = this.editor.view.state;
+    const src = c.preview(state);
+    const current = c.current(state);
+    const grid = document.createElement('div');
+    grid.className = 'wy-gallery';
+    for (const item of c.items(this.editor)) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'wy-gallery-item';
+      b.title = item.label;
+      b.setAttribute('role', 'menuitemradio');
+      b.setAttribute('aria-label', item.label);
+      b.setAttribute('aria-checked', String(item.id === current));
+      const img = document.createElement('img');
+      img.alt = '';
+      if (src) img.src = src;
+      img.style.cssText = item.css; // from the fixed style table, never from the document
+      b.append(img);
+      b.addEventListener('mousedown', (e) => e.preventDefault());
+      b.addEventListener('click', () => this.run(c.command, [item.id]));
+      grid.append(b);
+    }
+    const none = document.createElement('button');
+    none.type = 'button';
+    none.className = 'wy-menu-item wy-gallery-clear';
+    none.setAttribute('role', 'menuitem');
+    none.disabled = !current;
+    none.textContent = this.editor.t(`none.${c.id}`, c.clear);
+    none.addEventListener('mousedown', (e) => e.preventDefault());
+    none.addEventListener('click', () => this.run(c.command, [null]));
+    box.append(grid, none);
     return box;
   }
 

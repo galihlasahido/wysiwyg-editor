@@ -5,6 +5,7 @@ import { cropFromString, cropLayout, cropToString, dragCrop, normalizeCrop, visi
 import { askDialog } from '../dialog';
 import type { ContextMenuEntry, ContextMenuItem, EditorPlugin } from '../types';
 import { hasPasteableText } from '../paste';
+import { pictureStyleCss, pictureStyleId, PICTURE_STYLES } from '../picture-styles';
 import { isSafeSrc } from '../url';
 
 const SAFE_SRC = { test: isSafeSrc };
@@ -17,7 +18,7 @@ export const Image: EditorPlugin = {
       group: 'inline',
       draggable: true,
       // `crop` is the fraction of the natural image removed per side; `nw`/`nh` its natural size (known once cropped).
-      attrs: { src: {}, alt: { default: null }, width: { default: null }, caption: { default: null }, crop: { default: null }, nw: { default: null }, nh: { default: null } },
+      attrs: { src: {}, alt: { default: null }, width: { default: null }, caption: { default: null }, crop: { default: null }, nw: { default: null }, nh: { default: null }, pictureStyle: { default: null } },
       parseDOM: [
         {
           // A cropped image is a clipping box around the full image (works in every browser, unlike object-view-box).
@@ -32,7 +33,7 @@ export const Image: EditorPlugin = {
             const nh = Number(box.getAttribute('data-nh'));
             if (!img || !SAFE_SRC.test(src) || !crop || !(nw > 0) || !(nh > 0)) return false;
             const w = parseFloat(box.style.width);
-            return { src, alt: img.getAttribute('alt'), width: w > 0 ? Math.round(w) : null, caption: box.getAttribute('data-caption'), crop, nw, nh };
+            return { src, alt: img.getAttribute('alt'), width: w > 0 ? Math.round(w) : null, caption: box.getAttribute('data-caption'), crop, nw, nh, pictureStyle: pictureStyleId(box.getAttribute('data-picture-style')) };
           },
         },
         {
@@ -42,13 +43,15 @@ export const Image: EditorPlugin = {
             const src = el.getAttribute('src') ?? '';
             const w = parseInt(el.getAttribute('width') ?? '', 10);
             return SAFE_SRC.test(src)
-              ? { src, alt: el.getAttribute('alt'), width: w > 0 ? w : null, caption: el.getAttribute('data-caption') }
+              ? { src, alt: el.getAttribute('alt'), width: w > 0 ? w : null, caption: el.getAttribute('data-caption'), pictureStyle: pictureStyleId(el.getAttribute('data-picture-style')) }
               : false;
           },
         },
       ],
       toDOM: (n) => {
         const { alt, width, caption, crop, nw, nh } = n.attrs;
+        const ps = pictureStyleId(n.attrs.pictureStyle);
+        const look = ps ? { 'data-picture-style': ps } : {};
         const src = isSafeSrc(n.attrs.src) ? n.attrs.src : ''; // re-checked on output: collaboration can deliver nodes that skipped parseDOM
         if (crop && nw && nh) {
           const L = cropLayout(crop, { w: nw, h: nh }, width ?? visibleSize(crop, { w: nw, h: nh }).w);
@@ -56,17 +59,18 @@ export const Image: EditorPlugin = {
           return [
             'span',
             {
-              class: 'wy-crop',
+              class: ps ? 'wy-crop wy-ps' : 'wy-crop',
+              ...look,
               'data-crop': cropToString(crop),
               'data-nw': String(nw),
               'data-nh': String(nh),
               ...(caption ? { 'data-caption': caption } : {}),
-              style: `display: inline-block; position: relative; overflow: hidden; vertical-align: bottom; width: ${px(L.width)}; height: ${px(L.height)}`,
+              style: `display: inline-block; position: relative; overflow: hidden; vertical-align: bottom; width: ${px(L.width)}; height: ${px(L.height)}${ps ? `; ${pictureStyleCss(ps)}` : ''}`,
             },
             ['img', { src, alt, style: `position: absolute; max-width: none; width: ${px(L.imgWidth)}; height: ${px(L.imgHeight)}; left: ${px(L.offsetX)}; top: ${px(L.offsetY)}` }],
           ];
         }
-        return ['img', { src, alt, ...(width ? { width: String(width) } : {}), ...(caption ? { 'data-caption': caption } : {}) }];
+        return ['img', { src, alt, ...(width ? { width: String(width) } : {}), ...(caption ? { 'data-caption': caption } : {}), ...(ps ? { class: 'wy-ps', style: pictureStyleCss(ps), ...look } : {}) }];
       },
     },
   },
@@ -103,6 +107,15 @@ export const Image: EditorPlugin = {
       if (!sel) return false;
       const w = width === null ? null : Math.max(24, Math.min(2000, Math.round(width)));
       updateImage(e, sel.from, { ...sel.node.attrs, width: w });
+      return true;
+    });
+    // A picture style (a frame, shadow, shape or reflection from a fixed list), or null to clear it.
+    editor.registerCommand('pictureStyle', (e, id?: string | null) => {
+      const sel = selectedImage(e);
+      if (!sel) return false;
+      const next = id === null || id === undefined ? null : pictureStyleId(id);
+      if (id !== null && id !== undefined && !next) return false;
+      updateImage(e, sel.from, { ...sel.node.attrs, pictureStyle: next });
       return true;
     });
     editor.registerCommand('imageCaption', (e, caption?: string | null) => {
@@ -202,6 +215,17 @@ export const Image: EditorPlugin = {
       { label: sel.node.attrs.caption ? 'Edit caption…' : 'Add caption…', command: 'imageCaption' },
       { label: 'Size', items: [25, 50, 75, 100].map((p): ContextMenuItem => ({ label: `${p}%`, run: (e) => { const dom = e.view.nodeDOM(sel.from) as HTMLElement | null; const full = (dom?.closest('.wy-content') as HTMLElement | null)?.clientWidth ?? 600; e.execute('imageWidth', Math.round((full * p) / 100)); } })).concat([{ label: 'Original size', run: (e) => { e.execute('imageWidth', null); } }]) },
     ];
+    if (has('pictureStyle')) {
+      const current = pictureStyleId(sel.node.attrs.pictureStyle);
+      items.push({
+        label: 'Picture style',
+        items: [
+          ...PICTURE_STYLES.map((p): ContextMenuItem => ({ label: p.label, checked: p.id === current, command: 'pictureStyle', args: [p.id] })),
+          '-',
+          { label: 'Clear style', disabled: !current, command: 'pictureStyle', args: [null] },
+        ],
+      });
+    }
     if (has('cropImage')) items.push({ label: 'Crop', command: 'cropImage', icon: '⛶' });
     if (has('resetCrop') && sel.node.attrs.crop) items.push({ label: 'Reset crop', command: 'resetCrop' });
     if (has('editImage')) items.push({ label: 'Edit image…', command: 'editImage', icon: '✎' });
@@ -257,6 +281,10 @@ class ImageView implements NodeView {
       this.img.removeAttribute('style');
       this.img.style.width = width ? `${width}px` : '';
     }
+    // a picture style (frame, shadow, shape…) goes on the box that is cropped, or on the picture itself
+    const look = pictureStyleCss(pictureStyleId(this.node.attrs.pictureStyle));
+    if (look) (crop && nw && nh ? this.box : this.img).style.cssText += `;${look}`;
+    this.dom.classList.toggle('wy-ps-on', !!look);
     if (caption) this.dom.dataset.caption = caption;
     else delete this.dom.dataset.caption;
   }

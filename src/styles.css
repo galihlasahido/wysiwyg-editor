@@ -977,3 +977,22 @@ wysiwyg-data-table { display: block; }
 .wy-collapsible > .wy-heading-hidden { display: none !important; }
 @media (hover: none) { .wy-collapsible > h1::before, .wy-collapsible > h2::before, .wy-collapsible > h3::before, .wy-collapsible > h4::before, .wy-collapsible > h5::before, .wy-collapsible > h6::before { opacity: .55; } }
 @media print { .wy-collapsible > .wy-heading-hidden { display: revert !important; } .wy-collapsible > h1::before, .wy-collapsible > h2::before, .wy-collapsible > h3::before, .wy-collapsible > h4::before, .wy-collapsible > h5::before, .wy-collapsible > h6::before, .wy-collapsible > .wy-heading-folded::after { display: none; } }
+
+/* picture styles: the gallery in the ribbon */
+.wy-gallery { display: grid; grid-template-columns: repeat(5, 72px); gap: 6px; padding: 8px; }
+.wy-gallery-item { display: flex; align-items: center; justify-content: center; width: 72px; height: 60px; padding: 0; border: 1px solid transparent; border-radius: 6px; background: transparent; cursor: pointer; overflow: visible; }
+.wy-gallery-item:hover, .wy-gallery-item:focus-visible { border-color: var(--wy-accent-border); background: var(--wy-hover); outline: none; }
+.wy-gallery-item[aria-checked='true'] { border-color: var(--wy-accent); background: var(--wy-accent-bg); }
+.wy-gallery-item img { display: block; width: 52px; height: 38px; object-fit: cover; max-width: none; }
+.wy-gallery-clear { border-top: 1px solid var(--wy-border); border-radius: 0; margin-top: 4px; }
+.wy-gallery-clear:disabled { opacity: .5; cursor: default; }
+.wy-ps { box-sizing: content-box; }
+.wy-menu:has(.wy-gallery) { max-height: min(70vh, 460px); overflow-y: auto; }
+
+/* a list item that starts with a heading: the number or bullet takes the heading's size and weight */
+.wy-content li:has(> h1:first-child)::marker { font-size: 2em; font-weight: 700; }
+.wy-content li:has(> h2:first-child)::marker { font-size: 1.5em; font-weight: 700; }
+.wy-content li:has(> h3:first-child)::marker { font-size: 1.17em; font-weight: 700; }
+.wy-content li:has(> h4:first-child)::marker { font-size: 1em; font-weight: 700; }
+.wy-content li:has(> h5:first-child)::marker { font-size: .83em; font-weight: 700; }
+.wy-content li:has(> h6:first-child)::marker { font-size: .67em; font-weight: 700; }

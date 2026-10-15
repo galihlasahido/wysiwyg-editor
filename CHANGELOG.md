@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/). Before 1.0.0 minor versions could contain breaking changes. From 1.0.0 on, only a major version may break the public API (see "Stability and versioning" in the README); changes are listed under "Changed" or "Removed".
 
+## Unreleased
+
+- Added: **picture styles**, like the gallery in Word: 28 looks for an image (frames, shadows, rounded and oval shapes, soft edges, diagonal corners, tilt and perspective, reflections, metal frames) in a gallery in the Picture tab and in the right-click menu, with Clear Style. Command `pictureStyle(id | null)`; `PICTURE_STYLES` lists them. Only the id is stored (`data-picture-style`), the CSS comes from a fixed table. Word and Markdown export write the picture without the effects; Firefox does not draw the reflections.
+- Fixed: the number or bullet of a list item that starts with a heading was as small as body text; it now takes the heading's size and weight.
+- Changed: a long ribbon menu (such as the gallery) scrolls inside the editor instead of being cut off by its edge.
+
 ## 1.2.1
 
 - Fixed: bullets and numbering did nothing on a heading (the "Bulleted list" and "Numbered list" buttons, and the commands). A list item had to start with a paragraph, so a heading could not be wrapped. An item may now start with a heading, which keeps its heading style and gets the bullet or number (numbered headings, as in Word); turning the list off gives the heading back, and switching between bullets and numbers works. Word export writes such an item with the heading style and the numbering.

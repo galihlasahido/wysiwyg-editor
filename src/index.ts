@@ -28,6 +28,8 @@ export function createEditor(
   return new Editor({ ...rest, plugins });
 }
 export { exportHTML, download } from './export';
+export { PICTURE_STYLES } from './picture-styles';
+export type { PictureStyle } from './picture-styles';
 export { createDataTable, defineDataTableElement, hasDataTableAccess } from './data-table-app';
 export type { DataTableAccessRule, DataTableApp, DataTableAppOptions, DataTableCrud, DataTableCrudAction, DataTableElement, DataTableUser } from './data-table-app';
 export type { PageSettings } from './plugins/pages';

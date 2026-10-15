@@ -14,14 +14,14 @@ const flush = (ms = 30) => new Promise((r) => setTimeout(r, ms));
 describe('Equations (KaTeX)', () => {
   it('renders an inline formula with real KaTeX and keeps the LaTeX in the HTML', async () => {
     const ed = make('<p>Area <span data-math="\\pi r^2"></span> done</p>');
-    await flush(60);
+    for (let i = 0; i < 100 && !ed.view.dom.querySelector('.wy-math .katex'); i++) await flush(30);   // KaTeX loads on demand: wait for it, not a fixed time
     expect(ed.view.dom.querySelector('.wy-math .katex')).not.toBeNull();
     expect(ed.getHTML()).toContain('data-math="\\pi r^2"');
     ed.destroy();
   });
   it('renders display equations and exposes MathML for screen readers', async () => {
     const ed = make('<div data-math-block="\\frac{a}{b}"></div>');
-    await flush(60);
+    for (let i = 0; i < 100 && !ed.view.dom.querySelector('.wy-math-block .katex-display'); i++) await flush(30);
     expect(ed.view.dom.querySelector('.wy-math-block .katex-display')).not.toBeNull();
     expect(ed.view.dom.querySelector('.wy-math-block math')).not.toBeNull();
     ed.destroy();
