@@ -122,7 +122,19 @@ describe('collapsible headings', () => {
     expect(shown(e).length).toBe(10);
   });
 
-  it('only top-level headings fold, and a document without headings is fine', () => {
+  it('a numbered heading folds what follows it inside its list item', () => {
+    const e = make('<ol><li><h1>Numbered</h1><p>under</p></li><li><p>other</p></li></ol>');
+    cursorIn(e, 'Numbered');
+    expect(e.execute('toggleHeadingFold')).toBe(true);
+    const li = e.view.dom.querySelector('li')!;
+    expect(li.querySelector('p')!.classList.contains('wy-heading-hidden')).toBe(true);
+    expect(li.querySelector('h1')!.classList.contains('wy-heading-folded')).toBe(true);
+    expect(e.view.dom.querySelectorAll('li')[1].querySelector('p')!.classList.contains('wy-heading-hidden')).toBe(false);
+    e.execute('toggleHeadingFold');
+    expect(li.querySelector('p')!.classList.contains('wy-heading-hidden')).toBe(false);
+  });
+
+  it('a heading in a quote does not fold, and a document without headings is fine', () => {
     const e = make('<p>nothing here</p>');
     expect(e.execute('toggleHeadingFold')).toBe(false);
     expect(e.execute('collapseHeadings')).toBe(false);

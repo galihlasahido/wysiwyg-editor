@@ -4,6 +4,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## Unreleased
 
+- A numbered or bulleted heading now has the collapse arrow too (left of the number); it hides what follows inside its list item.
+
 - Added: the **Tab key** (`TabKey`, in `defaultPlugins`). Tab used to move the focus out of the editor. Now it indents a paragraph or heading (Shift+Tab takes it back), moves to the next table cell (and adds a row after the last one), and keeps its list and code block behaviour. Escape, then Tab, still moves the focus on, so keyboard users are not trapped. Not active in a read-only editor; leave the plugin out to keep the browser's behaviour.
 
 - Added: **picture styles**, like the gallery in Word: 28 looks for an image (frames, shadows, rounded and oval shapes, soft edges, diagonal corners, tilt and perspective, reflections, metal frames) in a gallery in the Picture tab and in the right-click menu, with Clear Style. Command `pictureStyle(id | null)`; `PICTURE_STYLES` lists them. Only the id is stored (`data-picture-style`), the CSS comes from a fixed table. Word and Markdown export write the picture without the effects; Firefox does not draw the reflections.

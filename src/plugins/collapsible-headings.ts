@@ -6,6 +6,8 @@ import type { ContextMenuEntry, EditorPlugin } from '../types';
 
 /** How far left of a heading the arrow sits, in pixels from its edge (clicks in this strip toggle the section). */
 const GUTTER = 40;
+/** The same, for a heading in a list item: the arrow sits left of the number or bullet. */
+const LIST_GUTTER = 90;
 
 interface FoldState {
   /** Positions of the headings (top level of the document) whose section is hidden. */
@@ -17,11 +19,23 @@ const key = new PluginKey<FoldState>('collapsible-headings');
 
 const isHeading = (n: PMNode | null | undefined): n is PMNode => !!n && n.type.name === 'heading';
 
-/** The blocks under the heading at `pos`: from just after it to the next heading of the same or a higher level (or the end). */
+/** A heading that can be folded: one at the top level of the document, or the first block of a list item (a numbered or bulleted heading). */
+function foldable(doc: PMNode, pos: number): boolean {
+  if (!isHeading(doc.nodeAt(pos))) return false;
+  const $p = doc.resolve(pos);
+  return $p.depth === 0 || ($p.parent.type.name === 'list_item' && $p.index() === 0);
+}
+
+/**
+ * The blocks under the heading at `pos`: from just after it to the next heading of the same or a higher level (or the end). For a heading
+ * in a list item, what follows it inside that item (its text and nested lists).
+ */
 function sectionOf(doc: PMNode, pos: number): { from: number; to: number } | null {
   const heading = doc.nodeAt(pos);
-  if (!isHeading(heading) || doc.resolve(pos).depth !== 0) return null;
+  if (!isHeading(heading) || !foldable(doc, pos)) return null;
   const from = pos + heading.nodeSize;
+  const $p = doc.resolve(pos);
+  if ($p.depth > 0) return { from, to: Math.max(from, $p.end()) };
   let to = from;
   let at = from;
   for (let i = doc.resolve(from).index(0); i < doc.childCount; i++) {
@@ -33,10 +47,13 @@ function sectionOf(doc: PMNode, pos: number): { from: number; to: number } | nul
   return { from, to };
 }
 
-/** Top-level headings with their positions. */
+/** The foldable headings with their positions. */
 function headingsOf(doc: PMNode): { pos: number; level: number }[] {
   const out: { pos: number; level: number }[] = [];
-  doc.forEach((n, offset) => { if (isHeading(n)) out.push({ pos: offset, level: n.attrs.level }); });
+  doc.descendants((n, pos) => {
+    if (n.type.name === 'heading') { if (foldable(doc, pos)) out.push({ pos, level: n.attrs.level }); return false; }
+    return !n.isTextblock;
+  });
   return out;
 }
 
@@ -84,6 +101,7 @@ function setFolded(state: EditorState, next: number[], tr: Transaction = state.t
 function headingAt(state: EditorState): number | null {
   const { $from } = state.selection;
   if ($from.depth === 0) return null;
+  if (isHeading($from.parent) && foldable(state.doc, $from.before())) return $from.before();
   const top = $from.before(1);
   if (isHeading(state.doc.nodeAt(top))) return top;
   let found: number | null = null;
@@ -94,7 +112,7 @@ function headingAt(state: EditorState): number | null {
 /** Folds, unfolds or toggles (`fold` undefined) the section of the heading at `pos`. False when there is no such heading. */
 function toggleAt(state: EditorState, pos: number, fold: boolean | undefined, dispatch?: (tr: Transaction) => void): boolean {
   const heading = state.doc.nodeAt(pos);
-  if (!isHeading(heading) || state.doc.resolve(pos).depth !== 0) return false;
+  if (!isHeading(heading) || !foldable(state.doc, pos)) return false;
   const now = foldedPositions(state);
   const isFolded = now.includes(pos);
   const want = fold ?? !isFolded;
@@ -178,7 +196,7 @@ export const CollapsibleHeadings: EditorPlugin = {
           let folded = value.folded;
           if (tr.docChanged && folded.length) {
             // move the positions along with the edits; a heading that is gone (or no longer a top-level heading) is forgotten
-            folded = folded.map((p) => tr.mapping.map(p, 1)).filter((p, i, all) => isHeading(state.doc.nodeAt(p)) && state.doc.resolve(p).depth === 0 && all.indexOf(p) === i);
+            folded = folded.map((p) => tr.mapping.map(p, 1)).filter((p, i, all) => foldable(state.doc, p) && all.indexOf(p) === i);
           }
           if (meta?.set) folded = meta.set;
           if (folded === value.folded && !tr.docChanged) return value;
@@ -192,10 +210,13 @@ export const CollapsibleHeadings: EditorPlugin = {
             const e = event as MouseEvent;
             if (e.button !== 0) return false;
             const target = e.target;
-            if (!(target instanceof HTMLElement) || target.parentElement !== view.dom || !/^H[1-6]$/.test(target.tagName)) return false;
+            if (!(target instanceof HTMLElement) || !/^H[1-6]$/.test(target.tagName)) return false;
+            const inList = target.parentElement?.tagName === 'LI';
+            if (target.parentElement !== view.dom && !inList) return false;
             const rect = target.getBoundingClientRect();
-            // the arrow is drawn outside the heading's box, in the margin, so it is the strip just left of it
-            if (e.clientX >= rect.left || e.clientX < rect.left - GUTTER) return false;
+            // the arrow is drawn outside the heading's box, in the margin, so it is the strip just left of it (further left in a list, past the number)
+            const reach = inList ? LIST_GUTTER : GUTTER;
+            if (e.clientX >= rect.left || e.clientX < rect.left - reach) return false;
             const pos = view.posAtDOM(target, 0) - 1;
             if (!toggleAt(view.state, pos, undefined, (tr) => view.dispatch(tr))) return false;
             e.preventDefault();
@@ -229,7 +250,7 @@ export const CollapsibleHeadings: EditorPlugin = {
   contextMenu({ editor, event, state }): ContextMenuEntry[] {
     const target = event?.target instanceof HTMLElement ? event.target : null;
     const hit = target?.closest<HTMLElement>('h1, h2, h3, h4, h5, h6');
-    const onHeading = !!hit && hit.parentElement === editor.view.dom;
+    const onHeading = !!hit && (hit.parentElement === editor.view.dom || hit.parentElement?.tagName === 'LI');
     const has = headingsOf(state.doc).length > 0;
     if (!onHeading && !has) return [];
     const folded = foldedPositions(state);
