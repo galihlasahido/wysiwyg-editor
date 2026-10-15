@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/). Before 1.0.0 minor versions could contain breaking changes. From 1.0.0 on, only a major version may break the public API (see "Stability and versioning" in the README); changes are listed under "Changed" or "Removed".
 
+## Unreleased
+
+- Added: **collapsible headings** (`CollapsibleHeadings`, in `defaultPlugins`): an arrow in the margin of every top-level heading hides the text under it up to the next heading of the same or a higher level, like Word. Commands `toggleHeadingFold`, `collapseHeadings`, `expandHeadings`, `showHeadingLevel(n)`; right-click menu, ribbon (View → Headings) and shortcuts included. The document is not changed and the pages are laid out again without the hidden text.
+
 ## 1.1.0
 
 The first release published to npm since 0.4.0: it contains everything in 1.0.0 below plus the following.

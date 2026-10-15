@@ -543,3 +543,32 @@ test('data table: progress bars and highlights show on every row, striped or not
   expect(looks.every((c) => c !== 'rgba(0, 0, 0, 0)' && c !== 'transparent')).toBe(true);
   expect(problems).toEqual([]);
 });
+
+test('headings fold: the arrow in the margin hides the text under a heading and the pages follow', async ({ page }) => {
+  const problems = await openDemo(page, 'feature-rich');
+  await editorReady(page);
+  await page.waitForSelector('.wy-page-header');
+  await page.waitForTimeout(800);
+  const heading = page.locator('.ProseMirror > h2').first();
+  await heading.scrollIntoViewIfNeeded();
+  const box = (await heading.boundingBox())!;
+  const pagesBefore = await page.locator('.wy-page-header').count();
+  const textBefore = await page.evaluate(() => (window as any).editor.getHTML());
+  await page.mouse.click(box.x - 18, box.y + box.height / 2);              // the arrow is drawn in the margin, left of the heading
+  await expect(page.locator('.ProseMirror > .wy-heading-folded')).toHaveCount(1);
+  expect(await page.locator('.ProseMirror > .wy-heading-hidden').count()).toBeGreaterThan(0);
+  await expect(page.locator('.ProseMirror > .wy-heading-hidden').first()).toBeHidden();
+  expect(await page.evaluate(() => (window as any).editor.getHTML())).toBe(textBefore);   // nothing was removed
+  await expect.poll(() => page.locator('.wy-page-header').count()).toBeLessThanOrEqual(pagesBefore);
+  await page.waitForTimeout(400);                                          // the pages are laid out again, so the heading may have moved
+  const again = (await heading.boundingBox())!;
+  await page.mouse.click(again.x - 18, again.y + again.height / 2);        // and again to open it
+  await expect(page.locator('.ProseMirror > .wy-heading-folded')).toHaveCount(0);
+  await expect(page.locator('.ProseMirror > .wy-heading-hidden')).toHaveCount(0);
+  // keyboard: the commands work without the mouse
+  await page.evaluate(() => (window as any).editor.execute('collapseHeadings'));
+  expect(await page.locator('.ProseMirror > .wy-heading-folded').count()).toBeGreaterThan(0);
+  await page.evaluate(() => (window as any).editor.execute('expandHeadings'));
+  await expect(page.locator('.ProseMirror > .wy-heading-folded')).toHaveCount(0);
+  expect(problems).toEqual([]);
+});

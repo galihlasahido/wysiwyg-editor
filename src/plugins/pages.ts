@@ -440,6 +440,7 @@ export function Pages(options: PageOptions = {}): EditorPlugin {
               const dom = view.nodeDOM(offset);
               if (!(dom instanceof HTMLElement)) return;
               const cs = getComputedStyle(dom);
+              if (cs.display === 'none') return; // hidden (a collapsed heading's text): takes no room, so no page position
               const rect = dom.getBoundingClientRect();
               const mb = parseFloat(cs.marginBottom) || 0;
               const isTable = node.type.name === 'table';

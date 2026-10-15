@@ -964,3 +964,16 @@ wysiwyg-data-table { display: block; }
   .wy-dt-barcell { background-image: linear-gradient(90deg, rgba(37, 99, 235, .3) var(--bar), transparent var(--bar)); }
   .wy-editor:focus-within { box-shadow: 0 0 0 2px rgba(37, 99, 235, .25); }
 }
+
+/* collapsible headings: an arrow in the margin left of every top-level heading */
+.wy-collapsible > h1, .wy-collapsible > h2, .wy-collapsible > h3, .wy-collapsible > h4, .wy-collapsible > h5, .wy-collapsible > h6 { position: relative; }
+.wy-collapsible > h1::before, .wy-collapsible > h2::before, .wy-collapsible > h3::before, .wy-collapsible > h4::before, .wy-collapsible > h5::before, .wy-collapsible > h6::before {
+  content: '▾'; position: absolute; left: -30px; top: 50%; width: 24px; height: 24px; margin-top: -12px; display: flex; align-items: center; justify-content: center;
+  border-radius: 4px; font: 14px/1 system-ui, sans-serif; color: var(--wy-muted); opacity: 0; cursor: pointer; transition: opacity .12s, background-color .12s; user-select: none;
+}
+.wy-collapsible > h1:hover::before, .wy-collapsible > h2:hover::before, .wy-collapsible > h3:hover::before, .wy-collapsible > h4:hover::before, .wy-collapsible > h5:hover::before, .wy-collapsible > h6:hover::before { opacity: 1; background-color: var(--wy-hover); }
+.wy-collapsible > .wy-heading-folded::before { content: '▸'; opacity: 1; }
+.wy-collapsible > .wy-heading-folded::after { content: ' …'; color: var(--wy-muted); font-weight: 400; }
+.wy-collapsible > .wy-heading-hidden { display: none !important; }
+@media (hover: none) { .wy-collapsible > h1::before, .wy-collapsible > h2::before, .wy-collapsible > h3::before, .wy-collapsible > h4::before, .wy-collapsible > h5::before, .wy-collapsible > h6::before { opacity: .55; } }
+@media print { .wy-collapsible > .wy-heading-hidden { display: revert !important; } .wy-collapsible > h1::before, .wy-collapsible > h2::before, .wy-collapsible > h3::before, .wy-collapsible > h4::before, .wy-collapsible > h5::before, .wy-collapsible > h6::before, .wy-collapsible > .wy-heading-folded::after { display: none; } }

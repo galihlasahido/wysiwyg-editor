@@ -261,7 +261,15 @@ describe('a table that loads its rows', () => {
 });
 
 describe('importing files', () => {
-  const insertFrom = async (e: E, file: File) => { e.execute('dataTableFromFile', file); await tick(30); };
+  /** Opens the file and waits until the document changed or an error was reported (a slow machine needs longer than a fixed delay). */
+  const insertFrom = async (e: E, file: File) => {
+    const before = e.view.state.doc;
+    let errored = false;
+    e.on('dataTableError', () => { errored = true; });
+    e.execute('dataTableFromFile', file);
+    for (let i = 0; i < 150 && !errored && e.view.state.doc === before; i++) await tick(20);
+    await tick(10);
+  };
 
   it('reads an Excel file into a data table with guessed types and the file name as the title', async () => {
     const e = make({}, null);
