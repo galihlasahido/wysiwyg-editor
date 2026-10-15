@@ -20,6 +20,7 @@ export { Pages, paginate, PAGE_SIZES } from './pages';
 export type { PageOptions, PageSizeName, Margins, BlockMetric, PaginationResult } from './pages';
 export { Outline, getOutline } from './outline';
 export { CollapsibleHeadings } from './collapsible-headings';
+export { TabKey } from './tab-key';
 export type { OutlineItem } from './outline';
 export { FindReplace, findMatches } from './find-replace';
 export type { Match } from './find-replace';

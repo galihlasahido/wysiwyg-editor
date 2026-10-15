@@ -134,12 +134,13 @@ describe('code block editing', () => {
     expect(codeText(e)).toBe('a  \nb\nc'.replace('a  ', 'a  '));
   });
 
-  it('Tab outside a code block is not handled by this plugin', () => {
+  it('Tab outside a code block does not touch the code (the paragraph is indented by the Tab key plugin)', () => {
     const e = make('<p>abc</p><pre><code>x</code></pre>');
     e.view.dispatch(e.view.state.tr.setSelection(TextSelection.create(e.view.state.doc, 2)));
     expect(codeText(e)).toBe('x');
     key(e, 'Tab');
-    expect(e.getHTML()).toContain('<p>abc</p>'); // paragraph untouched
+    expect(codeText(e)).toBe('x');   // the code block is left alone
+    expect(e.getHTML()).toContain('abc');
   });
 
   it('Enter keeps the indentation, adds one level after an opening bracket, and splits {} onto three lines', () => {

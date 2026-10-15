@@ -86,3 +86,24 @@ test('picture styles: pick a look from the gallery, see it, and clear it', async
   expect(await img.evaluate((e) => getComputedStyle(e).borderTopWidth)).toBe('0px');
   expect(problems).toEqual([]);
 });
+
+test('Tab indents instead of leaving the editor, and Escape then Tab leaves it', async ({ page }) => {
+  const problems = await openDemo(page, 'feature-rich');
+  await editorReady(page);
+  await page.waitForSelector('.wy-page-header');
+  await placeCursor(page, 'Lorem ipsum');
+  const indent = () => page.evaluate(() => {
+    const p = [...document.querySelectorAll<HTMLElement>('.ProseMirror p')].find((x) => x.textContent!.includes('Lorem ipsum'))!;
+    return parseFloat(getComputedStyle(p).marginLeft) || 0;
+  });
+  const before = await indent();
+  await page.keyboard.press('Tab');
+  expect(await page.evaluate(() => !!document.activeElement?.closest('.ProseMirror'))).toBe(true);   // the focus stayed
+  expect(await indent()).toBeGreaterThan(before);
+  await page.keyboard.press('Shift+Tab');
+  expect(await indent()).toBe(before);
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Tab');                                                                   // the way out for keyboard users
+  expect(await page.evaluate(() => !!document.activeElement?.closest('.ProseMirror'))).toBe(false);
+  expect(problems).toEqual([]);
+});
