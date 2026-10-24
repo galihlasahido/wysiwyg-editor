@@ -18,7 +18,7 @@ export interface PrintOptions {
 
 /** A header/footer template as a CSS `content` value: "Page " counter(page) " of " counter(pages). */
 export function marginContent(template: string): string {
-  const str = (s: string) => `"${s.replace(/[\\"]/g, '\\$&').replace(/\r?\n/g, '\\A ')}"`;
+  const str = (s: string) => `"${s.replace(/[\\"]/g, '\\$&').replace(/</g, '\\3C ').replace(/>/g, '\\3E ').replace(/\r?\n/g, '\\A ')}"`;
   const parts = template.split(/(\{page\}|\{pages\})/).filter(Boolean).map((p) => (p === '{page}' ? 'counter(page)' : p === '{pages}' ? 'counter(pages)' : str(p)));
   return parts.length ? parts.join(' ') : '""';
 }
@@ -89,6 +89,7 @@ export async function printDocument(editor: Editor, options: PrintOptions = {}):
   frame.title = 'Print';
   Object.assign(frame.style, { position: 'fixed', right: '0', bottom: '0', width: '0', height: '0', border: '0', visibility: 'hidden' });
   const loaded = new Promise<void>((ok) => frame.addEventListener('load', () => ok(), { once: true }));
+  frame.setAttribute('sandbox', 'allow-same-origin allow-modals');   // the printed copy runs no script
   frame.srcdoc = buildPrintHTML(editor, options);
   document.body.append(frame);
   await loaded;

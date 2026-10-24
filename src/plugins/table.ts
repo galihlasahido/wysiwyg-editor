@@ -44,7 +44,8 @@ export const Table: EditorPlugin = {
         default: null,
         getFromDOM: (dom) => normalizeColor(dom.style.backgroundColor) ?? null,
         setDOMAttr: (value, attrs) => {
-          if (value) attrs.style = `${attrs.style ?? ''}background-color: ${value};`;
+          const c = value ? normalizeColor(String(value)) : null;   // re-checked: collaborators skip the parser
+          if (c) attrs.style = `${attrs.style ?? ''}background-color: ${c};`;
         },
       },
     } })),

@@ -4,7 +4,27 @@ import { Decoration, DecorationSet } from 'prosemirror-view';
 import { keymap } from 'prosemirror-keymap';
 import type { EditorPlugin } from '../types';
 
-export interface Match { from: number; to: number; /** The matched text (used to expand `$1` in a regex replacement). */ text?: string }
+export interface Match {
+  from: number;
+  to: number;
+  /** The matched text. */
+  text?: string;
+  /** The replacement for a regex match, with `$1`, `$&`, `$<name>` expanded from the match as it was found (its lookbehind and anchors saw the whole paragraph). */
+  expand?: (template: string) => string;
+}
+
+/** JavaScript's replacement patterns (`$$`, `$&`, `` $` ``, `$'`, `$1`…`$99`, `$<name>`) for one match. */
+function expandTemplate(m: RegExpExecArray, input: string, t: string): string {
+  return t.replace(/\$(\$|&|`|'|\d{1,2}|<[^>]*>)/g, (all, k: string) => {
+    if (k === '$') return '$';
+    if (k === '&') return m[0];
+    if (k === '`') return input.slice(0, m.index);
+    if (k === "'") return input.slice(m.index + m[0].length);
+    if (k[0] === '<') return m.groups ? m.groups[k.slice(1, -1)] ?? '' : all;
+    const n = Number(k);
+    return n >= 1 && n < m.length ? m[n] ?? '' : all;
+  });
+}
 
 export interface FindOptions {
   caseSensitive?: boolean;
@@ -17,9 +37,32 @@ export interface FindOptions {
 const MAX_BLOCK = 100_000; // longest paragraph searched with a pattern
 const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-/** Patterns that can take exponential time on some input (nested quantifiers such as `(a+)+` or `(.*)*`). Refused rather than risked. */
+/**
+ * Patterns that can take exponential time on some input: a group that is repeated without limit (`+`, `*`, `{n,}`) and holds a
+ * repeat or an alternative of its own (`(a+)+`, `(a|a)*`, `((a+))+`), at any depth. Refused rather than risked. This reads the pattern
+ * as a tree, so extra brackets do not hide it; back-references to a repeated group are refused too.
+ */
 export function isRiskyRegex(source: string): boolean {
-  return /\([^()]*[+*][^()]*\)\s*[+*{]/.test(source) || /\((?:[^()]*\|)+[^()]*\)\s*[+*]\s*[+*]/.test(source) || source.length > 300;
+  if (source.length > 300) return true;
+  const stack: { inner: boolean }[] = [];
+  let inClass = false;
+  for (let i = 0; i < source.length; i++) {
+    const ch = source[i];
+    if (ch === '\\') { if (/[1-9k]/.test(source[i + 1] ?? '')) return true; i++; continue; }
+    if (inClass) { if (ch === ']') inClass = false; continue; }
+    if (ch === '[') { inClass = true; continue; }
+    if (ch === '(') { stack.push({ inner: false }); continue; }
+    if (ch === '|') { if (stack.length) stack[stack.length - 1].inner = true; continue; }
+    if (ch === '+' || ch === '*' || (ch === '{' && /^\{\d+,\d*\}/.test(source.slice(i)))) { if (stack.length) stack[stack.length - 1].inner = true; continue; }
+    if (ch === ')') {
+      const g = stack.pop();
+      const after = source.slice(i + 1);
+      const unbounded = /^(?:[+*]|\{\d+,\d*\})/.test(after);
+      if (g?.inner && unbounded) return true;
+      if (g?.inner && stack.length) stack[stack.length - 1].inner = true;   // the outer group now holds a repeat too
+    }
+  }
+  return false;
 }
 
 /** The expression for a query, or an error message when it is invalid or unsafe. `null` means "plain text, use indexOf". */
@@ -61,7 +104,7 @@ export function findMatches(doc: PMNode, query: string, caseSensitive = false, o
       re.lastIndex = 0;
       for (let m = re.exec(text); m; m = re.exec(text)) {
         if (!m[0].length) { re.lastIndex++; continue; } // an empty match would loop forever and selects nothing
-        out.push({ from: map[m.index], to: map[m.index + m[0].length - 1] + 1, text: m[0] });
+        const hit = m; out.push({ from: map[m.index], to: map[m.index + m[0].length - 1] + 1, text: m[0], expand: (tpl) => expandTemplate(hit, text, tpl) });
       }
       return false;
     }
@@ -120,8 +163,7 @@ export const FindReplace: EditorPlugin = {
     /** What a match is replaced with: in regex mode `$1`, `$&` and `$<name>` are expanded from the match. */
     const replacement = (s: FindState, m: Match, text: string) => {
       if (!s.regex) return text;
-      const { re } = buildMatcher(s.query, { caseSensitive: s.caseSensitive, regex: true, wholeWord: s.wholeWord });
-      return re && m.text !== undefined ? m.text.replace(new RegExp(re.source, re.flags.replace('g', '')), text) : text;
+      return m.expand ? m.expand(text) : text;
     };
 
     return [

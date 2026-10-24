@@ -4,7 +4,7 @@ import { gapCursor } from 'prosemirror-gapcursor';
 import { history, redo, undo } from 'prosemirror-history';
 import { keymap } from 'prosemirror-keymap';
 import { Plugin } from 'prosemirror-state';
-import { cleanPastedHTML } from '../paste';
+import { cleanPastedHTML, stripReviewAttributes } from '../paste';
 import type { EditorPlugin } from '../types';
 import { blockAttrDefs, blockAttrs, blockDOM } from './helpers';
 
@@ -38,7 +38,7 @@ export const Essentials: EditorPlugin = {
     return [
       ...(collab ? [] : [history(), keymap({ 'Mod-z': undo, 'Mod-y': redo, 'Shift-Mod-z': redo })]),
       keymap(baseKeymap),
-      new Plugin({ props: { transformPastedHTML: cleanPastedHTML } }), // Word / Google Docs clean-up before parsing
+      new Plugin({ props: { transformPastedHTML: (html: string) => stripReviewAttributes(cleanPastedHTML(html)) } }), // Word / Google Docs clean-up before parsing
       dropCursor(),
       gapCursor(),
     ];

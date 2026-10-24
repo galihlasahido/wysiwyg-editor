@@ -36,7 +36,7 @@ function colorMark(css: string): import('prosemirror-model').MarkSpec {
         },
       },
     ],
-    toDOM: (m) => ['span', { style: `${css}: ${m.attrs.color}` }, 0],
+    toDOM: (m) => { const c = normalizeColor(String(m.attrs.color)); return ['span', c ? { style: `${css}: ${c}` } : {}, 0]; },   // re-checked: an attribute that came from a collaborator never parsed
   };
 }
 

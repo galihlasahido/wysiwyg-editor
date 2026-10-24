@@ -7,6 +7,8 @@ export default defineConfig({
       entry: {
         wysiwygido: resolve(import.meta.dirname, 'src/index.ts'),
         'data-table': resolve(import.meta.dirname, 'src/data-table-app.ts'),
+        spreadsheet: resolve(import.meta.dirname, 'src/spreadsheet-app.ts'),
+        presentation: resolve(import.meta.dirname, 'src/presentation-app.ts'),
         docx: resolve(import.meta.dirname, 'src/docx.ts'),
         pdf: resolve(import.meta.dirname, 'src/pdf.ts'),
         epub: resolve(import.meta.dirname, 'src/epub.ts'),

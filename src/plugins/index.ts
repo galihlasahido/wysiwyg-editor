@@ -79,7 +79,7 @@ export { Mermaid, MERMAID_TEMPLATES } from './mermaid';
 export type { MermaidOptions, MermaidLike, MermaidApi } from './mermaid';
 export { buildMatcher, isRiskyRegex } from './find-replace';
 export type { FindOptions } from './find-replace';
-export { Offline, MemoryDraftStore, IndexedDBDraftStore } from './offline';
+export { Offline, MemoryDraftStore, IndexedDBDraftStore, encryptedDraftStore, deriveDraftKey } from './offline';
 export type { OfflineOptions, DraftStore, Draft } from './offline';
 export { Embeds, resolveEmbed, DEFAULT_EMBED_PROVIDERS } from './embeds';
 export type { EmbedsOptions, EmbedProvider } from './embeds';

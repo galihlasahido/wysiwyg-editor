@@ -2,6 +2,7 @@ import { keymap } from 'prosemirror-keymap';
 import { redoCommand, relativePositionToAbsolutePosition, undoCommand, yCursorPlugin, ySyncPlugin, ySyncPluginKey, yUndoPlugin, yUndoPluginKey } from 'y-prosemirror';
 import { createRelativePositionFromJSON } from 'yjs';
 import { avatar } from '../dialog';
+import { normalizeColor } from './colors';
 import { Plugin } from 'prosemirror-state';
 import type { Awareness } from 'y-protocols/awareness';
 import type * as Y from 'yjs';
@@ -106,8 +107,9 @@ function presenceView(editor: import('../editor').Editor, awareness: Awareness):
           b.setAttribute('aria-label', b.title);
           b.disabled = p.me || !p.has;
           const a = avatar(p.name, 26);
-          a.style.background = p.color;
-          a.style.boxShadow = `0 0 0 2px var(--wy-bg, #fff), 0 0 0 4px ${p.color}`;
+          const color = normalizeColor(String(p.color)) ?? '#6b7280';      // remote data: only a plain colour may reach a style
+          a.style.background = color;
+          a.style.boxShadow = `0 0 0 2px var(--wy-bg, #fff), 0 0 0 4px ${color}`;
           b.append(a);
           b.addEventListener('click', () => jump(p.id));
           return b;

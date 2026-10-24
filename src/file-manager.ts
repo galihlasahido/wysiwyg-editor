@@ -20,7 +20,7 @@ export interface FileManagerOptions {
   title?: string;
 }
 
-export const DEFAULT_BLOCKED = ['exe', 'bat', 'cmd', 'com', 'scr', 'msi', 'dll', 'js', 'mjs', 'vbs', 'ps1', 'sh', 'jar', 'app', 'apk', 'html', 'htm', 'svg'];
+export const DEFAULT_BLOCKED = ['exe', 'bat', 'cmd', 'com', 'scr', 'msi', 'dll', 'js', 'mjs', 'cjs', 'vbs', 'vbe', 'jse', 'wsf', 'wsh', 'hta', 'ps1', 'sh', 'jar', 'app', 'apk', 'html', 'htm', 'xhtml', 'xht', 'shtml', 'svg', 'svgz', 'lnk', 'reg', 'url', 'scf', 'pif', 'docm', 'xlsm', 'pptm', 'php', 'phtml'];
 const KIND_ICON: Record<FileKind, string> = { image: '🖼', pdf: '📕', text: '📄', audio: '🎵', video: '🎞', archive: '🗜', document: '📝', sheet: '📊', other: '📎' };
 
 /** Does a file match an `accept` string (`image/*`, `.pdf`, `application/zip`)? Empty accepts everything. */
@@ -33,8 +33,12 @@ export function matchesAccept(accept: string | undefined, name: string, type: st
 
 /** Why a file cannot be added, or null. */
 export function rejectReason(file: { name: string; size: number; type: string }, o: Pick<FileManagerOptions, 'maxFileSize' | 'accept' | 'blockedExtensions'>): string | null {
-  const ext = file.name.toLowerCase().split('.').pop() ?? '';
-  if ((o.blockedExtensions ?? DEFAULT_BLOCKED).includes(ext)) return `“${file.name}” is a type that cannot be uploaded (.${ext}).`;
+  // the name as it will be stored: no bidi tricks, no trailing dot or space; every part after the first is checked, so evil.exe.txt and evil.php.jpg are caught too
+  const parts = cleanFileName(file.name, '').toLowerCase().split('.').slice(1);
+  const ext = parts.pop() ?? '';
+  const blocked = o.blockedExtensions ?? DEFAULT_BLOCKED;
+  const hit = [ext, ...parts].find((p) => blocked.includes(p));
+  if (hit !== undefined) return `“${file.name}” is a type that cannot be uploaded (.${hit}).`;
   if (!matchesAccept(o.accept, file.name, file.type)) return `“${file.name}” is not one of the accepted types.`;
   const max = o.maxFileSize ?? 10 * 1024 * 1024;
   if (file.size > max) return `“${file.name}” is ${formatBytes(file.size)}; the limit is ${formatBytes(max)}.`;

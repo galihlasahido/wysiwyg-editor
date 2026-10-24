@@ -85,6 +85,7 @@ export class CommentStore {
   private withReplyIds(t: CommentThread): CommentThread {
     // A reply saved before replies had ids gets one made from its content, so two editors that load the same saved thread agree on it.
     const stable = (r: CommentReply) => { let h = 5381; for (const ch of `${r.author}|${r.createdAt}|${r.text}`) h = ((h * 33) ^ ch.charCodeAt(0)) >>> 0; return `r${h.toString(36)}`; };
+    if (!Array.isArray(t.replies)) return { ...t, replies: [] };      // a saved thread without replies
     return t.replies.every((r) => r.id) ? t : { ...t, replies: t.replies.map((r) => (r.id ? r : { ...r, id: stable(r) })) };
   }
 
@@ -228,15 +229,26 @@ export function Comments(options: CommentsOptions = {}): CommentsPlugin {
         let a = from;
         let b = to;
         if (state.doc.textBetween(Math.min(a, state.doc.content.size), Math.min(b, state.doc.content.size), ' ') !== quote) {
+          // search each text block as a whole, so words split across bold, italic or link runs are still found
           let found = -1;
+          let end = -1;
           state.doc.descendants((n, pos) => {
-            if (found >= 0 || !n.isText) return;
-            const i = (n.text ?? '').indexOf(quote);
-            if (i >= 0) found = pos + i;
+            if (found >= 0) return false;
+            if (!n.isTextblock) return true;
+            const segs: { start: number; text: string }[] = [];
+            let joined = '';
+            n.forEach((c, off) => { if (c.isText) { segs.push({ start: pos + 1 + off, text: c.text ?? '' }); joined += c.text ?? ''; } else { segs.push({ start: pos + 1 + off, text: '\ufffc' }); joined += '\ufffc'; } });
+            const i = joined.indexOf(quote);
+            if (i >= 0) {
+              const at = (k: number) => { let n0 = 0; for (const sg of segs) { if (k < n0 + sg.text.length) return sg.start + (k - n0); n0 += sg.text.length; } return -1; };
+              const lastChar = at(i + quote.length - 1);
+              if (at(i) >= 0 && lastChar >= 0) { found = at(i); end = lastChar + 1; }
+            }
+            return false;
           });
           if (found < 0) return false;
           a = found;
-          b = found + quote.length;
+          b = end;
         }
         const id = newId();
         store.add({ id, author, text: body.trim(), createdAt: Date.now(), resolved: false, replies: [] });

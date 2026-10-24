@@ -12,7 +12,7 @@
  * It is an example, not a product: the "model" is a set of text rules, files go to a local folder, and there are no user accounts.
  * Run it with `pnpm server:examples` (port 8788) and point the editor at it, e.g. `?endpoint=http://127.0.0.1:8788/api/ai` on the AI demo.
  */
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { createServer as createHttpServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -85,6 +85,7 @@ const IMAGE_TYPES: [string, string, (b: Buffer) => boolean][] = [
   ['webp', 'image/webp', (b) => b.subarray(0, 4).toString('latin1') === 'RIFF' && b.subarray(8, 12).toString('latin1') === 'WEBP'],
 ];
 const MAX_IMAGE = 5 * 1024 * 1024;
+const LOCAL_HOSTS = new Set(['127.0.0.1', 'localhost', '[::1]']);
 
 class HttpError extends Error { constructor(public status: number, message: string) { super(message); } }
 
@@ -108,13 +109,20 @@ export function createExampleApi(options: ExampleApiOptions = {}): { server: Ser
     const origin = req.headers.origin;
     if (origin && allow.has(origin)) { res.setHeader('access-control-allow-origin', origin); res.setHeader('vary', 'origin'); res.setHeader('access-control-allow-headers', 'content-type, authorization'); res.setHeader('access-control-allow-methods', 'GET, POST, PUT, OPTIONS'); }
     if (req.method === 'OPTIONS') { res.writeHead(204); return void res.end(); }
-    const url = new URL(req.url ?? '/', 'http://localhost');
+    // A web page on another site can send a request to localhost, and DNS rebinding can make the browser think this server is that page's
+    // own: so the Host must be one we serve, and a browser write must come from an allowed origin. (Reads are protected by CORS.)
+    let hostName = '';
+    try { hostName = new URL(`http://${req.headers.host ?? ''}`).hostname; } catch { /* rejected below */ }
+    if (!hostName || !(LOCAL_HOSTS.has(hostName) || [...allow].some((o) => new URL(o).hostname === hostName))) throw new HttpError(421, 'Unknown host');
+    if (req.method !== 'GET' && req.method !== 'HEAD' && origin && !allow.has(origin)) throw new HttpError(403, 'Origin not allowed');
+    let url: URL;
+    try { url = new URL(req.url ?? '/', 'http://localhost'); } catch { throw new HttpError(400, 'Bad request'); }
     const path = url.pathname;
 
     // The editor sends {action, instruction, text} and reads the reply as plain text, streamed as it arrives.
     if (req.method === 'POST' && path === '/api/ai') {
       const b = await parseJSON(req);
-      if (typeof b?.action !== 'string' || typeof b?.text !== 'string' || b.text.length > 100_000) throw new HttpError(400, 'Expected {action, instruction, text}');
+      if (typeof b?.action !== 'string' || typeof b?.text !== 'string' || b.text.length > 20_000) throw new HttpError(400, 'Expected {action, instruction, text}');
       res.writeHead(200, { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' });
       for await (const chunk of complete(b.action, String(b.instruction ?? ''), b.text)) { if (res.destroyed) return; res.write(chunk); }
       return void res.end();
@@ -126,16 +134,19 @@ export function createExampleApi(options: ExampleApiOptions = {}): { server: Ser
       const id = post[1];
       const b = await parseJSON(req);
       if (typeof b?.html !== 'string' || b.html.length > 5_000_000 || !Array.isArray(b.comments ?? [])) throw new HttpError(400, 'Expected {title, html, comments}');
-      // Always sanitise on the server too: the editor's schema cleans HTML, but a server must not trust a client.
+      // This example stores the HTML as it was sent. A real server must sanitise it (with an HTML sanitiser, not a regular expression) before
+      // it stores or serves it: the editor's schema cleans HTML in the browser, but a client can send anything. There is no sign-in here either.
       const baseVersion = req.headers['if-match'] ? Number(req.headers['if-match']) : undefined;
+      await mkdir(join(dataDir, 'posts'), { recursive: true });
+      const file = join(dataDir, 'posts', `${id}.json`);
+      if (!versions.has(id)) { try { versions.set(id, Number(JSON.parse(await readFile(file, 'utf8')).version) || 0); } catch { versions.set(id, 0); } }   // after a restart the version comes from the file
       const current = versions.get(id) ?? 0;
       if (baseVersion !== undefined && baseVersion !== current) throw new HttpError(409, `Document is at version ${current}`);
       const version = current + 1;
+      const tmp = `${file}.${randomUUID()}.tmp`;     // two saves at once must not share a temporary file
+      await writeFile(tmp, JSON.stringify({ id, title: String(b.title ?? '').slice(0, 300), html: b.html, comments: b.comments ?? [], version, savedAt: Date.now() }));
+      await rename(tmp, file);
       versions.set(id, version);
-      await mkdir(join(dataDir, 'posts'), { recursive: true });
-      const file = join(dataDir, 'posts', `${id}.json`);
-      await writeFile(`${file}.tmp`, JSON.stringify({ id, title: String(b.title ?? '').slice(0, 300), html: b.html, comments: b.comments ?? [], version, savedAt: Date.now() }));
-      await rename(`${file}.tmp`, file);
       return json(res, 200, { id, version, savedAt: Date.now() });
     }
     if (post && req.method === 'GET') {

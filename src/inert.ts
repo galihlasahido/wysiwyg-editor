@@ -9,7 +9,7 @@ export function inertElement(html: string): HTMLElement {
   return box;
 }
 
-const ACTIVE = 'script, iframe, object, embed, frame, frameset, applet, link, meta, base, form, svg, math';
+const ACTIVE = 'script, iframe, object, embed, frame, frameset, applet, link, meta, base, form, svg, math, style, noscript, template';
 const URL_ATTRS = ['href', 'src', 'xlink:href', 'action', 'formaction', 'poster', 'srcset'];
 const UNSAFE_URL = /^\s*(?:javascript|vbscript|data\s*:\s*text\/html)/i;
 
@@ -25,7 +25,9 @@ export function stripActiveContent(root: Element): void {
   }
 }
 
-const SCRIPTY = 'script, iframe, object, embed, frame, frameset, applet, link, meta, base, form, foreignObject, animate, set, animateTransform, animateMotion';
+// style, noscript, template, mglyph, malignmark and annotation-xml are the elements a mutation-XSS payload hides behind: they change how
+// the same text parses the second time (see `stableHTML`), and nothing a document needs is lost without them
+const SCRIPTY = 'script, iframe, object, embed, frame, frameset, applet, link, meta, base, form, foreignObject, animate, set, animateTransform, animateMotion, style, noscript, template, mglyph, malignmark, annotation-xml';
 const UNSAFE_REF = /^\s*(?:javascript|vbscript|data\s*:\s*text\/html)/i;
 
 /**
@@ -43,9 +45,26 @@ export function stripScriptsKeepGraphics(root: Element): void {
   }
 }
 
+/**
+ * The cleaned HTML of an element, in a form that parses to the same thing every time. Taking a tree apart and writing it out as text
+ * is not always undone by parsing the text again (nested svg, math, style and table tricks change shape on the way back: mutation
+ * XSS), so the text is parsed and cleaned again until it stops changing. If it will not settle, nothing is returned.
+ */
+export function stableHTML(root: Element, clean: (e: Element) => void): string {
+  let out = root.innerHTML;
+  for (let i = 0; i < 4; i++) {
+    const again = inertElement(out);
+    clean(again);
+    const next = again.innerHTML;
+    if (next === out) return out;
+    out = next;
+  }
+  return '';
+}
+
 /** Parse markup from a renderer, drop executable parts, and return the cleaned HTML. */
 export function cleanRendered(html: string): string {
   const box = inertElement(html);
   stripScriptsKeepGraphics(box);
-  return box.innerHTML;
+  return stableHTML(box, stripScriptsKeepGraphics);
 }

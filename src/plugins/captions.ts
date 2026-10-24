@@ -25,6 +25,8 @@ export interface CaptionsOptions {
 const DEFAULT_KINDS: CaptionKind[] = [{ id: 'figure', label: 'Figure' }, { id: 'table', label: 'Table' }];
 const newId = () => `cap${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
 const ID = /^[\w-]{1,40}$/;
+/** A pasted caption may not take an id that is already a property of the page (`id="config"`, `id="location"`): that would clobber it (DOM clobbering). */
+const usableId = (id: string): boolean => ID.test(id) && !(id in window) && !(id in document);
 
 export interface CaptionEntry { id: string; kind: string; n: number; label: string; text: string; pos: number }
 
@@ -175,7 +177,7 @@ export function Captions(options: CaptionsOptions = {}): EditorPlugin {
           { tag: 'p[data-caption]', priority: 60, contentElement: 'span.wy-caption-text', getAttrs: (d) => {
             const el = d as HTMLElement;
             const kind = el.getAttribute('data-caption') ?? '';
-            return { kind: kinds.some((k) => k.id === kind) ? kind : kinds[0].id, id: ID.test(el.id) ? el.id : newId(), n: Number(el.getAttribute('data-n')) || 1 };
+            return { kind: kinds.some((k) => k.id === kind) ? kind : kinds[0].id, id: usableId(el.id) ? el.id : newId(), n: Number(el.getAttribute('data-n')) || 1 };
           } },
         ],
         toDOM: (n: PMNode) => ['p', { class: `wy-caption wy-caption-${n.attrs.kind}`, id: n.attrs.id, 'data-caption': n.attrs.kind, 'data-n': String(n.attrs.n) }, ['span', { class: 'wy-caption-label' }, `${labelOf(n.attrs.kind, n.attrs.n)}${sep}`], ['span', { class: 'wy-caption-text' }, 0]],

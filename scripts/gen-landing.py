@@ -10,6 +10,7 @@ GROUPS = [
    ('feature-rich', 'Feature-rich editor', 'Ribbon, pages and ruler, comments, suggestions, versions and collaboration in one.', ['Ribbon', 'Pages', 'Ruler']),
    ('restricted-editing', 'Locked sections and fill-in areas', 'A feature-rich document where parts (title, table of contents, legal text) cannot be edited and the rest is filled in like normal text.', ['Template', 'Locked', 'Forms']),
    ('editor-types', 'Different user interfaces', 'Classic, inline with a balloon toolbar, and a document editor with ribbon and pages.', ['Classic', 'Inline', 'Document']),
+   ('floating-menu', 'Floating menu', 'The toolbar in a floating card with the document name, save status, your own controls, a menu bar with drop-downs and the toolbar.', ['Toolbar', 'Menu bar']),
    ('web-component', 'Web component', 'One HTML tag, <wysiwyg-editor>: attributes, events and normal form submission, in any framework or none.', ['Custom element', 'Forms']),
    ('custom-plugin', 'Custom plugins and toolbar layout', 'Write your own plugin (node, command, buttons, shortcut, ribbon tab, events) and arrange the toolbar: groups, rows, spacer, position, overflow menu.', ['Plugins', 'Toolbar']),
    ('headless', 'Headless editor', 'No built-in UI: drive the engine from your own buttons through commands and state.', ['API', 'Custom UI']),
@@ -24,6 +25,12 @@ GROUPS = [
    ('data-table-import', 'Import and export', 'Paste or open CSV or Excel, get a typed table, and write it out again.', ['CSV', 'Excel']),
    ('data-table', 'Data table', 'Search, sort, filter, page, edit and total a table of records; custom buttons; export to CSV, Excel and PDF; convert to and from a regular table.', ['Table', 'Excel', 'CSV']),
    ('data-table-standalone', 'Data table on its own', 'The data table with no editor around it: createDataTable, undo, themes, change events and a custom element.', ['Table', 'Stand-alone']),
+ ]),
+ ('Spreadsheet and presentation', 'Two apps that need no document editor, in the manner of Excel and PowerPoint (wysiwygido/spreadsheet, wysiwygido/presentation). Each has its menus in two looks: the classic tabbed ribbon, or a floating card with a menu bar and a one-row toolbar.', [
+   ('spreadsheet-classic', 'Spreadsheet, classic ribbon', 'Formulas with A1 references, formats, several sheets, sort and filter, fill series, freeze panes, undo, CSV, a formula bar and the File / Home / Insert / Formulas / Data / View ribbon.', ['Spreadsheet', 'Ribbon']),
+   ('spreadsheet-floating', 'Spreadsheet, floating menu', 'The same spreadsheet with a rounded floating card: document name, save status, menu bar with drop-downs and a one-row toolbar.', ['Spreadsheet', 'Floating']),
+   ('presentation-classic', 'Presentation, classic ribbon', 'Slides with text boxes, shapes and pictures you move, resize and rotate; layouts, themes, notes, transitions, slide sorter, full-screen show with presenter view, export to a web page.', ['Slides', 'Ribbon']),
+   ('presentation-floating', 'Presentation, floating menu', 'The same slide editor with the floating card: menu bar, one-row toolbar and a Slideshow button.', ['Slides', 'Floating']),
  ]),
  ('Coding', 'Developer-oriented UIs, from a full code editor to docs and notebooks.', [
    ('code-editor', 'Full code editor', 'Line numbers, highlighting, folding, multiple cursors, minimap, bracket matching, comments, several files, run and preview, command palette.', ['IDE', 'Folding', 'Multi-cursor']),
@@ -56,7 +63,6 @@ GROUPS = [
    ('recording', 'Voice, screen and dictation', 'Record audio or the screen into the document and dictate text, with a visible recording bar and a cancel key.', ['Audio', 'Dictation']),
    ('charts', 'Charts from tables', 'Bar, line and pie charts built from a table, stored as data and written to Word as pictures.', ['Charts']),
    ('columns', 'Columns', 'Newspaper-style columns: wrap blocks in two to four columns with an optional rule and gap.', ['Layout']),
-   ('floating-menu', 'Floating menu', 'The toolbar in a floating card with the document name, save status, your own controls, a menu bar with drop-downs and the toolbar.', ['Toolbar', 'Menu bar']),
    ('themes', 'Themes', 'Ten colour themes for the toolbar, ribbon and paper, switched at run time, plus your own from a handful of colours.', ['Theme', 'Dark mode']),
    ('captions', 'Captions and cross-references', 'Numbered figure and table captions that renumber themselves, cross-references that follow them, and a list of figures.', ['Captions', 'References']),
    ('export-word-pdf', 'Export to Word and PDF', 'Download .docx with page setup, headers and footers, or print to PDF.', ['.docx', 'PDF']),

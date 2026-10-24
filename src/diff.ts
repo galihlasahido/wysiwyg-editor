@@ -1,4 +1,4 @@
-import { inertElement, stripScriptsKeepGraphics } from './inert';
+import { inertElement, stableHTML, stripScriptsKeepGraphics } from './inert';
 
 export interface DiffResult {
   /** The compared document as HTML: unchanged content as it was, additions in `<ins class="wy-diff-ins">`, removals in `<del class="wy-diff-del">`. */
@@ -136,5 +136,5 @@ export function diffDocuments(oldHtml: string, newHtml: string): DiffResult {
   const stats = { added: 0, removed: 0, changedBlocks: 0 };
   const box = b.ownerDocument.createElement('div');
   for (const node of diffBlocks(b.ownerDocument, [...a.children], [...b.children], stats)) box.append(node);
-  return { html: box.innerHTML, stats };
+  return { html: stableHTML(box, stripScriptsKeepGraphics), stats };
 }

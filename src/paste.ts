@@ -101,12 +101,27 @@ function rebuildLists(box: HTMLElement): void {
  * italic, underline, colour and alignment stay; pictures that point at local files (which the browser cannot load) are removed.
  * HTML from other sources is returned untouched.
  */
+/** `<!--[if gte mso 9]> … <![endif]-->` removed with a scan that never goes back (a regular expression took seconds on a hostile paste). */
+function stripConditionalComments(html: string): string {
+  let out = '';
+  let i = 0;
+  const lower = html.toLowerCase();
+  for (;;) {
+    const open = lower.indexOf('<!--[if', i);
+    if (open < 0) break;
+    const close = lower.indexOf('<![endif]-->', open);
+    if (close < 0) break;                // no end: leave the rest as it is
+    out += html.slice(i, open);
+    i = close + '<![endif]-->'.length;
+  }
+  return out + html.slice(i);
+}
+
 export function cleanPastedHTML(html: string): string {
   const word = isWordHTML(html);
   const gdocs = isGoogleDocsHTML(html);
   if (!word && !gdocs) return html;
-  const stripped = html
-    .replace(/<!--\[if[\s\S]*?<!\[endif\]-->/gi, '') // <!--[if gte mso 9]> … <![endif]-->
+  const stripped = stripConditionalComments(html)
     .replace(/<!\[if [^\]]*\]>/gi, '').replace(/<!\[endif\]>/gi, '') // downlevel-revealed: <![if !supportLists]>
     .replace(/<!--\s*(?:Start|End)Fragment\s*-->/gi, '');
   const box = inertElement(stripped);
@@ -135,4 +150,18 @@ export function hasPasteableText(data: Pick<DataTransfer, 'getData'> | null | un
   if (data.getData('text/plain').trim()) return true;
   const html = data.getData('text/html');
   return !!html && !!inertElement(html).textContent!.replace(/[\s ]+/g, '');
+}
+
+/**
+ * Pasted HTML cannot carry review marks of its own: the author and date of a tracked change, the id of a mention and the id of a comment
+ * are the editor's records, and a page or a hand-written clipboard could forge them (a change "by the CEO", a mention that notifies
+ * someone, a mark on another person's comment thread). They are removed, so the text arrives as plain content.
+ */
+export function stripReviewAttributes(html: string): string {
+  if (!/data-(?:author|date|mention-id|comment-id)/i.test(html)) return html;
+  const box = inertElement(html);
+  for (const el of Array.from(box.querySelectorAll('[data-author],[data-date],[data-mention-id],[data-comment-id]'))) {
+    for (const a of ['data-author', 'data-date', 'data-mention-id', 'data-comment-id']) el.removeAttribute(a);
+  }
+  return box.innerHTML;
 }

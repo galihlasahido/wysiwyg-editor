@@ -3,3 +3,7 @@ allowBuilds:
 # pnpm 10 (used in CI) reads this older spelling of the same setting
 onlyBuiltDependencies:
   - esbuild
+# patched versions of transitive dependencies (see the audit in CHANGELOG): markdown-it < 15.0.3 has a quadratic-time link reference bug
+overrides:
+  markdown-it: ^15.0.3
+  dompurify: '>=3.4.17'

@@ -15,13 +15,13 @@ function firstFamily(v: string): string | null {
 const fontFamily: MarkSpec = {
   attrs: { value: {} },
   parseDOM: [{ style: 'font-family', getAttrs: (v) => { const f = firstFamily(v as string); return f ? { value: f } : false; } }],
-  toDOM: (m) => ['span', { style: `font-family: '${m.attrs.value}'` }, 0],
+  toDOM: (m) => { const f = firstFamily(String(m.attrs.value)); return ['span', f ? { style: `font-family: '${f}'` } : {}, 0]; },
 };
 
 const fontSize: MarkSpec = {
   attrs: { value: {} },
   parseDOM: [{ style: 'font-size', getAttrs: (v) => { const m = /^(\d+(?:\.\d+)?)px$/.exec(v as string); return m && FONT_SIZES.includes(String(+m[1])) ? { value: String(+m[1]) } : false; } }],
-  toDOM: (m) => ['span', { style: `font-size: ${m.attrs.value}px` }, 0],
+  toDOM: (m) => ['span', FONT_SIZES.includes(String(m.attrs.value)) ? { style: `font-size: ${m.attrs.value}px` } : {}, 0],
 };
 
 function markValue(state: EditorState, name: string): string {

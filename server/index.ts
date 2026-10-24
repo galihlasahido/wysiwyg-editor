@@ -127,6 +127,24 @@ function cleanComments(v: unknown): unknown[] | null {
   return out;
 }
 
+type Thread = { id: string; author: string; text: string; createdAt: number; resolved: boolean; replies: { id: string; author: string; text: string; createdAt: number }[] };
+
+/**
+ * What a commenter may do: add threads and replies, and mark a thread resolved or open. Threads that exist stay as they are
+ * (nothing is deleted, no text is rewritten); only replies and threads that are new are taken from the request.
+ */
+function mergeCommenter(existing: Thread[], sent: Thread[]): Thread[] {
+  const have = new Map(existing.map((t) => [t.id, t]));
+  const out = existing.map((t) => {
+    const s = sent.find((x) => x.id === t.id);
+    if (!s) return t;
+    const known = new Set(t.replies.map((r) => r.id));
+    return { ...t, resolved: s.resolved, replies: [...t.replies, ...s.replies.filter((r) => !known.has(r.id))] };
+  });
+  for (const t of sent) if (!have.has(t.id)) out.push(t);
+  return out.slice(0, MAX_COMMENTS);
+}
+
 class HttpError extends Error {
   constructor(public status: number, message: string) {
     super(message);
@@ -166,6 +184,13 @@ export interface ServerOptions {
   createLimitPerMinute?: number;
   /** Refuse to create more than this many documents (0 = unlimited). Default 10000. */
   maxDocs?: number;
+  /**
+   * The server sits behind a reverse proxy that sets `X-Forwarded-For`: the rate limit then counts the address the proxy saw, not the
+   * proxy's own. Leave it off when clients connect directly, or anyone could pick their own address by sending the header.
+   */
+  trustProxy?: boolean;
+  /** The address to listen on. Default `127.0.0.1` (put a reverse proxy in front); `0.0.0.0` only when you mean it. */
+  host?: string;
 }
 
 export interface RunningServer {
@@ -196,7 +221,8 @@ export function createServer(options: ServerOptions): RunningServer {
   const publicDoc = (d: DocRecord, role: Role) => ({ id: d.id, title: d.title, html: d.html, comments: d.comments, version: d.version, updatedAt: d.updatedAt, role });
 
   async function handle(req: IncomingMessage, res: ServerResponse) {
-    const url = new URL(req.url ?? '/', 'http://localhost');
+    let url: URL;
+    try { url = new URL(req.url ?? '/', 'http://localhost'); } catch { throw new HttpError(400, 'Bad request'); }   // inputs like "//["
     const parts = url.pathname.split('/').filter(Boolean); // ['api','docs',id,...]
     if (req.method === 'OPTIONS') {
       res.writeHead(204, {
@@ -216,7 +242,8 @@ export function createServer(options: ServerOptions): RunningServer {
       }
       const limit = options.createLimitPerMinute ?? 60;
       if (limit > 0) {
-        const who = req.socket.remoteAddress ?? 'unknown';
+        const forwarded = options.trustProxy ? String(req.headers['x-forwarded-for'] ?? '').split(',').pop()?.trim() : '';   // the last entry is the one our own proxy added
+        const who = forwarded || req.socket.remoteAddress || 'unknown';
         const now = Date.now();
         const recent = (created.get(who) ?? []).filter((t) => now - t < 60000);
         if (recent.length >= limit) throw new HttpError(429, 'Too many documents created; try again in a minute');
@@ -294,12 +321,20 @@ export function createServer(options: ServerOptions): RunningServer {
     }
 
     if (parts[3] === 'comments' && parts.length === 4 && req.method === 'PUT') {
-      need('comment'); // commenters may change comments but not the document
+      need('comment'); // commenters may add comments and replies, not remove or rewrite other people's
       const body = await readJson(req);
       const comments = cleanComments(body.comments);
       if (!comments) throw new HttpError(400, 'comments must be an array of valid threads');
-      const next = await store.update(id, (d) => (d ? { doc: { ...d, comments, updatedAt: Date.now() }, result: true } : { doc: null, result: false }));
-      return send(res, next ? 200 : 404, next ? { ok: true } : { error: 'Not found' });
+      const out = await store.update(id, (d) => {
+        if (!d) return { doc: null, result: 404 };
+        const live = roleFor(d, secret); // re-check inside the lock: the share may have been revoked since the request began
+        if (!live || RANK[live] < RANK.comment) return { doc: d, result: 403 };
+        const next = RANK[live] >= RANK.edit ? comments : mergeCommenter(d.comments as Thread[], comments as Thread[]);
+        return { doc: { ...d, comments: next, updatedAt: Date.now() }, result: 200 };
+      });
+      if (out === 404) throw new HttpError(404, 'Not found');
+      if (out === 403) throw new HttpError(403, 'Insufficient permissions');
+      return send(res, 200, { ok: true });
     }
 
     if (parts[3] === 'shares') {
@@ -427,7 +462,7 @@ export function createServer(options: ServerOptions): RunningServer {
     const secret = url.searchParams.get('token');
     if (!m || !secret) return reject(401);
     // The token travels in the URL, so a page on another origin must not be able to use a leaked one from a browser.
-    if (options.allowedOrigin && req.headers.origin && req.headers.origin !== options.allowedOrigin) return reject(403);
+    if (options.allowedOrigin ? req.headers.origin && req.headers.origin !== options.allowedOrigin : req.headers.origin && new URL(String(req.headers.origin), 'http://x').host !== req.headers.host) return reject(403);   // without an allowed origin: same origin only
     store.get(m[1]).then(async (rec) => {
       const role = rec ? roleFor(rec, secret) : null;
       if (!role) return reject(403);
@@ -505,7 +540,7 @@ export function createServer(options: ServerOptions): RunningServer {
     store,
     async listen(port = 0) {
       await store.init();
-      await new Promise<void>((r) => server.listen(port, '127.0.0.1', r));
+      await new Promise<void>((r) => server.listen(port, options.host ?? '127.0.0.1', r));
       return (server.address() as { port: number }).port;
     },
     async close() {
@@ -527,6 +562,16 @@ export function createServer(options: ServerOptions): RunningServer {
 // Run directly: `pnpm server`
 if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).href) {
   const port = Number(process.env.PORT ?? 8787);
-  const app = createServer({ dataDir: process.env.DATA_DIR ?? './data', allowedOrigin: process.env.ALLOWED_ORIGIN });
+  const env = process.env;
+  const app = createServer({
+    dataDir: env.DATA_DIR ?? './data',
+    allowedOrigin: env.ALLOWED_ORIGIN,
+    createKey: env.CREATE_KEY || undefined,
+    createLimitPerMinute: env.CREATE_LIMIT ? Number(env.CREATE_LIMIT) : undefined,
+    maxDocs: env.MAX_DOCS ? Number(env.MAX_DOCS) : undefined,
+    trustProxy: env.TRUST_PROXY === '1' || env.TRUST_PROXY === 'true',
+    host: env.HOST || undefined,
+  });
+  if (!env.CREATE_KEY) console.warn('CREATE_KEY is not set: anyone who can reach this server can create documents. Set CREATE_KEY (and CREATE_LIMIT, MAX_DOCS) before exposing it.');
   app.listen(port).then((p) => console.log(`wysiwyg server listening on http://127.0.0.1:${p}`));
 }

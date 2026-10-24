@@ -47,7 +47,8 @@ export function fileKind(type: string, name = ''): FileKind {
 
 /** A safe display name: no path, no control characters, no leading dots, at most 120 characters (the extension is kept). */
 export function cleanFileName(name: string, fallback = 'file'): string {
-  const base = (name.split(/[\\/]/).pop() ?? '').replace(/[\u0000-\u001f\u007f<>:"|?*]/g, '').replace(/\s+/g, ' ').trim().replace(/^\.+/, '');
+  // control, bidi-override and zero-width characters go (a name like `invoice\u202Etxt.exe` would read as `invoiceexe.txt`), and so do trailing dots and spaces (Windows drops them, leaving a different extension)
+  const base = (name.split(/[\\/]/).pop() ?? '').replace(/[\u0000-\u001f\u007f<>:"|?*\u200b-\u200f\u202a-\u202e\u2060-\u2064\u2066-\u2069\ufeff]/g, '').replace(/\s+/g, ' ').trim().replace(/^\.+/, '').replace(/[. ]+$/, '');
   if (!base) return fallback;
   if (base.length <= 120) return base;
   const dot = base.lastIndexOf('.');

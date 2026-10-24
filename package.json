@@ -1,6 +1,6 @@
 {
   "name": "wysiwygido",
-  "version": "1.2.1",
+  "version": "1.3.0",
   "description": "A modular, TypeScript WYSIWYG rich-text editor inspired by CKEditor 5, built on ProseMirror.",
   "license": "MIT",
   "type": "module",
@@ -15,6 +15,14 @@
     "./data-table": {
       "types": "./dist/data-table-app.d.ts",
       "import": "./dist/data-table.js"
+    },
+    "./spreadsheet": {
+      "types": "./dist/spreadsheet-app.d.ts",
+      "import": "./dist/spreadsheet.js"
+    },
+    "./presentation": {
+      "types": "./dist/presentation-app.d.ts",
+      "import": "./dist/presentation.js"
     },
     "./collab": {
       "types": "./dist/collab.d.ts",
@@ -69,7 +77,7 @@
     "e2e:ui": "playwright test --ui",
     "docs:api": "npx --yes -p typedoc@0.28.20 -p typescript@5.9.3 typedoc",
     "prepublishOnly": "pnpm typecheck && pnpm test && pnpm build && pnpm check:optional",
-    "check:package": "pnpm build && pnpm check:optional && pnpm dlx publint && pnpm dlx @arethetypeswrong/cli --pack . --profile esm-only --ignore-rules cjs-resolves-to-esm no-resolution",
+    "check:package": "pnpm build && pnpm check:optional && pnpm dlx publint@0.3.25 && pnpm dlx @arethetypeswrong/cli@0.18.5 --pack . --profile esm-only --ignore-rules cjs-resolves-to-esm no-resolution",
     "server:examples": "tsx server/examples/api.ts",
     "check:optional": "node scripts/check-optional-peers.mjs dist && node scripts/check-standalone.mjs dist"
   },
@@ -94,7 +102,7 @@
     "yjs"
   ],
   "dependencies": {
-    "markdown-it": "^15.0.2",
+    "markdown-it": "^15.0.3",
     "prosemirror-commands": "^1.7.2",
     "prosemirror-dropcursor": "^1.8.4",
     "prosemirror-gapcursor": "^1.4.1",
@@ -129,7 +137,7 @@
     "react-dom": "^19.3.0",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
-    "vite": "^8.3.2",
+    "vite": "^8.3.5",
     "vitest": "^5.0.3",
     "vue": "^3.5.43",
     "ws": "^8.22.0",
@@ -140,13 +148,13 @@
   "peerDependencies": {
     "docx": "*",
     "jszip": "*",
-    "katex": "*",
+    "katex": ">=0.18.2",
     "lib0": "*",
     "mammoth": "*",
-    "mermaid": "*",
+    "mermaid": ">=12.1.0",
     "pdfjs-dist": "*",
     "react": "*",
-    "vue": "*",
+    "vue": ">=3.5.0",
     "y-prosemirror": "*",
     "y-protocols": "*",
     "yjs": "*"

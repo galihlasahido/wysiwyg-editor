@@ -42,6 +42,44 @@ export class IndexedDBDraftStore implements DraftStore {
   async get(id: string) { return ((await this.tx('readonly', (s) => s.get(id) as IDBRequest<Draft | undefined>)) as Draft | undefined) ?? null; }
   async put(id: string, d: Draft) { await this.tx('readwrite', (s) => s.put(d, id)); }
   async remove(id: string) { await this.tx('readwrite', (s) => s.delete(id)); }
+  /** Remove every draft (on sign-out, on a shared computer). */
+  async clear() { await this.tx('readwrite', (s) => s.clear()); }
+}
+
+const b64 = (b: Uint8Array) => { let s = ''; for (let i = 0; i < b.length; i += 8192) s += String.fromCharCode(...b.subarray(i, i + 8192)); return btoa(s); };
+const unb64 = (t: string) => Uint8Array.from(atob(t), (c) => c.charCodeAt(0));
+
+/** A key for `encryptedDraftStore` from a passphrase (PBKDF2, 250,000 rounds, AES-GCM 256). Keep the salt (any 16 random bytes) with the user. */
+export async function deriveDraftKey(passphrase: string, salt: Uint8Array): Promise<CryptoKey> {
+  const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(passphrase), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey({ name: 'PBKDF2', salt: salt as BufferSource, iterations: 250_000, hash: 'SHA-256' }, base, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+}
+
+/**
+ * Drafts encrypted before they reach the browser's storage (AES-GCM, a fresh nonce for each write), so a shared or stolen machine shows
+ * nothing without the key. The key is yours to keep: derive it from a passphrase, or hold it in memory for the session and the draft
+ * becomes unreadable when it is gone. A draft that cannot be decrypted is treated as missing.
+ */
+export function encryptedDraftStore(inner: DraftStore, key: CryptoKey): DraftStore {
+  return {
+    async get(id) {
+      const d = await inner.get(id);
+      if (!d?.html.startsWith('enc:')) return null;
+      try {
+        const raw = unb64(d.html.slice(4));
+        const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: raw.slice(0, 12) }, key, raw.slice(12));
+        const o = JSON.parse(new TextDecoder().decode(plain));
+        return typeof o.html === 'string' && Array.isArray(o.comments) ? { html: o.html, comments: o.comments, savedAt: d.savedAt } : null;
+      } catch { return null; }
+    },
+    async put(id, d) {
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const cipher = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, new TextEncoder().encode(JSON.stringify({ html: d.html, comments: d.comments }))));
+      const out = new Uint8Array(12 + cipher.length); out.set(iv); out.set(cipher, 12);
+      await inner.put(id, { html: `enc:${b64(out)}`, comments: [], savedAt: d.savedAt });
+    },
+    remove: (id) => inner.remove(id),
+  };
 }
 
 export interface OfflineOptions {

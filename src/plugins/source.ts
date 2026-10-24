@@ -55,6 +55,7 @@ export const SourceEditing: EditorPlugin = {
       editor.workspace.append(area);
       wasReadOnly = editor.isReadOnly;
       editor.setReadOnly(true);
+      area.readOnly = wasReadOnly;       // a read-only editor can look at its source, not change it
       area.focus();
     };
     const leave = (apply: boolean) => {
@@ -64,7 +65,7 @@ export const SourceEditing: EditorPlugin = {
       area = null;
       editor.root.classList.remove('wy-source-mode');
       editor.setReadOnly(wasReadOnly);
-      if (apply) editor.replaceHTML(text);
+      if (apply && !wasReadOnly) editor.replaceHTML(text);
       editor.view.focus();
     };
 

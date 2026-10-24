@@ -2,19 +2,23 @@ import MarkdownIt from 'markdown-it';
 import { MarkdownParser, MarkdownSerializer, type MarkdownSerializerState } from 'prosemirror-markdown';
 import { Fragment, type Node as PMNode, type Schema } from 'prosemirror-model';
 import { cleanSpec, formatCell } from './data-table';
-import { markdownUrl } from './url';
+import { isSafeHref, isSafeSrc, markdownUrl } from './url';
 
 const noMark = { open: '', close: '', mixable: true, expelEnclosingWhitespace: true };
+
+/** A code fence longer than any run of backticks in the code, so the code cannot close its own fence. */
+const fenceFor = (code: string): string => '`'.repeat((code.match(/`+/g) ?? []).reduce((m, r) => Math.max(m, r.length + 1), 3));
 
 const knownNodes: Record<string, (state: MarkdownSerializerState, node: PMNode, parent: PMNode, index: number) => void> = {
     blockquote(state, node) {
       state.wrapBlock('> ', null, node, () => state.renderContent(node));
     },
     code_block(state, node) {
-      state.write('```' + (node.attrs.language ?? '') + '\n');
+      const fence = fenceFor(node.textContent);
+      state.write(fence + (node.attrs.language ?? '') + '\n');
       state.text(node.textContent, false);
       state.ensureNewLine();
-      state.write('```');
+      state.write(fence);
       state.closeBlock(node);
     },
     heading(state, node) {
@@ -41,10 +45,11 @@ const knownNodes: Record<string, (state: MarkdownSerializerState, node: PMNode, 
       state.closeBlock(node);
     },
     mermaid_diagram(state, node) {
-      state.write('```mermaid\n');
+      const fence = fenceFor(String(node.attrs.code));
+      state.write(fence + 'mermaid\n');
       state.text(node.attrs.code, false);
       state.ensureNewLine();
-      state.write('```');
+      state.write(fence);
       state.closeBlock(node);
     },
     embed(state, node) {
@@ -227,7 +232,7 @@ export function markdownToDoc(schema: Schema, md: string): PMNode {
   if (nodes.image)
     tokens.image = {
       node: 'image',
-      getAttrs: (t: any) => ({ src: t.attrGet('src'), alt: (t.children?.[0]?.content ?? t.content) || null }),
+      getAttrs: (t: any) => ({ src: isSafeSrc(t.attrGet('src')) ? t.attrGet('src') : '', alt: (t.children?.[0]?.content ?? t.content) || null }),
     };
   if (nodes.hard_break) tokens.hardbreak = { node: 'hard_break' };
   if (marks.italic) tokens.em = { mark: 'italic' };
@@ -236,7 +241,7 @@ export function markdownToDoc(schema: Schema, md: string): PMNode {
   if (marks.link)
     tokens.link = {
       mark: 'link',
-      getAttrs: (t: any) => ({ href: t.attrGet('href'), title: t.attrGet('title') || null }),
+      getAttrs: (t: any) => ({ href: isSafeHref(t.attrGet('href')) ? t.attrGet('href') : '#', title: t.attrGet('title') || null }),
     };
   // 'zero' disables raw HTML; commonmark preset keeps links/images safe-by-validateLink.
   const md_ = new MarkdownIt('commonmark', { html: false });

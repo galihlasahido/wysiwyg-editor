@@ -425,7 +425,7 @@ export function queryRows(source: DataTableSpec, view: ViewState, locale?: strin
   const cols = spec.columns;
   const visible = cols.map((c, i) => (c.hidden ? -1 : i)).filter((i) => i >= 0);
   const tests: { i: number; t: Test }[] = [];
-  cols.forEach((c, i) => { const t = filterTest(c, view.filters[c.key] ?? '', locale); if (t) tests.push({ i, t }); });
+  cols.forEach((c, i) => { const t = filterTest(c, Object.prototype.hasOwnProperty.call(view.filters, c.key) ? view.filters[c.key] : '', locale); if (t) tests.push({ i, t }); });
   const q = view.search.trim().toLowerCase();
   let out: number[] = [];
   spec.rows.forEach((row, r) => {

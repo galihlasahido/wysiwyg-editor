@@ -108,7 +108,10 @@ export function Embeds(options: EmbedsOptions = {}): EditorPlugin {
       frame.title = r.title;
       frame.loading = 'lazy';
       frame.referrerPolicy = 'no-referrer';
-      frame.setAttribute('sandbox', r.provider.sandbox ?? 'allow-scripts allow-same-origin allow-popups');
+      let sandbox = r.provider.sandbox ?? 'allow-scripts allow-same-origin allow-popups';
+      // a frame from our own origin with scripts and the same origin could take its sandbox off: it never gets both
+      try { if (new URL(r.src, location.href).origin === location.origin) sandbox = sandbox.split(' ').filter((t) => t !== 'allow-same-origin').join(' '); } catch { /* an address that does not parse is not loaded */ }
+      frame.setAttribute('sandbox', sandbox);
       frame.setAttribute('allow', 'fullscreen; picture-in-picture');
       frame.allowFullscreen = true;
       const link = document.createElement('a');

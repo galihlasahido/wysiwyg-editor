@@ -61,7 +61,7 @@ export function buildEpubFiles(html: string, o: EpubOptions = {}): { path: strin
   const lang = o.language || 'en';
   const ser = new XMLSerializer();
   const xhtml = (t: string, nodes: Node[]) =>
-    `<?xml version="1.0" encoding="UTF-8"?>\n<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" lang="${esc(lang)}" xml:lang="${esc(lang)}"><head><meta charset="utf-8"/><title>${esc(t)}</title><link rel="stylesheet" type="text/css" href="style.css"/></head><body>${nodes.map((n) => ser.serializeToString(n).replace(/ xmlns="http:\/\/www\.w3\.org\/1999\/xhtml"/g, '')).join('')}</body></html>`;
+    `<?xml version="1.0" encoding="UTF-8"?>\n<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" lang="${esc(lang)}" xml:lang="${esc(lang)}"><head><meta charset="utf-8"/><title>${esc(t)}</title><link rel="stylesheet" type="text/css" href="style.css"/></head><body>${nodes.map((n) => ser.serializeToString(n).replace(/ xmlns="http:\/\/www\.w3\.org\/1999\/xhtml"/g, '')).join('').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\ufffe\uffff]/g, '')}</body></html>`;
 
   const ids = chapters.map((_, i) => `ch${i + 1}`);
   chapters.forEach((c, i) => files.push({ path: `OEBPS/${ids[i]}.xhtml`, data: xhtml(c.title, c.nodes) }));

@@ -4,13 +4,15 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import * as main from '../src';
 import * as table from '../src/data-table-app';
+import * as sheet from '../src/spreadsheet-app';
+import * as slides from '../src/presentation-app';
 
 /**
  * The public API, as names. Removing or renaming anything listed here breaks apps, so it needs a major version; adding a name is
  * fine but must be deliberate. After an intended change run `UPDATE_API=1 pnpm test api-surface` and commit `tests/api-surface.json`.
  */
 const FILE = join(dirname(fileURLToPath(import.meta.url)), 'api-surface.json');
-const current = { 'wysiwygido': Object.keys(main).sort(), 'wysiwygido/data-table': Object.keys(table).sort() };
+const current = { 'wysiwygido': Object.keys(main).sort(), 'wysiwygido/data-table': Object.keys(table).sort(), 'wysiwygido/spreadsheet': Object.keys(sheet).sort(), 'wysiwygido/presentation': Object.keys(slides).sort() };
 
 describe('public API', () => {
   if (process.env.UPDATE_API) {

@@ -5,6 +5,7 @@
 import * as D from 'docx';
 import type { Mark, Node as PMNode } from 'prosemirror-model';
 import { cropBytes, cropToString, type Crop } from './crop';
+import { isSafeHref } from './url';
 import { latexToDocx } from './latex-docx';
 import { rasterizeSVG } from './svg-raster';
 import { chartSVG, cleanChart } from './chart';
@@ -32,6 +33,16 @@ const hex = (c: string) => c.replace('#', '').toUpperCase();
 const MAX_IMAGE_BYTES = 15 * 1024 * 1024;
 const MAX_DOCX_BYTES = 50 * 1024 * 1024;
 const MAX_DIMENSION = 20000;
+
+/** Characters XML 1.0 does not allow (pasted out of a PDF or a terminal); Word calls a file that holds one corrupt. */
+const XML_CONTROL = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\ufffe\uffff]/g;
+const X = (t: unknown): string => String(t ?? '').replace(XML_CONTROL, '');
+const cleanRun = <T>(o: T): T => (typeof o === 'string' ? (X(o) as unknown as T) : o && typeof (o as { text?: unknown }).text === 'string' ? ({ ...o, text: X((o as unknown as { text: string }).text) } as T) : o);
+class TextRun extends D.TextRun { constructor(o: ConstructorParameters<typeof D.TextRun>[0]) { super(cleanRun(o)); } }
+class InsertedTextRun extends D.InsertedTextRun { constructor(o: ConstructorParameters<typeof D.InsertedTextRun>[0]) { super(cleanRun(o)); } }
+class DeletedTextRun extends D.DeletedTextRun { constructor(o: ConstructorParameters<typeof D.DeletedTextRun>[0]) { super(cleanRun(o)); } }
+/** A hyperlink target Word may open: web, mail or phone. Anything else (file:, smb:, javascript:) is written as plain text. */
+const linkTarget = (u: unknown): string | null => (typeof u === 'string' && /^(?:https?:|mailto:|tel:)/i.test(u.trim()) && isSafeHref(u.trim()) ? u.trim() : null);
 
 /** Read width/height and format from PNG, JPEG or GIF bytes. Null for unknown formats and for zero or absurd sizes. */
 export function imageInfo(b: Uint8Array): { type: 'png' | 'jpg' | 'gif'; width: number; height: number } | null {
@@ -185,7 +196,7 @@ function runOptions(marks: readonly Mark[]) {
       case 'highlight': o.shading = { type: D.ShadingType.CLEAR, fill: hex(m.attrs.color), color: 'auto' }; break;
       case 'font_family': o.font = m.attrs.value; break;
       case 'font_size': o.size = Math.round(Number(m.attrs.value) * 1.5); break; // px -> half-points
-      case 'link': link = m.attrs.href; o.color ??= '1D4ED8'; o.underline ??= {}; break;
+      case 'link': link = linkTarget(m.attrs.href); o.color ??= '1D4ED8'; o.underline ??= {}; break;
       case 'insertion': revision = 'insertion'; break;
       case 'deletion': revision = 'deletion'; break;
     }
@@ -195,7 +206,7 @@ function runOptions(marks: readonly Mark[]) {
 
 function footnoteText(ctx: Ctx, text: string): number {
   const id = Object.keys(ctx.footnotes).length + 1;
-  ctx.footnotes[id] = { children: [new D.Paragraph({ children: [new D.TextRun(text)] })] };
+  ctx.footnotes[id] = { children: [new D.Paragraph({ children: [new TextRun(text)] })] };
   return id;
 }
 
@@ -219,23 +230,23 @@ function inlineChildren(node: PMNode, ctx: Ctx): D.ParagraphChild[] {
     let run: D.ParagraphChild | null = null;
     if (child.isText) {
       const text = child.text!;
-      if (revision === 'insertion') run = new D.InsertedTextRun({ id: ctx.revision++, author: ctx.author, date: new Date().toISOString(), text, ...o });
-      else if (revision === 'deletion') run = new D.DeletedTextRun({ id: ctx.revision++, author: ctx.author, date: new Date().toISOString(), text, ...o });
-      else run = new D.TextRun({ text, ...o });
+      if (revision === 'insertion') run = new InsertedTextRun({ id: ctx.revision++, author: X(ctx.author), date: new Date().toISOString(), text, ...o });
+      else if (revision === 'deletion') run = new DeletedTextRun({ id: ctx.revision++, author: X(ctx.author), date: new Date().toISOString(), text, ...o });
+      else run = new TextRun({ text, ...o });
     } else if (child.type.name === 'mention') {
-      run = new D.TextRun({ text: `@${child.attrs.label}`, color: '1D4ED8', ...o });
+      run = new TextRun({ text: `@${child.attrs.label}`, color: '1D4ED8', ...o });
     } else if (child.type.name === 'math_inline') {
       const eq = latexToDocx(child.attrs.tex); // a native Word equation; the LaTeX text when the formula is outside what we convert
-      run = eq ? (new D.Math({ children: eq }) as unknown as D.ParagraphChild) : new D.TextRun({ text: child.attrs.tex, font: 'Cambria Math', italics: true, ...o });
+      run = eq ? (new D.Math({ children: eq }) as unknown as D.ParagraphChild) : new TextRun({ text: child.attrs.tex, font: 'Cambria Math', italics: true, ...o });
     } else if (child.type.name === 'xref') {
-      run = new D.TextRun({ text: String(child.attrs.text), ...o });
+      run = new TextRun({ text: String(child.attrs.text), ...o });
     } else if (child.type.name === 'form_field') {
       const a = child.attrs;
-      run = new D.TextRun({ text: `${a.label ? `${a.label}: ` : ''}${a.kind === 'checkbox' ? (a.value === 'true' ? '☒' : '☐') : a.value || '________'}`, underline: a.kind === 'checkbox' ? undefined : {}, ...o });
+      run = new TextRun({ text: `${a.label ? `${a.label}: ` : ''}${a.kind === 'checkbox' ? (a.value === 'true' ? '☒' : '☐') : a.value || '________'}`, underline: a.kind === 'checkbox' ? undefined : {}, ...o });
     } else if (child.type.name === 'attachment') {
-      run = new D.TextRun({ text: `[${child.attrs.name}]`, color: '1D4ED8', ...o });
+      run = new TextRun({ text: `[${child.attrs.name}]`, color: '1D4ED8', ...o });
     } else if (child.type.name === 'hard_break') {
-      run = new D.TextRun({ break: 1 });
+      run = new TextRun({ break: 1 });
     } else if (child.type.name === 'footnote') {
       run = new D.FootnoteReferenceRun(footnoteText(ctx, child.attrs.text));
     } else if (child.type.name === 'image') {
@@ -246,9 +257,9 @@ function inlineChildren(node: PMNode, ctx: Ctx): D.ParagraphChild[] {
           type: img.type,
           data: img.data,
           transformation: { width: w, height: Math.max(1, Math.round((w * img.height) / img.width)) },
-          altText: { name: 'image', title: child.attrs.alt ?? 'image', description: child.attrs.alt ?? '' },
+          altText: { name: 'image', title: X(child.attrs.alt ?? 'image'), description: X(child.attrs.alt ?? '') },
         });
-      } else run = new D.TextRun({ text: child.attrs.alt ? `[${child.attrs.alt}]` : '[image]', italics: true });
+      } else run = new TextRun({ text: child.attrs.alt ? `[${child.attrs.alt}]` : '[image]', italics: true });
     }
     if (run) out.push(link ? new D.ExternalHyperlink({ link, children: [run as D.TextRun] }) : run);
 
@@ -259,7 +270,7 @@ function inlineChildren(node: PMNode, ctx: Ctx): D.ParagraphChild[] {
         out.push(new D.CommentRangeEnd(n));
         if (!ctx.referenced.has(id)) {
           ctx.referenced.add(id);
-          out.push(new D.TextRun({ children: [new D.CommentReference(n)] }));
+          out.push(new TextRun({ children: [new D.CommentReference(n)] }));
         }
       }
     }
@@ -312,7 +323,7 @@ function tableBlock(table: PMNode, ctx: Ctx): D.Table {
       if (cell.type.name !== 'table_header') header = false;
       const children: Block[] = [];
       cell.forEach((c) => children.push(...blocks(c, ctx)));
-      if (!children.length) children.push(new D.Paragraph(''));
+      if (!children.length) children.push(new D.Paragraph({}));
       const bg = cell.attrs.background as string | null;
       cells.push(
         new D.TableCell({
@@ -353,17 +364,17 @@ function blocks(node: PMNode, ctx: Ctx): Block[] {
       return out;
     }
     case 'code_block':
-      return node.textContent.split('\n').map((line) => new D.Paragraph({ children: [new D.TextRun({ text: line, font: 'Courier New', size: 20 })], shading: { type: D.ShadingType.CLEAR, fill: 'F0F0F0', color: 'auto' } }));
+      return node.textContent.split('\n').map((line) => new D.Paragraph({ children: [new TextRun({ text: line, font: 'Courier New', size: 20 })], shading: { type: D.ShadingType.CLEAR, fill: 'F0F0F0', color: 'auto' } }));
     case 'clip':
-      return [new D.Paragraph({ children: [new D.TextRun({ text: `${node.attrs.kind === 'video' ? 'Screen' : 'Audio'} recording: `, color: '6B7280' }), ...(/^https?:/i.test(String(node.attrs.src)) ? [new D.ExternalHyperlink({ link: String(node.attrs.src), children: [new D.TextRun({ text: String(node.attrs.name || node.attrs.src), style: 'Hyperlink', color: '1D4ED8', underline: {} })] })] : [new D.TextRun({ text: String(node.attrs.name || '(embedded in the online document)') })])] })];
+      return [new D.Paragraph({ children: [new TextRun({ text: `${node.attrs.kind === 'video' ? 'Screen' : 'Audio'} recording: `, color: '6B7280' }), ...(linkTarget(node.attrs.src) && /^https?:/i.test(String(node.attrs.src)) ? [new D.ExternalHyperlink({ link: String(node.attrs.src), children: [new TextRun({ text: String(node.attrs.name || node.attrs.src), style: 'Hyperlink', color: '1D4ED8', underline: {} })] })] : [new TextRun({ text: String(node.attrs.name || '(embedded in the online document)') })])] })];
     case 'chart': {
       const png = ctx.diagrams.get(`chart:${node.attrs.spec}`);
       const spec = cleanChart(node.attrs.spec);
       if (png) {
         const w = Math.min(png.width / 2, 520);
-        return [new D.Paragraph({ alignment: D.AlignmentType.CENTER, spacing: { before: 120, after: 120 }, children: [new D.ImageRun({ type: 'png', data: png.data, transformation: { width: w, height: Math.max(1, Math.round((w * png.height) / png.width)) }, altText: { name: 'chart', title: spec?.title || 'Chart', description: spec ? `${spec.type} chart: ${spec.labels.join(', ')}` : 'Chart' } })] })];
+        return [new D.Paragraph({ alignment: D.AlignmentType.CENTER, spacing: { before: 120, after: 120 }, children: [new D.ImageRun({ type: 'png', data: png.data, transformation: { width: w, height: Math.max(1, Math.round((w * png.height) / png.width)) }, altText: { name: 'chart', title: X(spec?.title || 'Chart'), description: X(spec ? `${spec.type} chart: ${spec.labels.join(', ')}` : 'Chart') } })] })];
       }
-      return spec ? [new D.Paragraph({ children: [new D.TextRun({ text: `Chart: ${spec.title || spec.type}`, italics: true, color: '6B7280' })] })] : [];
+      return spec ? [new D.Paragraph({ children: [new TextRun({ text: `Chart: ${spec.title || spec.type}`, italics: true, color: '6B7280' })] })] : [];
     }
     case 'column_break':
       return [new D.Paragraph({ children: [new D.ColumnBreak()] })];
@@ -374,30 +385,30 @@ function blocks(node: PMNode, ctx: Ctx): Block[] {
     }
     case 'caption': {
       const label = String(node.attrs.kind).replace(/^./, (c: string) => c.toUpperCase());
-      return [new D.Paragraph({ spacing: { before: 60, after: 160 }, children: [new D.TextRun({ text: `${label} ${node.attrs.n}. `, bold: true, italics: true, size: 20 }), ...inlineChildren(node, ctx)] })];
+      return [new D.Paragraph({ spacing: { before: 60, after: 160 }, children: [new TextRun({ text: `${label} ${node.attrs.n}. `, bold: true, italics: true, size: 20 }), ...inlineChildren(node, ctx)] })];
     }
     case 'caption_list': {
       let items: { n: number; text: string }[] = [];
       try { items = JSON.parse(node.attrs.items); } catch { /* none */ }
       const label = String(node.attrs.kind).replace(/^./, (c: string) => c.toUpperCase());
-      return [new D.Paragraph({ children: [new D.TextRun({ text: `List of ${label.toLowerCase()}s`, bold: true })] }), ...items.map((it) => new D.Paragraph({ children: [new D.TextRun({ text: `${label} ${it.n}. ${it.text}` })] }))];
+      return [new D.Paragraph({ children: [new TextRun({ text: `List of ${label.toLowerCase()}s`, bold: true })] }), ...items.map((it) => new D.Paragraph({ children: [new TextRun({ text: `${label} ${it.n}. ${it.text}` })] }))];
     }
     case 'embed':
-      return [new D.Paragraph({ children: [new D.TextRun({ text: 'Media: ', color: '6B7280' }), new D.ExternalHyperlink({ link: String(node.attrs.url), children: [new D.TextRun({ text: String(node.attrs.url), style: 'Hyperlink', color: '1D4ED8', underline: {} })] })] })];
+      return [new D.Paragraph({ children: [new TextRun({ text: 'Media: ', color: '6B7280' }), ...(linkTarget(node.attrs.url) ? [new D.ExternalHyperlink({ link: String(node.attrs.url), children: [new TextRun({ text: String(node.attrs.url), style: 'Hyperlink', color: '1D4ED8', underline: {} })] })] : [new TextRun({ text: String(node.attrs.url) })])] })];
     case 'math_block': {
       const eq = latexToDocx(node.attrs.tex);
-      return [new D.Paragraph({ alignment: D.AlignmentType.CENTER, spacing: { before: 120, after: 120 }, children: eq ? [new D.Math({ children: eq }) as unknown as D.ParagraphChild] : [new D.TextRun({ text: node.attrs.tex, font: 'Cambria Math', italics: true })] })];
+      return [new D.Paragraph({ alignment: D.AlignmentType.CENTER, spacing: { before: 120, after: 120 }, children: eq ? [new D.Math({ children: eq }) as unknown as D.ParagraphChild] : [new TextRun({ text: node.attrs.tex, font: 'Cambria Math', italics: true })] })];
     }
     case 'mermaid_diagram': {
       const png = ctx.diagrams.get(node.attrs.code);
       if (png) {
         const w = Math.min(png.width / 2, 600); // drawn at 2x for sharpness
-        return [new D.Paragraph({ alignment: D.AlignmentType.CENTER, spacing: { before: 120, after: 120 }, children: [new D.ImageRun({ type: 'png', data: png.data, transformation: { width: w, height: Math.max(1, Math.round((w * png.height) / png.width)) }, altText: { name: 'diagram', title: 'Diagram', description: String(node.attrs.code).slice(0, 200) } })] })];
+        return [new D.Paragraph({ alignment: D.AlignmentType.CENTER, spacing: { before: 120, after: 120 }, children: [new D.ImageRun({ type: 'png', data: png.data, transformation: { width: w, height: Math.max(1, Math.round((w * png.height) / png.width)) }, altText: { name: 'diagram', title: 'Diagram', description: X(String(node.attrs.code).slice(0, 200)) } })] })];
       }
       // no canvas (or an invalid diagram): keep the source, clearly labelled
       return [
-        new D.Paragraph({ children: [new D.TextRun({ text: 'Diagram (Mermaid source)', italics: true, color: '6B7280', size: 18 })] }),
-        ...String(node.attrs.code).split('\n').map((line) => new D.Paragraph({ children: [new D.TextRun({ text: line, font: 'Courier New', size: 20 })], shading: { type: D.ShadingType.CLEAR, fill: 'F0F0F0', color: 'auto' } })),
+        new D.Paragraph({ children: [new TextRun({ text: 'Diagram (Mermaid source)', italics: true, color: '6B7280', size: 18 })] }),
+        ...String(node.attrs.code).split('\n').map((line) => new D.Paragraph({ children: [new TextRun({ text: line, font: 'Courier New', size: 20 })], shading: { type: D.ShadingType.CLEAR, fill: 'F0F0F0', color: 'auto' } })),
       ];
     }
     case 'horizontal_rule':
@@ -412,7 +423,7 @@ function blocks(node: PMNode, ctx: Ctx): Block[] {
         data: img.data,
         transformation: { width: ctx.pageSize.w, height: ctx.pageSize.h },
         floating: { horizontalPosition: { relative: D.HorizontalPositionRelativeFrom.PAGE, offset: 0 }, verticalPosition: { relative: D.VerticalPositionRelativeFrom.PAGE, offset: 0 }, behindDocument: true, allowOverlap: true },
-        altText: { name: 'cover', title: 'Cover', description: String(node.attrs.alt || 'Cover page') },
+        altText: { name: 'cover', title: 'Cover', description: X(String(node.attrs.alt || 'Cover page')) },
       });
       return [new D.Paragraph({ children: [run] }), after];
     }
@@ -421,21 +432,21 @@ function blocks(node: PMNode, ctx: Ctx): Block[] {
     case 'toc':
       return [new D.TableOfContents('Table of Contents', { hyperlink: true, headingStyleRange: '1-4' })];
     case 'table':
-      return [tableBlock(node, ctx), new D.Paragraph('')]; // Word needs a paragraph after a table
+      return [tableBlock(node, ctx), new D.Paragraph({})]; // Word needs a paragraph after a table
     case 'data_table': {
       // A data table is written as an ordinary Word table: the heading row (repeated on each page) and every row, in the shown columns.
       const spec = cleanDataTable(node.attrs.spec);
       if (!spec) return [];
       const cols = spec.columns.map((c, i) => ({ c, i })).filter(({ c }) => !c.hidden);
       const align = (c: (typeof cols)[number]['c']) => ((c.align ?? (c.type === 'number' || c.type === 'currency' ? 'right' : 'left')) === 'right' ? D.AlignmentType.RIGHT : c.align === 'center' ? D.AlignmentType.CENTER : D.AlignmentType.LEFT);
-      const cell = (text: string, c: (typeof cols)[number]['c'], bold = false, fill?: string) => new D.TableCell({ shading: fill ? { type: D.ShadingType.CLEAR, fill, color: 'auto' } : undefined, children: [new D.Paragraph({ alignment: align(c), children: [new D.TextRun({ text, bold })] })] });
+      const cell = (text: string, c: (typeof cols)[number]['c'], bold = false, fill?: string) => new D.TableCell({ shading: fill ? { type: D.ShadingType.CLEAR, fill, color: 'auto' } : undefined, children: [new D.Paragraph({ alignment: align(c), children: [new TextRun({ text, bold })] })] });
       const rows = [
         new D.TableRow({ tableHeader: true, children: cols.map(({ c }) => cell(c.title, c, true, 'E7ECF3')) }),
         ...spec.rows.map((r) => new D.TableRow({ children: cols.map(({ c, i }) => cell(formatDataCell(c, r[i]), c)) })),
       ];
       const out: Block[] = [];
-      if (spec.options.title) out.push(new D.Paragraph({ spacing: { after: 60 }, children: [new D.TextRun({ text: spec.options.title, bold: true })] }));
-      out.push(new D.Table({ rows, width: { size: 100, type: D.WidthType.PERCENTAGE } }), new D.Paragraph(''));
+      if (spec.options.title) out.push(new D.Paragraph({ spacing: { after: 60 }, children: [new TextRun({ text: spec.options.title, bold: true })] }));
+      out.push(new D.Table({ rows, width: { size: 100, type: D.WidthType.PERCENTAGE } }), new D.Paragraph({}));
       return out;
     }
     default:
@@ -448,7 +459,7 @@ function headerFooterParagraph(template: string): D.Paragraph {
   const run: (string | (typeof D.PageNumber)[keyof typeof D.PageNumber])[] = parts
     .filter(Boolean)
     .map((p) => (p === '{page}' ? D.PageNumber.CURRENT : p === '{pages}' ? D.PageNumber.TOTAL_PAGES : p));
-  return new D.Paragraph({ alignment: D.AlignmentType.CENTER, children: [new D.TextRun({ children: run, color: '9CA3AF', size: 18 })] });
+  return new D.Paragraph({ alignment: D.AlignmentType.CENTER, children: [new TextRun({ children: run, color: '9CA3AF', size: 18 })] });
 }
 
 /** Build a docx `Document` from the editor's content, page setup, footnotes, comments and tracked changes. */
@@ -529,7 +540,7 @@ export async function buildDocx(editor: Editor, options: ExportOptions = {}): Pr
     if (last && last.count === 1) last.children.push(...out);
     else segments.push({ count: 1, gap: 0, rule: false, children: out });
   });
-  if (!segments.some((s) => s.children.length)) segments.splice(0, segments.length, { count: 1, gap: 0, rule: false, children: [new D.Paragraph('')] });
+  if (!segments.some((s) => s.children.length)) segments.splice(0, segments.length, { count: 1, gap: 0, rule: false, children: [new D.Paragraph({})] });
 
   const w = page?.width ?? 794;
   const h = page?.height ?? 1123;
@@ -540,16 +551,16 @@ export async function buildDocx(editor: Editor, options: ExportOptions = {}): Pr
 
   return new D.Document({
     creator: 'wysiwygido',
-    title: options.title,
+    title: options.title === undefined ? undefined : X(options.title),
     features: { updateFields: doc.content.content.some((n) => n.type.name === 'toc') },
     numbering: { config: ctx.numbering.map((lv, i) => ({ reference: ctx.numberingRefs[i], levels: lv })) },
     footnotes: ctx.footnotes,
     comments: {
       children: exported.map((t, i) => ({
         id: i,
-        author: t.author,
+        author: X(t.author),
         date: new Date(t.createdAt),
-        children: [t.text, ...t.replies.map((r) => `${r.author}: ${r.text}`)].map((text) => new D.Paragraph(text)),
+        children: [t.text, ...t.replies.map((r) => `${r.author}: ${r.text}`)].map((text) => new D.Paragraph(X(text))),
       })),
     },
     sections: segments.map((seg, i) => ({
@@ -574,7 +585,7 @@ export async function buildDocx(editor: Editor, options: ExportOptions = {}): Pr
             },
           }
         : {}),
-      children: (seg.children.length ? seg.children : [new D.Paragraph('')]) as D.Paragraph[],
+      children: (seg.children.length ? seg.children : [new D.Paragraph({})]) as D.Paragraph[],
     })),
   });
 }
@@ -594,12 +605,36 @@ function blobToArrayBuffer(blob: Blob): Promise<ArrayBuffer> {
   });
 }
 
+const MAX_UNZIPPED_DOCX = 120 * 1024 * 1024;
+/**
+ * A small file can unpack to gigabytes (a zip bomb). The sizes the archive declares for its entries are read from the central
+ * directory before anything is inflated; a file that declares too much, or squeezes any entry more than 1000 to 1, is refused.
+ */
+export function checkZipBomb(b: Uint8Array): void {
+  if (b.length < 22) throw new Error('This is not a .docx file.');
+  const v = new DataView(b.buffer, b.byteOffset, b.byteLength);
+  let end = -1;
+  for (let i = b.length - 22; i >= Math.max(0, b.length - 22 - 65535); i--) if (v.getUint32(i, true) === 0x06054b50) { end = i; break; }
+  if (end < 0) throw new Error('This is not a .docx file.');
+  const count = v.getUint16(end + 10, true);
+  let p = v.getUint32(end + 16, true);
+  let total = 0;
+  for (let i = 0; i < count; i++) {
+    if (p + 46 > b.length || v.getUint32(p, true) !== 0x02014b50) throw new Error('This is not a .docx file.');
+    const csize = v.getUint32(p + 20, true); const usize = v.getUint32(p + 24, true);
+    total += usize;
+    if (total > MAX_UNZIPPED_DOCX || (usize > 1_000_000 && usize / Math.max(1, csize) > 1000)) throw new Error('The .docx file unpacks to too much data to open safely.');
+    p += 46 + v.getUint16(p + 28, true) + v.getUint16(p + 30, true) + v.getUint16(p + 32, true);
+  }
+}
+
 /** Replace the editor content with a .docx file's content (undoable). Returns mammoth's conversion warnings. */
 export async function importDocx(editor: Editor, source: Blob | ArrayBuffer): Promise<string[]> {
   const mammoth = (await import('mammoth')).default ?? (await import('mammoth'));
   const size = source instanceof ArrayBuffer ? source.byteLength : source.size;
   if (size > MAX_DOCX_BYTES) throw new Error(`The .docx file is too large (${Math.round(size / 1048576)} MB; the limit is ${MAX_DOCX_BYTES / 1048576} MB).`);
   const arrayBuffer = source instanceof ArrayBuffer ? source : await blobToArrayBuffer(source);
+  checkZipBomb(new Uint8Array(arrayBuffer));
   // mammoth's browser build reads `arrayBuffer`, its Node build reads `buffer`; pass what the runtime has.
   const input = { arrayBuffer, ...(typeof Buffer !== 'undefined' ? { buffer: Buffer.from(arrayBuffer) } : {}) };
   const result = await mammoth.convertToHtml(

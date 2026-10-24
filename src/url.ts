@@ -1,7 +1,7 @@
 /** Where a link may point: http(s), mailto, tel, an in-page anchor or a same-site path. `//host` (protocol-relative) is not allowed. */
-const HREF = /^(?:https?:|mailto:|tel:|#|\/(?!\/))/i;
+const HREF = /^(?:https?:|mailto:|tel:|#|\/(?![\/\\\t\r\n]))/i;
 /** Where an image may come from: http(s), a same-site path, or a base64 raster data URL (not SVG). */
-const SRC = /^(?:https?:|data:image\/(?:png|jpe?g|gif|webp|bmp|avif);base64,|\/(?!\/))/i;
+const SRC = /^(?:https?:|data:image\/(?:png|jpe?g|gif|webp|bmp|avif);base64,|\/(?![\/\\\t\r\n]))/i;
 
 export const isSafeHref = (u: unknown): u is string => typeof u === 'string' && HREF.test(u);
 export const isSafeSrc = (u: unknown): u is string => typeof u === 'string' && SRC.test(u);

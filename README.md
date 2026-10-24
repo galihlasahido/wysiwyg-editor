@@ -602,6 +602,50 @@ Rows can be arrays in column order or objects by column key (objects are easier 
 
 Events `table-ready` and `table-change` (`detail.table`); the element's `table` property sets or reads the table.
 
+## Spreadsheet
+
+A spreadsheet in the manner of Excel on the web, with no editor behind it (`wysiwygido/spreadsheet`, a separate entry point that pulls in nothing else; the build checks that). It has **formulas the way Excel writes them**: about 400 functions (math and trig, statistics and distributions, text, date and time, logic, lookup with `VLOOKUP`, `XLOOKUP`, `INDEX`/`MATCH`, finance, engineering, database, information), TRUE and FALSE, arrays (`SUMPRODUCT((A1:A9>5)*B1:B9)`, `IF` over a range), dynamic arrays that spill (`SORT`, `FILTER`, `UNIQUE`, `SEQUENCE`, `TRANSPOSE`, `VSTACK`…), `LET`, references to other sheets (`=Budget!B2*2`, `='My sheet'!A1:A9`), whole columns (`A:A`), `INDIRECT` and `OFFSET`, `TEXT` with number and date formats, Excel's date serial numbers, and the same errors (`#DIV/0!`, `#N/A`, `#VALUE!`, `#NAME?`…), never `eval`. The **formula editor** above the grid has a name box with a list, cancel and confirm buttons, an `fx` button with the functions by category, a field that opens to several lines (Alt+Enter adds a line), function names as you type (Tab takes one) and the syntax of the function you are in. Number formats (general, number, currency, percent, date, text), fonts, colours, borders and alignment, several sheets, fill by dragging the corner (numbers, days, months, "Item 1"), sort, filter by value, freeze panes, insert and delete of rows and columns (formulas follow), resize and autofit, find and replace, a name box and formula bar, copy and paste with Excel and Google Sheets (what you paste in is text; what you copy out also carries the formats as an HTML table), CSV in and out, undo and redo, zoom, print, and a status bar that sums the selection. Only the visible cells are drawn, so a sheet of 20,000 rows scrolls as smoothly as one of 20.
+
+```ts
+import { createSpreadsheet } from 'wysiwygido/spreadsheet';
+import 'wysiwygido/style.css';
+
+const sheet = createSpreadsheet({
+  element,
+  menu: 'classic',                   // 'classic' ribbon · 'floating' card · 'menubar' (only the drop-down menus) · 'formula' (only the formula editor) · 'none'
+  data: { sheets: [{ name: 'Budget', cells: { A1: { v: 'Rent' }, B1: { v: '1200', s: { fmt: 'currency' } }, B2: { v: '=B1*12' } } }] },
+  title: 'Yearly expenses', onTitle: (name) => rename(name),     // the floating card shows and edits the name
+  save: (data) => fetch('/api/book', { method: 'PUT', body: JSON.stringify(data) }),   // header: Saving… / Saved
+  // storageKey: 'my-book',          // or keep it in localStorage
+});
+sheet.setValue('C1', '=SUM(B1:B2)');
+sheet.getValue('C1');                // 14400 + 1200
+sheet.toCSV(); sheet.getData(); sheet.setMenu('floating');
+```
+
+The two **menus** share the same commands. The classic ribbon has tabs with labelled groups; the floating menu is a card with a header (document name, save status, your own `end` element for avatars or a Share button), a menu bar with drop-downs, and a one-row toolbar whose last items fold into "⋯" when the window is narrow. `menu` also takes `'menubar'` (the card with only its drop-down menus), `'formula'` (only the formula editor) and `'none'`; `setMenu(mode)` changes it while running and `setFormulaBar(false)` hides the formula editor. Options: `theme` (`'light'`, `'dark'`, `'auto'` or any colour theme of the editor), `readOnly`, `height`, `formulaBar`, `sheetTabs`, `statusBar`, `gridlines`, `headings`, `currency`, `locale`, `onChange`. Not included: merged cells, charts, conditional formats, defined names in the UI, `LAMBDA` and its helpers, complex-number, bond, cube and web functions (those give `#NAME?`).
+
+## Presentation
+
+A slide editor in the manner of PowerPoint and Google Slides, also without the document editor (`wysiwygido/presentation`). Slides have text boxes (real rich text: bold, italic, underline, colours, sizes, links, bullets), shapes (12 kinds, fill and outline) and pictures (drop, paste or pick a file; large ones are shrunk). Boxes can be moved with snapping guides, resized, rotated, aligned, distributed, stacked and locked. There are six layouts, six themes, 16:9 and 4:3, a background per slide, speaker notes, transitions (fade, push, zoom), a slide strip with drag to reorder, a slide sorter, undo and redo, gridlines and zoom. **Slide show** (F5, or Shift+F5 from the current slide) runs full screen with the keyboard, a click or a swipe, a black screen (B) and a **presenter view** (P: the slide, the next slide, the notes and a clock). Export gives the deck as JSON, as one self-contained web page (arrow keys to move, one slide per printed page) or as a PDF through print.
+
+```ts
+import { createPresentation } from 'wysiwygido/presentation';
+import 'wysiwygido/style.css';
+
+const deck = createPresentation({
+  element,
+  menu: 'floating',                  // or 'classic': File, Home, Insert, Design, Transitions, Slide Show, View
+  data: { title: 'Q4 review', theme: 'ocean', slides: [{ layout: 'title', els: [], notes: '' }] },
+  save: (data) => fetch('/api/deck', { method: 'PUT', body: JSON.stringify(data) }),
+});
+deck.addSlide('titleContent');
+deck.present(0);                     // deck.present(0, true) opens the presenter view
+const page = deck.toHTML();          // everything in one file
+```
+
+Everything that comes from outside (a loaded file, pasted text, a dropped picture) is cleaned: text keeps a short list of tags and styles, links keep `http(s)`, `mailto` and `tel`, pictures must be `data:` images or `http(s)`, so a deck from someone else cannot run code. `PowerPoint (.pptx)` files are not read or written.
+
 ## Themes
 
 Ten colour themes ship with the editor: `light`, `dark`, `sepia`, `ocean`, `forest`, `rose`, `solarized`, `midnight`, `nord` and `high-contrast`. A theme restyles the toolbar, ribbon, panels and the paper, and only inside the editor.
@@ -680,10 +724,17 @@ Leave the plugin out of `plugins` to have no custom menu.
 
 ## Security notes
 
-Pasted/loaded HTML goes through the schema: unknown tags and attributes are dropped; link and image URLs are limited to
-safe schemes (`javascript:` is rejected); Markdown import disables raw HTML; user text (comments, mentions, footnotes, AI
-output) is rendered with `textContent`; the server compares secrets in constant time, stores only hashes, bounds request
-size and treats unknown documents and bad credentials identically.
+**What the library does.** Pasted and loaded HTML goes through the schema: unknown tags and attributes are dropped; link and image URLs are limited to safe schemes (`javascript:`, `//host`, `/\host` are rejected), also when they come from Markdown, from a collaborator or from a saved draft; Markdown import disables raw HTML; user text (comments, mentions, footnotes, AI output) is rendered with `textContent`. Markup that has to keep SVG or MathML (a formula, a diagram, a version comparison) is cleaned and then parsed again until it no longer changes, which stops mutation XSS. Word and PDF imports have size and page limits, the `.docx` importer reads the sizes the archive declares and refuses a zip bomb, and the `.docx` writer drops characters XML does not allow and writes only web, mail and phone links. File names lose control characters, direction overrides and trailing dots, and double extensions are checked. CSV exports prefix text that starts with `=`, `+`, `-` or `@` so a spreadsheet does not run it. The spreadsheet formula engine has no `eval`, no regular expressions from the sheet and a work budget per cell and per sheet (`#CALC!` beyond it). The server compares secrets in constant time, stores only hashes, bounds request size, lets a commenter add comments but not delete other people's, and treats unknown documents and bad credentials identically.
+
+**What stays with you.**
+- *Content Security Policy.* The library needs no `eval` or `new Function`. It does need `style-src 'unsafe-inline'` (the editor positions things with inline styles), `img-src` for the picture sources you allow (`data:` and `blob:` if you use them) and, for embeds, `frame-src` for the providers you enable.
+- *Server side.* The editor cleans HTML in the browser; a client can still send anything to your server. Sanitise HTML with an HTML sanitiser before you store or serve it, and check permissions on the server.
+- *Restricted editing and read-only* guard the interface, not the data: a determined user can change what the browser sends. Enforce them on the server.
+- *Review marks.* A paste cannot carry the author of a tracked change, a mention id or a comment id (they are removed). Marks that come from your own storage or from collaborators are trusted as stored: assign authors on the server.
+- *Privacy.* The spell checker sends paragraphs to the LanguageTool address you configure (the default is the public service); the AI plugins send text to your provider; remote pictures are fetched by the reader's browser; drafts, versions and the spreadsheet and presentation `storageKey` data stay in the browser's storage until you clear it. For a shared computer use `encryptedDraftStore(store, await deriveDraftKey(passphrase, salt))` for `Offline`, and `IndexedDBDraftStore.clear()` on sign-out. Rejected pictures are reported as the `image-rejected` event (editor), `error` (presentation) and `import` / `error` (spreadsheet).
+- *Server settings.* `pnpm server` listens on `127.0.0.1`. Set `CREATE_KEY`, `CREATE_LIMIT` and `MAX_DOCS` before you expose it, `TRUST_PROXY=1` when it sits behind a reverse proxy, and `ALLOWED_ORIGIN` for cross-origin use.
+
+Report a vulnerability privately to the maintainer rather than in a public issue.
 
 ## License
 

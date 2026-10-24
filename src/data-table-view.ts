@@ -843,7 +843,7 @@ export class DataTableView {
           input = el('input');
           input.placeholder = c.type === 'text' ? 'Contains…' : c.type === 'date' ? '>2026-01-01' : '>5, 1..9';
         }
-        input.value = this.state.filters[c.key] ?? '';
+        input.value = Object.prototype.hasOwnProperty.call(this.state.filters, c.key) ? this.state.filters[c.key] : '';
         input.setAttribute('aria-label', `Filter ${c.title}`);
         input.addEventListener(input instanceof HTMLSelectElement ? 'change' : 'input', () => { this.state.filters[c.key] = input.value; this.page = 0; this.changed(); });
         th.append(input); f.append(th);

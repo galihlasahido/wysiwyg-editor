@@ -33,7 +33,7 @@ export const Image: EditorPlugin = {
             const nh = Number(box.getAttribute('data-nh'));
             if (!img || !SAFE_SRC.test(src) || !crop || !(nw > 0) || !(nh > 0)) return false;
             const w = parseFloat(box.style.width);
-            return { src, alt: img.getAttribute('alt'), width: w > 0 ? Math.round(w) : null, caption: box.getAttribute('data-caption'), crop, nw, nh, pictureStyle: pictureStyleId(box.getAttribute('data-picture-style')) };
+            return { src, alt: img.getAttribute('alt'), width: w > 0 ? Math.min(20000, Math.round(w)) : null, caption: box.getAttribute('data-caption'), crop, nw, nh, pictureStyle: pictureStyleId(box.getAttribute('data-picture-style')) };
           },
         },
         {
@@ -43,7 +43,7 @@ export const Image: EditorPlugin = {
             const src = el.getAttribute('src') ?? '';
             const w = parseInt(el.getAttribute('width') ?? '', 10);
             return SAFE_SRC.test(src)
-              ? { src, alt: el.getAttribute('alt'), width: w > 0 ? w : null, caption: el.getAttribute('data-caption'), pictureStyle: pictureStyleId(el.getAttribute('data-picture-style')) }
+              ? { src, alt: el.getAttribute('alt'), width: w > 0 ? Math.min(20000, w) : null, caption: el.getAttribute('data-caption'), pictureStyle: pictureStyleId(el.getAttribute('data-picture-style')) }
               : false;
           },
         },
@@ -75,13 +75,16 @@ export const Image: EditorPlugin = {
     },
   },
   setup(editor) {
+    // A picture that is turned away is not silent: the editor emits `image-rejected` ({ file, reason: 'too-large' | 'unsupported' | 'upload',
+    // error? }) so the app can tell the user (this plugin has no message area of its own).
+    const MAX_IMAGE_FILE = 25 * 1024 * 1024;
     const insertFiles = (files: File[]) => {
-      for (const file of files) {
-        editor.uploadImage(file).then(
-          (url) => editor.execute('image', url),
-          (err) => console.error('Image upload failed', err),
-        );
-      }
+      // upload in parallel, insert in the order the files were given (not the order the uploads finish)
+      const done = files.map((file) => {
+        if (file.size > MAX_IMAGE_FILE) { editor.emit('image-rejected', { file, reason: 'too-large' }); return Promise.resolve(null); }
+        return editor.uploadImage(file).then((url) => ({ file, url }), (error) => { editor.emit('image-rejected', { file, reason: 'upload', error }); console.error('Image upload failed', error); return null; });
+      });
+      void (async () => { for (const p of done) { const r = await p; if (r && !editor.execute('image', r.url)) editor.emit('image-rejected', { file: r.file, reason: 'unsupported' }); } })();
     };
     const imageFiles = (list?: FileList | null) => Array.from(list ?? []).filter((f) => f.type.startsWith('image/'));
     editor.registerCommand('uploadImage', () => {
@@ -269,8 +272,10 @@ class ImageView implements NodeView {
   }
 
   private render() {
-    const { src, alt, width, caption, crop, nw, nh } = this.node.attrs;
-    this.img.src = src;
+    const { src, alt, caption, crop, nw, nh } = this.node.attrs;
+    const width = Number(this.node.attrs.width) > 0 ? Math.min(20000, Number(this.node.attrs.width)) : null;
+    // re-checked here: collaborators and Markdown import skip the parser, and the editing view would fetch whatever the node says
+    this.img.src = SAFE_SRC.test(String(src)) ? src : '';
     this.img.alt = alt ?? '';
     if (crop && nw && nh) {
       const L = cropLayout(crop, { w: nw, h: nh }, width ?? visibleSize(crop, { w: nw, h: nh }).w);
