@@ -39,6 +39,8 @@ export { registerLocale, translate, isRtlLocale } from './i18n';
 export type { Locale } from './i18n';
 export { openDialog, askDialog, avatar, avatarColor } from './dialog';
 export type { AskOptions } from './dialog';
+export { FloatingBar, defaultFloatingMenus } from './floating-bar';
+export type { FloatingBarOptions, FloatingMenu } from './floating-bar';
 export { Ribbon, DEFAULT_RIBBON, applyContributions } from './ribbon';
 export type { RibbonOptions, RibbonTab, RibbonGroup, RibbonControl } from './ribbon';
 export { icon, ICONS, hasIcon, registerIcon } from './icons';

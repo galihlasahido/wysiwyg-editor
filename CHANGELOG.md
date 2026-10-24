@@ -4,6 +4,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## Unreleased
 
+- Floating menu: the `floating` option puts the toolbar (or ribbon) in a rounded card with a soft shadow, a header (document name, save status from `Autosave`, your own controls) and a menu bar with File, Edit, View, Insert and Format drop-downs. Exports `FloatingBar`, `defaultFloatingMenus`.
+
 - A numbered or bulleted heading now has the collapse arrow too (left of the number); it hides what follows inside its list item.
 
 - Added: the **Tab key** (`TabKey`, in `defaultPlugins`). Tab used to move the focus out of the editor. Now it indents a paragraph or heading (Shift+Tab takes it back), moves to the next table cell (and adds a row after the last one), and keeps its list and code block behaviour. Escape, then Tab, still moves the focus on, so keyboard users are not trapped. Not active in a read-only editor; leave the plugin out to keep the browser's behaviour.

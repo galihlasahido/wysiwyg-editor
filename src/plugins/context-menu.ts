@@ -69,7 +69,7 @@ export function buildContextMenu(editor: Editor, event: MouseEvent | null, extra
 
 // ---- the popup ---------------------------------------------------------------------------------------------------------------
 
-interface Open { root: HTMLElement; menus: HTMLElement[]; close(restoreFocus?: boolean): void }
+export interface Open { root: HTMLElement; menus: HTMLElement[]; close(restoreFocus?: boolean): void }
 
 function place(menu: HTMLElement, x: number, y: number, alignRightOf?: DOMRect) {
   menu.style.left = '0px';
@@ -85,7 +85,7 @@ function place(menu: HTMLElement, x: number, y: number, alignRightOf?: DOMRect) 
   menu.style.top = `${top}px`;
 }
 
-function openMenu(editor: Editor, entries: ContextMenuEntry[], x: number, y: number, hint: string | null): Open {
+export function openMenu(editor: Editor, entries: ContextMenuEntry[], x: number, y: number, hint: string | null, onClose?: () => void): Open {
   const layer = document.createElement('div');
   layer.className = 'wy-ctx-layer';
   const menus: HTMLElement[] = [];
@@ -101,6 +101,7 @@ function openMenu(editor: Editor, entries: ContextMenuEntry[], x: number, y: num
     document.removeEventListener('scroll', onAway, true);
     layer.remove();
     editor.root.removeAttribute('data-ctx-open');
+    onClose?.();
     if (restoreFocus && !editor.view.isDestroyed) editor.view.focus();
   };
   const onOutside = (e: Event) => { if (!layer.contains(e.target as Node)) close(false); };

@@ -66,3 +66,8 @@ table.spec th { color: var(--muted); font-weight: 600; }
 .ver.bad { color: #991b1b; background: #fee2e2; border-color: #fca5a5; }
 @media (prefers-color-scheme: dark) { .ver.ok { color: #86efac; background: #052e16; border-color: #166534; } .ver.bad { color: #fca5a5; background: #450a0a; border-color: #991b1b; } }
 .note { color: var(--muted); font-size: 13px; }
+
+.fl-end { display: flex; align-items: center; gap: 6px; }
+.fl-avatar { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 8px; font: 600 13px system-ui; color: #4a2c14; }
+.fl-share { margin-left: 6px; padding: 6px 14px; border: 1px solid var(--wy-border-2, #d1d5db); border-radius: 8px; background: var(--wy-bg, #fff); color: inherit; font: 500 14px system-ui; cursor: pointer; }
+.fl-share:hover { background: var(--wy-hover, #ececec); }

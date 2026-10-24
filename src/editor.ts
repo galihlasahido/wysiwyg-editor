@@ -5,6 +5,7 @@ import { EditorView } from 'prosemirror-view';
 import { isRtlLocale, translate } from './i18n';
 import { Toolbar, resolveLayout } from './toolbar';
 import { Ribbon, type RibbonOptions } from './ribbon';
+import { FloatingBar, type FloatingBarOptions } from './floating-bar';
 import { getStats, type Stats } from './plugins/word-count';
 import { openDialog } from './dialog';
 import { download } from './export';
@@ -51,6 +52,12 @@ export interface EditorConfig {
   locale?: string;
   /** Show the Office-style tabbed ribbon instead of the compact toolbar. */
   ribbon?: boolean | RibbonOptions;
+  /**
+   * Put the toolbar (or ribbon) in a floating card: rounded, with a soft shadow, a header with the document name, the save status and
+   * your own controls (`end`), and a menu bar with File, Edit, View, Insert and Format drop-downs. `true` gives the card with the
+   * default menus. See `FloatingBarOptions`.
+   */
+  floating?: boolean | FloatingBarOptions;
   /** Chrome theme. 'auto' follows the system setting. The paper follows it unless changed with `setPageDark`. Default 'light'. */
   theme?: 'light' | 'dark' | 'auto';
 }
@@ -250,10 +257,20 @@ export class Editor {
     return new Toolbar(this, resolveLayout(entries, known, options.hide), options);
   }
 
+  /** The floating card around the toolbar, when the `floating` option is on. */
+  floatingBar: FloatingBar | null = null;
+
   private mountToolbar(layout: EditorConfig['toolbar']) {
-    if (layout === false) return;
-    const bottom = !Array.isArray(layout) && layout?.position === 'bottom';
+    const bottom = !Array.isArray(layout) && layout !== false && layout?.position === 'bottom';
+    if (layout === false && !this.config.floating) return;
     this.root.classList.toggle('has-toolbar-bottom', bottom);
+    if (this.config.floating && !bottom) {
+      if (!this.floatingBar) this.floatingBar = new FloatingBar(this, this.config.floating === true ? {} : this.config.floating);
+      if (layout !== false) this.floatingBar.host.append(this.toolbar.el);
+      this.root.classList.add('has-floating');
+      this.root.prepend(this.floatingBar.el);
+      return;
+    }
     if (bottom) this.root.append(this.toolbar.el);
     else this.root.prepend(this.toolbar.el);
   }
@@ -399,6 +416,7 @@ export class Editor {
       try { p.destroy?.(this); } catch (e) { console.error(`Plugin "${p.name}" failed to clean up`, e); }
     }
     (this.toolbar as Toolbar).destroy?.();
+    this.floatingBar?.destroy();
     this.listeners.clear();
     if (this.systemQuery && this.onSystemTheme) this.systemQuery.removeEventListener('change', this.onSystemTheme);
     this.view.destroy();
