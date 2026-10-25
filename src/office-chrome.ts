@@ -62,6 +62,9 @@ const EXTRA_ICONS: Record<string, string> = {
   more: '<circle cx="6" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="18" cy="12" r="1.2"/>',
   share: '<circle cx="9" cy="8" r="3"/><path d="M3.5 19c0-3 2.5-5 5.5-5s5.5 2 5.5 5M17 8v6M14 11h6"/>',
   text: '<path d="M5 6V5h14v1M12 5v14M9 19h6"/>',
+  merge: '<rect x="3.5" y="6" width="17" height="12" rx="1.5"/><path d="M9 12h6M9 12l2-2M9 12l2 2M15 12l-2-2M15 12l-2 2"/>',
+  cf: '<rect x="4" y="4" width="16" height="16" rx="1.5"/><path d="M4 9.5h16M4 14.5h16"/><rect x="6" y="11" width="6" height="2.6" fill="currentColor" stroke="none"/>',
+  chart: '<path d="M4 20V4M4 20h16"/><rect x="7.5" y="11" width="3" height="6"/><rect x="12.5" y="7" width="3" height="10"/><rect x="17.5" y="13" width="2" height="4"/>',
   imageAdd: '<rect x="4" y="5" width="16" height="14" rx="1.5"/><circle cx="9" cy="10" r="1.5"/><path d="M4 16l5-4 4 3 3-2 4 3"/>',
 };
 for (const [k, v] of Object.entries(EXTRA_ICONS)) if (!hasIcon(k)) registerIcon(k, v);

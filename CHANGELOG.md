@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/). Before 1.0.0 minor versions could contain breaking changes. From 1.0.0 on, only a major version may break the public API (see "Stability and versioning" in the README); changes are listed under "Changed" or "Removed".
 
+## 1.4.0 - 2026-10-25
+
+- **Presentation: PowerPoint (.pptx) import and export.** File menu entries "Open .pptx…" and "Download as PowerPoint (.pptx)"; `toPptx()` and `loadPptx(file)`; an `import` event (`{ slides, skipped }`). Strict zip and XML reader (size, entry count and compression limits, no DOCTYPE or entities, path checks); everything read goes through `cleanDeck`.
+
+- **Spreadsheet: merged cells, conditional formats and charts.** Merge, merge across and unmerge (the selection, the arrow keys, the editor and printing treat a merge as one cell); conditional formatting with highlight rules, top and bottom, above and below average, duplicates, blanks, errors, data bars, colour scales and formula rules, and a rules list; column, line and pie charts you can move, resize, edit and delete. All saved in the workbook, followed through inserted and deleted rows and columns, undoable, limited in number (2,000 merges, 100 rules and 50 charts per sheet) and checked when loaded. New API: `merge`, `unmerge`, `addConditionalFormat`, `clearConditionalFormats`, `addChart`, `removeChart`.
+
 ## 1.3.0 - 2026-10-25
 
 - **Security audit, second part**: pasted HTML can no longer carry tracked-change authors, mention ids or comment ids; an embed from the page's own origin never gets `allow-same-origin`; `encryptedDraftStore`, `deriveDraftKey` and `IndexedDBDraftStore.clear()` for drafts on shared computers; a regex replacement keeps lookbehind and anchors (`$1` is expanded from the match as found); adding a comment finds its words again across bold or italic runs; rejected pictures and unreadable files are reported (`image-rejected`, `error`, `import` events, no more silent failures); pictures over 25 MB are refused; optional peers `katex >=0.18.2`, `mermaid >=12.1.0`, `vue >=3.5.0`; `publint` and `attw` are pinned in `check:package`.

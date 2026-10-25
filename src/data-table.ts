@@ -799,12 +799,14 @@ async function inflateRaw(data: Uint8Array, limit: number): Promise<Uint8Array> 
 }
 
 /** Reads the entries of a zip archive. Entries are unpacked on demand, and each one is size-checked. */
-function openZip(bytes: Uint8Array): { names: string[]; read(name: string): Promise<string | null> } {
+export interface ZipLimits { maxTotal: number; maxEntries: number; maxRatio: number; message: string }
+export function openZip(bytes: Uint8Array, strict?: ZipLimits): { names: string[]; read(name: string): Promise<string | null>; readBytes(name: string): Promise<Uint8Array | null>; size(name: string): number | null } {
   const v = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   let end = -1;
   for (let i = bytes.length - 22; i >= Math.max(0, bytes.length - 22 - 65535); i--) if (v.getUint32(i, true) === 0x06054b50) { end = i; break; }
   if (end < 0) throw new Error('This is not a spreadsheet file.');
   const count = v.getUint16(end + 10, true);
+  if (strict && count > strict.maxEntries) throw new Error(strict.message);
   let at = v.getUint32(end + 16, true);
   const entries = new Map<string, { method: number; csize: number; usize: number; offset: number }>();
   let total = 0;
@@ -814,20 +816,31 @@ function openZip(bytes: Uint8Array): { names: string[]; read(name: string): Prom
     const nl = v.getUint16(at + 28, true), el = v.getUint16(at + 30, true), cl = v.getUint16(at + 32, true), offset = v.getUint32(at + 42, true);
     const name = new TextDecoder().decode(bytes.subarray(at + 46, at + 46 + nl));
     total += usize;
-    if (usize > MAX_UNZIPPED || total > MAX_UNZIPPED * 2) throw new Error('The file is too large to open.');
+    if (strict) {
+      if (/(^|[\\/])\.\.([\\/]|$)|^[\\/]/.test(name) || name.includes('\0')) throw new Error(strict.message);
+      if (total > strict.maxTotal || (usize > 1024 * 1024 && usize > Math.max(1, csize) * strict.maxRatio)) throw new Error(strict.message);
+    }
+    if (usize > MAX_UNZIPPED && !strict) throw new Error('The file is too large to open.');
+    if (total > MAX_UNZIPPED * 2 && !strict) throw new Error('The file is too large to open.');
     entries.set(name, { method, csize, usize, offset });
     at += 46 + nl + el + cl;
   }
   return {
     names: [...entries.keys()],
+    size: (name) => entries.get(name)?.usize ?? null,
     async read(name) {
+      const d = await this.readBytes(name);
+      return d ? new TextDecoder().decode(d) : null;
+    },
+    async readBytes(name) {
       const e = entries.get(name);
       if (!e) return null;
+      if (e.offset + 30 > bytes.length || v.getUint32(e.offset, true) !== 0x04034b50) throw new Error('This is not a valid zip file.');
       const start = e.offset + 30 + v.getUint16(e.offset + 26, true) + v.getUint16(e.offset + 28, true);
       const raw = bytes.subarray(start, start + e.csize);
-      const data = e.method === 0 ? raw : e.method === 8 ? await inflateRaw(raw, Math.min(MAX_UNZIPPED, e.usize + 1024)) : null;
-      if (!data) throw new Error('This spreadsheet uses a compression method that is not supported.');
-      return new TextDecoder().decode(data);
+      const data = e.method === 0 ? raw : e.method === 8 ? await inflateRaw(raw, Math.min(strict ? strict.maxTotal : MAX_UNZIPPED, e.usize + 1024)) : null;
+      if (!data) throw new Error('This file uses a compression method that is not supported.');
+      return data;
     },
   };
 }

@@ -3,6 +3,7 @@
  * selection, typing, the keyboard, the mouse, the clipboard, resizing and the fill handle. The data lives in `spreadsheet-model.ts`.
  */
 import { cellRef, colName } from './grid-formulas';
+import { chartSVG } from './chart';
 import { MAX_COLS, MAX_ROWS, normRange, parseDelimited, type CellData, type CellStyle, type Range, type Sheet, type Workbook } from './spreadsheet-model';
 
 const HEAD_W = 48;
@@ -21,6 +22,8 @@ export interface GridOptions {
   onContext?: (x: number, y: number, zone: 'cell' | 'col' | 'row') => void;
   /** The arrow of a filter header was clicked. */
   onFilter?: (col: number, anchor: HTMLElement) => void;
+  /** A chart was double-clicked (`edit`) or right-clicked (`menu`). */
+  onChart?: (id: string, kind: 'edit' | 'menu', x: number, y: number) => void;
 }
 
 interface Pos { r: number; c: number }
@@ -47,6 +50,10 @@ export class GridView {
   private live = document.createElement('div');
   /** Copy and paste go through this hidden box: not every browser sends them to a plain element that has no text selected. */
   private catcher = document.createElement('textarea');
+  private charts = document.createElement('div');
+  /** The chart that is selected (moved, resized or deleted with the keyboard), by id. */
+  chartSel: string | null = null;
+  private chartKey = '';
 
   private colX: number[] = [0];
   private rowY: number[] = [0];
@@ -59,7 +66,7 @@ export class GridView {
   private editing: { r: number; c: number; typed: boolean; from: 'cell' | 'bar'; original: string; sheet: Sheet } | null = null;
   private formulaRef: { start: number; end: number } | null = null;
   private clip: { cells: (CellData | undefined)[][]; from: Pos; range: Range; cut: boolean; text: string; sheet: Sheet } | null = null;
-  private drag: null | { kind: 'select' } | { kind: 'cols' | 'rows'; anchor: number } | { kind: 'colsize'; c: number; startX: number; startW: number } | { kind: 'rowsize'; r: number; startY: number; startH: number } | { kind: 'fill'; src: Range; target: Range | null } | { kind: 'ref' } = null;
+  private drag: null | { kind: 'select' } | { kind: 'cols' | 'rows'; anchor: number } | { kind: 'colsize'; c: number; startX: number; startW: number } | { kind: 'rowsize'; r: number; startY: number; startH: number } | { kind: 'fill'; src: Range; target: Range | null } | { kind: 'ref' } | { kind: 'chart'; id: string; mode: 'move' | 'size'; startX: number; startY: number; x: number; y: number; w: number; h: number; x0: number; y0: number; w0: number; h0: number } = null;
   private unsub: () => void;
   showFormulas = false;
   gridlines: boolean;
@@ -100,7 +107,8 @@ export class GridView {
     this.colHead.append(this.corner);
     this.sizer.append(this.colHead, this.rowHead, this.layer);
     el.append(this.sizer, this.live, this.catcher);
-    this.layer.append(this.selBox, this.activeBox, this.clipBox, this.fillBox, this.handle, this.editor);
+    this.charts.className = 'wy-ss-charts';
+    this.layer.append(this.charts, this.selBox, this.activeBox, this.clipBox, this.fillBox, this.handle, this.editor);
     this.handle.hidden = true;
     this.clipBox.hidden = true;
     this.fillBox.hidden = true;
@@ -257,70 +265,99 @@ export class GridView {
     const wb = this.wb;
     const filter = sh.filter;
     const hasSpill = true;
+    const inView = (m: Range) => (m.r0 < fr || (m.r1 >= r0 && m.r0 <= r1)) && (m.c0 < fc || (m.c1 >= c0 && m.c0 <= c1));
+    const merges = sh.merges.filter(inView);
+    const build = (r: number, c: number, w: number, h: number, merged: boolean) => {
+    const data = sh.get(r, c);
+      const s: CellStyle = data?.s ?? {};
+      const d = data?.v !== undefined || (hasSpill && wb.spilled(sh, r, c)) ? wb.display(sh, r, c) : { text: '', number: false, error: false };
+      const cell = document.createElement('div');
+      cell.className = 'wy-ss-c';
+      cell.setAttribute('role', 'gridcell');
+      cell.setAttribute('aria-rowindex', String(r + 1));
+      cell.setAttribute('aria-colindex', String(c + 1));
+      cell.dataset.r = String(r); cell.dataset.c = String(c);
+      const st2 = cell.style;
+      st2.left = `${this.colX[c]}px`; st2.top = `${this.rowY[r]}px`; st2.width = `${w}px`; st2.height = `${h}px`;
+      let text = d.text;
+      if (this.showFormulas && data?.v?.trim().startsWith('=')) text = data.v;
+      const align = s.align ?? (d.number && !this.showFormulas ? 'right' : d.error ? 'center' : 'left');
+      st2.textAlign = align;
+      st2.fontSize = `${(s.size ?? 11) * z}px`;
+      if (s.font) st2.fontFamily = s.font;
+      if (s.b) st2.fontWeight = '700';
+      if (s.i) st2.fontStyle = 'italic';
+      if (s.u || s.s) st2.textDecoration = `${s.u ? 'underline' : ''} ${s.s ? 'line-through' : ''}`.trim();
+      if (s.color) st2.color = s.color;
+      if (s.bg) st2.backgroundColor = s.bg;
+      const cf = sh.cf.length ? wb.condFor(sh, r, c) : null;
+      if (cf) {
+        if (cf.style.bg) st2.backgroundColor = cf.style.bg;
+        if (cf.style.color) st2.color = cf.style.color;
+        if (cf.style.b) st2.fontWeight = '700';
+        if (cf.style.i) st2.fontStyle = 'italic';
+        if (cf.style.s) st2.textDecoration = `${s.u ? 'underline ' : ''}line-through`;
+      }
+      st2.justifyContent = align === 'center' ? 'center' : align === 'right' ? 'flex-end' : 'flex-start';
+      st2.alignItems = s.valign === 'top' ? 'flex-start' : s.valign === 'middle' ? 'center' : 'flex-end';
+      if (!s.valign) st2.alignItems = 'flex-end';
+      if (s.wrap) cell.classList.add('is-wrap');
+      if (d.error) cell.classList.add('is-error');
+      if (s.bt) st2.borderTop = '1px solid var(--ss-ink)';
+      if (s.bb) st2.borderBottom = '1px solid var(--ss-ink)';
+      if (s.bl) st2.borderLeft = '1px solid var(--ss-ink)';
+      if (s.br) st2.borderRight = '1px solid var(--ss-ink)';
+      if (!this.gridlines) cell.classList.add('no-grid');
+      if (r === fr - 1 && fr > 0) cell.classList.add('freeze-b');
+      if (c === fc - 1 && fc > 0) cell.classList.add('freeze-r');
+      const frozenR = r < fr; const frozenC = c < fc;
+      if (frozenR || frozenC) { cell.dataset.fx = frozenC ? '1' : '0'; cell.dataset.fy = frozenR ? '1' : '0'; cell.classList.add('is-frozen'); cell.style.transform = `translate(${frozenC ? sl : 0}px, ${frozenR ? st : 0}px)`; }
+      if (cf?.bar) { const bar = document.createElement('span'); bar.className = 'wy-ss-bar'; bar.style.width = `${Math.max(2, cf.bar.pct * 100)}%`; bar.style.background = cf.bar.color; cell.append(bar); }
+      if (merged) cell.classList.add('is-merged');
+      const inner = document.createElement('span');
+      inner.className = 'wy-ss-text';
+      inner.textContent = text;
+      cell.append(inner);
+      // text that does not fit goes on over the empty cells to its right, as in Excel
+      if (text && !s.wrap && !d.number && align === 'left' && !d.error && !merged) {
+        const need = text.length * (s.size ?? 11) * 0.6 * z + 8;
+        if (need > w) {
+          let span = w; let cc = c + 1;
+          while (span < need && cc < sh.cols && cc - c < SPILL_MAX && sh.get(r, cc)?.v === undefined) { span += this.colX[cc + 1] - this.colX[cc]; cc++; }
+          if (span > w) { st2.width = `${span}px`; cell.classList.add('is-spill'); }
+        }
+      }
+      if (filter && r === filter.row && c >= filter.c0 && c <= filter.c1) {
+        const f = document.createElement('button');
+        f.type = 'button'; f.className = `wy-ss-fbtn${filter.hide[c]?.length ? ' is-on' : ''}`; f.dataset.filter = String(c);
+        f.setAttribute('aria-label', `Filter ${colName(c)}`); f.setAttribute('aria-haspopup', 'dialog');
+        f.innerHTML = '<svg viewBox="0 0 10 10" width="9" height="9"><path d="M1 3l4 4 4-4z" fill="currentColor"/></svg>';
+        cell.append(f);
+      }
+      frag.append(cell);
+    };
+    const drawn = new Set<string>();
     for (const r of rows) {
       const h = this.rowY[r + 1] - this.rowY[r];
       if (h <= 0) continue;
       for (const c of cols) {
         const w = this.colX[c + 1] - this.colX[c];
         if (w <= 0) continue;
-        const data = sh.get(r, c);
-        const s: CellStyle = data?.s ?? {};
-        const d = data?.v !== undefined || (hasSpill && wb.spilled(sh, r, c)) ? wb.display(sh, r, c) : { text: '', number: false, error: false };
-        const cell = document.createElement('div');
-        cell.className = 'wy-ss-c';
-        cell.setAttribute('role', 'gridcell');
-        cell.setAttribute('aria-rowindex', String(r + 1));
-        cell.setAttribute('aria-colindex', String(c + 1));
-        cell.dataset.r = String(r); cell.dataset.c = String(c);
-        const st2 = cell.style;
-        st2.left = `${this.colX[c]}px`; st2.top = `${this.rowY[r]}px`; st2.width = `${w}px`; st2.height = `${h}px`;
-        let text = d.text;
-        if (this.showFormulas && data?.v?.trim().startsWith('=')) text = data.v;
-        const align = s.align ?? (d.number && !this.showFormulas ? 'right' : d.error ? 'center' : 'left');
-        st2.textAlign = align;
-        st2.fontSize = `${(s.size ?? 11) * z}px`;
-        if (s.font) st2.fontFamily = s.font;
-        if (s.b) st2.fontWeight = '700';
-        if (s.i) st2.fontStyle = 'italic';
-        if (s.u || s.s) st2.textDecoration = `${s.u ? 'underline' : ''} ${s.s ? 'line-through' : ''}`.trim();
-        if (s.color) st2.color = s.color;
-        if (s.bg) st2.backgroundColor = s.bg;
-        st2.justifyContent = align === 'center' ? 'center' : align === 'right' ? 'flex-end' : 'flex-start';
-        st2.alignItems = s.valign === 'top' ? 'flex-start' : s.valign === 'middle' ? 'center' : 'flex-end';
-        if (!s.valign) st2.alignItems = 'flex-end';
-        if (s.wrap) cell.classList.add('is-wrap');
-        if (d.error) cell.classList.add('is-error');
-        if (s.bt) st2.borderTop = '1px solid var(--ss-ink)';
-        if (s.bb) st2.borderBottom = '1px solid var(--ss-ink)';
-        if (s.bl) st2.borderLeft = '1px solid var(--ss-ink)';
-        if (s.br) st2.borderRight = '1px solid var(--ss-ink)';
-        if (!this.gridlines) cell.classList.add('no-grid');
-        if (r === fr - 1 && fr > 0) cell.classList.add('freeze-b');
-        if (c === fc - 1 && fc > 0) cell.classList.add('freeze-r');
-        const frozenR = r < fr; const frozenC = c < fc;
-        if (frozenR || frozenC) { cell.dataset.fx = frozenC ? '1' : '0'; cell.dataset.fy = frozenR ? '1' : '0'; cell.classList.add('is-frozen'); cell.style.transform = `translate(${frozenC ? sl : 0}px, ${frozenR ? st : 0}px)`; }
-        const inner = document.createElement('span');
-        inner.className = 'wy-ss-text';
-        inner.textContent = text;
-        cell.append(inner);
-        // text that does not fit goes on over the empty cells to its right, as in Excel
-        if (text && !s.wrap && !d.number && align === 'left' && !d.error) {
-          const need = text.length * (s.size ?? 11) * 0.6 * z + 8;
-          if (need > w) {
-            let span = w; let cc = c + 1;
-            while (span < need && cc < sh.cols && cc - c < SPILL_MAX && sh.get(r, cc)?.v === undefined) { span += this.colX[cc + 1] - this.colX[cc]; cc++; }
-            if (span > w) { st2.width = `${span}px`; cell.classList.add('is-spill'); }
-          }
-        }
-        if (filter && r === filter.row && c >= filter.c0 && c <= filter.c1) {
-          const f = document.createElement('button');
-          f.type = 'button'; f.className = `wy-ss-fbtn${filter.hide[c]?.length ? ' is-on' : ''}`; f.dataset.filter = String(c);
-          f.setAttribute('aria-label', `Filter ${colName(c)}`); f.setAttribute('aria-haspopup', 'dialog');
-          f.innerHTML = '<svg viewBox="0 0 10 10" width="9" height="9"><path d="M1 3l4 4 4-4z" fill="currentColor"/></svg>';
-          cell.append(f);
-        }
-        frag.append(cell);
+        const m = merges.length ? merges.find((x) => r >= x.r0 && r <= x.r1 && c >= x.c0 && c <= x.c1) : undefined;
+        if (m) {
+          if (r !== m.r0 || c !== m.c0) continue;       // covered by a merged cell: drawn once, from its top left
+          const b = this.rect(m);
+          if (b.w <= 0 || b.h <= 0) continue;
+          drawn.add(`${m.r0},${m.c0}`);
+          build(r, c, b.w, b.h, true);
+        } else build(r, c, w, h, false);
       }
+    }
+    // a merged cell whose top left corner is scrolled out of sight is still drawn, from there
+    for (const m of merges) {
+      if (drawn.has(`${m.r0},${m.c0}`)) continue;
+      const b = this.rect(m);
+      if (b.w > 0 && b.h > 0 && !sh.hidden.has(m.r0)) build(m.r0, m.c0, b.w, b.h, true);
     }
     // keep the overlays and the editor; replace the cells
     for (const n of [...this.layer.children]) if ((n as HTMLElement).classList.contains('wy-ss-c')) n.remove();
@@ -357,8 +394,38 @@ export class GridView {
       }
       this.rowHead.append(rf);
     }
+    this.renderCharts(force);
     this.headerTransforms(sl, st);
     this.drawSelection();
+  }
+
+  /** The charts sit on the sheet above the cells; they are rebuilt when anything changed, not when you only scroll. */
+  private renderCharts(force: boolean) {
+    const sh = this.sheet; const z = this.z;
+    const key = `${sh.name}|${z}`;
+    if (!force && key === this.chartKey) return;
+    this.chartKey = key;
+    this.charts.replaceChildren();
+    for (const def of sh.charts) {
+      const box = document.createElement('div');
+      box.className = `wy-ss-chart${def.id === this.chartSel ? ' is-sel' : ''}`;
+      box.dataset.chart = def.id;
+      box.tabIndex = -1;
+      box.setAttribute('role', 'img');
+      Object.assign(box.style, { left: `${def.x * z}px`, top: `${def.y * z}px`, width: `${def.w * z}px`, height: `${def.h * z}px` });
+      const spec = this.wb.chartSpec(sh, def);
+      if (spec) { box.innerHTML = chartSVG(spec, def.w, def.h); box.setAttribute('aria-label', spec.title || `${spec.type} chart`); }
+      else { const none = document.createElement('div'); none.className = 'wy-ss-chart-none'; none.textContent = 'No numbers to draw in the chart range'; box.append(none); box.setAttribute('aria-label', 'Empty chart'); }
+      const grip = document.createElement('div'); grip.className = 'wy-ss-chart-grip'; grip.dataset.grip = '1'; box.append(grip);
+      this.charts.append(box);
+    }
+  }
+
+  /** Select a chart (or nothing). */
+  selectChart(id: string | null): void {
+    this.chartSel = id;
+    for (const n of this.charts.querySelectorAll<HTMLElement>('.wy-ss-chart')) n.classList.toggle('is-sel', n.dataset.chart === id);
+    this.o.onSelect?.();
   }
 
   private headerTransforms(sl: number, st: number) {
@@ -380,8 +447,9 @@ export class GridView {
     place(this.selBox, b, rg);
     const single = rg.r0 === rg.r1 && rg.c0 === rg.c1;
     this.selBox.hidden = single && !this.editing;
-    const a = this.rect({ r0: this.active.r, c0: this.active.c, r1: this.active.r, c1: this.active.c });
-    place(this.activeBox, a, { r0: this.active.r, c0: this.active.c, r1: this.active.r, c1: this.active.c });
+    const am: Range = sh.mergeAt(this.active.r, this.active.c) ?? { r0: this.active.r, c0: this.active.c, r1: this.active.r, c1: this.active.c };
+    const a = this.rect(am);
+    place(this.activeBox, a, am);
     this.activeBox.classList.toggle('is-editing', !!this.editing);
     // the fill handle: bottom-right corner of the selection
     this.handle.hidden = this.readOnly || !!this.editing || this.rowY[rg.r1 + 1] - this.rowY[rg.r1] <= 0;
@@ -409,9 +477,12 @@ export class GridView {
   /** Select a range; the active cell is where the typing goes (default: its top-left corner). */
   select(range: Range, active?: Pos, anchor?: Pos): void {
     if (this.editing) this.commit(0, 0);
-    const n = this.fixRange(range);
+    this.chartSel = null;
+    const n = this.wb.expandToMerges(this.sheet, this.fixRange(range));
     this.range = n;
-    this.active = active ? { r: Math.max(0, Math.min(this.sheet.rows - 1, active.r)), c: Math.max(0, Math.min(this.sheet.cols - 1, active.c)) } : { r: n.r0, c: n.c0 };
+    const act = active ? { r: Math.max(0, Math.min(this.sheet.rows - 1, active.r)), c: Math.max(0, Math.min(this.sheet.cols - 1, active.c)) } : { r: n.r0, c: n.c0 };
+    const am = this.sheet.mergeAt(act.r, act.c);
+    this.active = am ? { r: am.r0, c: am.c0 } : act;
     this.anchor = anchor ?? { r: n.r0, c: n.c0 };
     this.scrollTo(this.active.r, this.active.c);
     this.drawSelection();
@@ -426,8 +497,8 @@ export class GridView {
     r = Math.max(0, Math.min(sh.rows - 1, r)); c = Math.max(0, Math.min(sh.cols - 1, c));
     // hidden rows are skipped
     if (sh.hidden.has(r)) { let rr = r; const dir = r >= this.active.r ? 1 : -1; while (rr >= 0 && rr < sh.rows && sh.hidden.has(rr)) rr += dir; if (rr >= 0 && rr < sh.rows) r = rr; else return; }
-    if (extend) { this.range = { r0: Math.min(this.anchor.r, r), c0: Math.min(this.anchor.c, c), r1: Math.max(this.anchor.r, r), c1: Math.max(this.anchor.c, c) }; this.active = { r, c }; this.scrollTo(r, c); this.drawSelection(); this.announce(); this.o.onSelect?.(); }
-    else this.select({ r0: r, c0: c, r1: r, c1: c }, { r, c }, { r, c });
+    if (extend) { this.range = this.wb.expandToMerges(sh, { r0: Math.min(this.anchor.r, r), c0: Math.min(this.anchor.c, c), r1: Math.max(this.anchor.r, r), c1: Math.max(this.anchor.c, c) }); this.active = { r, c }; this.scrollTo(r, c); this.drawSelection(); this.announce(); this.o.onSelect?.(); }
+    else { const m = sh.mergeAt(r, c); if (m) { r = m.r0; c = m.c0; } this.select({ r0: r, c0: c, r1: r, c1: c }, { r, c }, { r, c }); }
   }
 
   /** Scroll so the cell is in view (under the frozen panes, not behind them). */
@@ -447,7 +518,7 @@ export class GridView {
   private placeEditor() {
     if (!this.editing) return;
     const { r, c } = this.editing;
-    const b = this.rect({ r0: r, c0: c, r1: r, c1: c });
+    const b = this.rect(this.sheet.mergeAt(r, c) ?? { r0: r, c0: c, r1: r, c1: c });
     const s = this.wb.style(this.sheet, r, c);
     const e = this.editor;
     e.style.left = `${b.x}px`; e.style.top = `${b.y}px`; e.style.minWidth = `${b.w}px`; e.style.height = `${b.h}px`;
@@ -588,6 +659,17 @@ export class GridView {
     const target = e.target as HTMLElement;
     if (target.closest('.wy-ss-fbtn')) { const b = target.closest<HTMLElement>('.wy-ss-fbtn')!; e.preventDefault(); this.o.onFilter?.(Number(b.dataset.filter), b); return; }
     if (target === this.editor) return;
+    const chartEl = target.closest<HTMLElement>('.wy-ss-chart');
+    if (chartEl) {
+      e.preventDefault(); this.focus();
+      if (this.editing) this.commit(0, 0);
+      const id = chartEl.dataset.chart!;
+      this.selectChart(id);
+      const def = this.sheet.charts.find((c) => c.id === id);
+      if (def && !this.readOnly && e.button === 0) { this.drag = { kind: 'chart', id, mode: target.dataset.grip ? 'size' : 'move', startX: e.clientX, startY: e.clientY, x: def.x, y: def.y, w: def.w, h: def.h, x0: def.x, y0: def.y, w0: def.w, h0: def.h }; this.el.setPointerCapture(e.pointerId); }
+      return;
+    }
+    if (this.chartSel) this.selectChart(null);
     const h = this.hit(e.clientX, e.clientY);
     // the scroll bars are part of the element: ignore clicks on them
     const wr = this.el.getBoundingClientRect();
@@ -634,6 +716,14 @@ export class GridView {
       return;
     }
     const d = this.drag;
+    if (d.kind === 'chart') {
+      const dx = (e.clientX - d.startX) / this.z; const dy = (e.clientY - d.startY) / this.z;
+      const el = this.charts.querySelector<HTMLElement>(`[data-chart="${d.id}"]`);
+      if (!el) return;
+      if (d.mode === 'move') { d.x = Math.max(0, d.x0 + dx); d.y = Math.max(0, d.y0 + dy); el.style.left = `${d.x * this.z}px`; el.style.top = `${d.y * this.z}px`; }
+      else { d.w = Math.max(160, d.w0 + dx); d.h = Math.max(120, d.h0 + dy); el.style.width = `${d.w * this.z}px`; el.style.height = `${d.h * this.z}px`; }
+      return;
+    }
     if (d.kind === 'colsize') { const w = Math.max(12, d.startW + (e.clientX - d.startX) / this.z); this.liveResize(() => sh.colW.set(d.c, w)); return; }
     if (d.kind === 'rowsize') { const hh = Math.max(10, d.startH + (e.clientY - d.startY) / this.z); this.liveResize(() => sh.rowH.set(d.r, hh)); return; }
     const wr = this.el.getBoundingClientRect();
@@ -670,6 +760,11 @@ export class GridView {
     try { this.el.releasePointerCapture(e.pointerId); } catch { /* not captured */ }
     if (!d) return;
     const sh = this.sheet;
+    if (d.kind === 'chart') {
+      const moved = d.mode === 'move' ? d.x !== d.x0 || d.y !== d.y0 : d.w !== d.w0 || d.h !== d.h0;
+      if (moved) this.wb.updateChart(sh, d.id, d.mode === 'move' ? { x: d.x, y: d.y } : { w: d.w, h: d.h }, d.mode === 'move' ? 'move chart' : 'resize chart');
+      return;
+    }
     if (d.kind === 'colsize') { const w = sh.colWidth(d.c); sh.colW.set(d.c, d.startW); if (w !== d.startW) this.wb.setColWidth(sh, d.c, w); else this.schedule(true); }
     else if (d.kind === 'rowsize') { const h = sh.rowHeight(d.r); sh.rowH.set(d.r, d.startH); if (h !== d.startH) this.wb.setRowHeight(sh, d.r, h); else this.schedule(true); }
     else if (d.kind === 'fill') {
@@ -686,6 +781,8 @@ export class GridView {
   private onDblClick(e: MouseEvent) {
     const t = e.target as HTMLElement;
     if (t.closest('.wy-ss-fbtn') || t === this.editor) return;
+    const chartEl = t.closest<HTMLElement>('.wy-ss-chart');
+    if (chartEl) { this.o.onChart?.(chartEl.dataset.chart!, 'edit', e.clientX, e.clientY); return; }
     const h = this.hit(e.clientX, e.clientY);
     const sh = this.sheet;
     if (h.zone === 'col' && h.edge === 'col') { this.wb.setColWidth(sh, h.c, this.wb.autofitWidth(sh, h.c)); return; }
@@ -712,6 +809,8 @@ export class GridView {
   private onContext(e: MouseEvent) {
     if ((e.target as HTMLElement).closest('.wy-ss-edit')) return;
     e.preventDefault();
+    const chartEl = (e.target as HTMLElement).closest<HTMLElement>('.wy-ss-chart');
+    if (chartEl) { this.selectChart(chartEl.dataset.chart!); this.o.onChart?.(chartEl.dataset.chart!, 'menu', e.clientX, e.clientY); return; }
     const h = this.hit(e.clientX, e.clientY);
     const n = normRange(this.range);
     const sh = this.sheet;
@@ -725,6 +824,17 @@ export class GridView {
 
   private onKeyDown(e: KeyboardEvent) {
     if (this.editing || e.target === this.editor) return;
+    if (this.chartSel) {
+      const def = this.sheet.charts.find((c) => c.id === this.chartSel);
+      if (e.key === 'Escape') { e.preventDefault(); this.selectChart(null); return; }
+      if (def && !this.readOnly && (e.key === 'Delete' || e.key === 'Backspace')) { e.preventDefault(); const id = def.id; this.chartSel = null; this.wb.removeChart(this.sheet, id); return; }
+      if (def && !this.readOnly && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+        e.preventDefault();
+        const step = e.shiftKey ? 1 : 10;
+        this.wb.updateChart(this.sheet, def.id, { x: Math.max(0, def.x + (e.key === 'ArrowRight' ? step : e.key === 'ArrowLeft' ? -step : 0)), y: Math.max(0, def.y + (e.key === 'ArrowDown' ? step : e.key === 'ArrowUp' ? -step : 0)) }, 'move chart');
+        return;
+      }
+    }
     const mod = e.ctrlKey || e.metaKey;
     const k = e.key;
     const ro = this.readOnly;
@@ -733,7 +843,12 @@ export class GridView {
       e.preventDefault();
       const cur = e.shiftKey ? this.activeEnd() : this.active;
       if (mod) { const j = this.wb.jump(sh, cur.r, cur.c, dr, dc); this.moveTo(j.r, j.c, e.shiftKey); }
-      else this.moveTo(cur.r + dr, cur.c + dc, e.shiftKey);
+      else {
+        // leaving a merged cell: the step starts at the edge it is on
+        const m = e.shiftKey ? undefined : sh.mergeAt(cur.r, cur.c);
+        const br = m ? (dr > 0 ? m.r1 : dr < 0 ? m.r0 : cur.r) : cur.r; const bc = m ? (dc > 0 ? m.c1 : dc < 0 ? m.c0 : cur.c) : cur.c;
+        this.moveTo(br + dr, bc + dc, e.shiftKey);
+      }
     };
     if (k === 'ArrowDown') return move(1, 0);
     if (k === 'ArrowUp') return move(-1, 0);

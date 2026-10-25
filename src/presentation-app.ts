@@ -11,6 +11,7 @@ import { observeSize } from './resize';
 import { SlideCanvas, readImageFile } from './presentation-editor';
 import { ensureSlideCss, fitSlide, renderSlide, scaleTo, deckToHTML } from './presentation-render';
 import { startShow, type Show } from './presentation-show';
+import { deckToPptx, pptxToDeck } from './presentation-pptx';
 import {
   DeckStore, FONTS, LAYOUT_IDS, SHAPES, SIZES, SIZE_STANDARD, SIZE_WIDE, THEMES,
   addEls, addSlide, alignEls, cleanDeck, deleteSlides, distributeEls, duplicateSlides, layoutLabel, moveSlide, newDeck, newImageEl, newShapeEl, newTextEl,
@@ -74,14 +75,21 @@ export interface Presentation {
   /** Start the slide show (`from`: the slide to start at; default the first). */
   present(from?: number, presenter?: boolean): Show;
   toHTML(): string;
+  /** The deck as a PowerPoint file (.pptx). */
+  toPptx(): Promise<Blob>;
+  /** Replace the deck with a PowerPoint file. Rejects with an `Error` for a file that is not a .pptx; `skipped` lists what could not be brought over (`['2 tables']`). */
+  loadPptx(file: Blob | ArrayBuffer): Promise<{ skipped: string[] }>;
   undo(): void;
   redo(): void;
   setMenu(menu: 'classic' | 'floating'): void;
   setTheme(theme: NonNullable<PresentationOptions['theme']>): void;
   setReadOnly(on: boolean): void;
   focus(): void;
-  /** `'error'`: `{ message }` for a file that could not be opened or a picture that was turned away. */
-  on(event: 'change' | 'select' | 'save' | 'slide' | 'error', fn: (payload: unknown) => void): () => void;
+  /**
+   * `'error'`: `{ message }` for a file that could not be opened or a picture that was turned away.
+   * `'import'`: `{ slides, skipped }` after a .pptx file was opened: the number of slides and a list of what was left out (`['2 tables']`).
+   */
+  on(event: 'change' | 'select' | 'save' | 'slide' | 'error' | 'import', fn: (payload: unknown) => void): () => void;
   destroy(): void;
 }
 
@@ -92,8 +100,8 @@ const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls = '', text?: stri
   return e;
 };
 
-function download(content: string, name: string, type: string) {
-  const url = URL.createObjectURL(new Blob([content], { type }));
+function download(content: string | Blob, name: string, type: string) {
+  const url = URL.createObjectURL(typeof content === 'string' ? new Blob([content], { type }) : content);
   const a = el('a');
   a.href = url; a.download = name;
   document.body.append(a);
@@ -409,6 +417,21 @@ export function createPresentation(options: PresentationOptions): Presentation {
     });
     input.click();
   };
+  const PPTX_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+  const openPptx = () => {
+    const input = el('input');
+    input.type = 'file'; input.accept = `.pptx,${PPTX_TYPE}`;
+    input.addEventListener('change', async () => {
+      const f = input.files?.[0];
+      if (!f) return;
+      if (f.size > 100 * 1024 * 1024) { emit('error', { message: 'The file is larger than 100 MB' }); return; }
+      try { await api.loadPptx(f); } catch (e) { emit('error', { message: e instanceof Error && e.message ? e.message : 'This file could not be opened' }); }
+    });
+    input.click();
+  };
+  const downloadPptx = async () => {
+    try { download(await api.toPptx(), `${safeName(deck().title)}.pptx`, PPTX_TYPE); } catch { emit('error', { message: 'The PowerPoint file could not be made' }); }
+  };
   const printDeck = () => {
     const frame = el('iframe');
     frame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0';
@@ -457,8 +480,10 @@ export function createPresentation(options: PresentationOptions): Presentation {
   const transitionEntries = (): MenuEntry[] => (['none', 'fade', 'slide', 'zoom'] as Transition[]).map((t) => ({ label: t === 'none' ? 'None' : t === 'fade' ? 'Fade' : t === 'slide' ? 'Push' : 'Zoom', checked: (cur().transition ?? 'none') === t, onClick: () => store.set(setTransition(deck(), sel, t), 'transition') }));
   const fileEntries = (): MenuEntry[] => [
     { label: 'Open deck (.json)…', icon: 'openFile', onClick: openFile, disabled: readOnly },
+    { label: 'Open .pptx…', icon: 'openFile', onClick: openPptx, disabled: readOnly },
     { label: 'Download as .json', icon: 'download', onClick: () => download(JSON.stringify(deck(), null, 2), `${safeName(deck().title)}.json`, 'application/json') },
     { label: 'Download as web page (.html)', icon: 'download', onClick: () => download(deckToHTML(deck()), `${safeName(deck().title)}.html`, 'text/html') },
+    { label: 'Download as PowerPoint (.pptx)', icon: 'download', onClick: () => { void downloadPptx(); } },
     '-', { label: 'Print / save as PDF', icon: 'print', onClick: printDeck },
   ];
   const slideEntries = (): MenuEntry[] => [
@@ -504,7 +529,7 @@ export function createPresentation(options: PresentationOptions): Presentation {
     return {
       tabs: [
         { id: 'file', label: 'File', groups: [
-          { label: 'Open and save', controls: [btn('open', 'Open', 'openFile', openFile, { size: 'large' }), menu('download', 'Download', 'download', () => fileEntries().slice(1, 3), 'large', 'Download')] },
+          { label: 'Open and save', controls: [btn('open', 'Open', 'openFile', openFile, { size: 'large' }), btn('openpptx', 'Open .pptx', 'openFile', openPptx, { size: 'large' }), menu('download', 'Download', 'download', () => fileEntries().slice(2, 5), 'large', 'Download')] },
           { label: 'Print', controls: [btn('print', 'Print / PDF', 'print', printDeck, { size: 'large', edit: false })] },
         ] },
         { id: 'home', label: 'Home', groups: [
@@ -678,6 +703,17 @@ export function createPresentation(options: PresentationOptions): Presentation {
     addSlide: (l) => newSlide(l),
     present: (from, presenter) => present(from ?? 0, presenter ?? false),
     toHTML: () => deckToHTML(deck()),
+    async toPptx() { return new Blob([await deckToPptx(deck()) as BlobPart], { type: PPTX_TYPE }); },
+    async loadPptx(file) {
+      const size = file instanceof Blob ? file.size : file.byteLength;
+      if (size > 100 * 1024 * 1024) throw new Error('The file is larger than 100 MB');
+      const bytes = file instanceof Blob ? await file.arrayBuffer() : file;
+      const { deck: next, skipped } = await pptxToDeck(bytes);
+      if (!next.title) next.title = deck().title;
+      api.setData(next);
+      emit('import', { slides: next.slides.length, skipped });
+      return { skipped };
+    },
     undo, redo,
     setMenu(m) { if (m === menuMode) return; menuMode = m; mountChrome(); },
     setTheme(t) { applyTheme(t); },

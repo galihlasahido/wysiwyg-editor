@@ -36,6 +36,8 @@ export interface Evaluator {
   error(col: number, row: number): string | null;
   /** The value a formula elsewhere spills into this empty cell, or undefined. */
   spilled(col: number, row: number): CellValue | undefined;
+  /** Evaluate formula text (with or without the `=`) as if it stood in a cell, without keeping it (conditional formats use this). */
+  formula(src: string, col: number, row: number): CellValue;
   /** This sheet for formulas on other sheets. */
   readonly sheet: SheetCtx;
 }
@@ -167,6 +169,18 @@ export function createEvaluator(rawAt: (col: number, row: number) => string | un
     sheet: self,
     value(c, r) { try { return out(get(c, r)); } catch { return '#ERR!'; } },
     error(c, r) { const v = get(c, r); return v instanceof FormulaError ? v.message : null; },
+    formula(src, c, r) {
+      const outermost = scope.size === 0;
+      if (outermost) { budget.cell = CELL_WORK; budget.total = work.left; }
+      try {
+        let v = evaluate(src.trim().replace(/^=/, ''), ctxFor(c, r), { strictBounds: opts.strictBounds, legacyPow: opts.legacy });
+        if (isRng(v)) v = v.matrix();
+        if (isArr(v)) v = v[0]?.[0] ?? null;   // an array gives its first value; nothing spills from here
+        return out(v === null ? 0 : (v as Scalar));
+      }
+      catch (e) { return e instanceof FormulaError ? e.message : '#ERR!'; }
+      finally { if (outermost) work.left = budget.total; }
+    },
     spilled(c, r) {
       if (!spillsReady) ensureSpills();
       const v = spills.get(`${c},${r}`);

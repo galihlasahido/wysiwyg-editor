@@ -3,6 +3,9 @@
  * follow), sorting, filling a series, filters, CSV and JSON. `spreadsheet-view.ts` draws it.
  */
 import { serialToDate } from './formula-core';
+import { CondEngine, adjustRange, cleanChartDef, cleanRule, inRange, newChartId, overlaps, MAX_CHARTS, MAX_MERGES, MAX_RULES, type ChartDef, type CondHost, type CondResult, type CondRule } from './spreadsheet-features';
+import { chartSpecFrom } from './spreadsheet-features';
+import type { ChartSpec, ChartType } from './chart';
 import { asValue, cellRef, isErrorValue, colName, createEvaluator, mapFormulaRefs, parseCellRef, shiftFormula, type CellValue, type Evaluator, type RangeMove, type RefMove } from './grid-formulas';
 
 export type NumFmt = 'general' | 'number' | 'currency' | 'percent' | 'date' | 'text';
@@ -52,6 +55,11 @@ export interface SheetData {
   freezeRows?: number;
   freezeCols?: number;
   filter?: FilterSpec | null;
+  /** Merged cells, as `A1:C2`. */
+  merges?: string[];
+  /** Conditional formats. */
+  cf?: CondRule[];
+  charts?: ChartDef[];
 }
 
 export interface WorkbookData {
@@ -88,6 +96,9 @@ export class Sheet {
   freezeRows = 0;
   freezeCols = 0;
   filter: FilterSpec | null = null;
+  merges: Range[] = [];
+  cf: CondRule[] = [];
+  charts: ChartDef[] = [];
 
   constructor(name: string, rows = 200, cols = 26) {
     this.name = name;
@@ -104,6 +115,12 @@ export class Sheet {
     return { row, col };
   }
 
+  /** The merged area that holds this cell, if any. */
+  mergeAt(r: number, c: number): Range | undefined {
+    for (const m of this.merges) if (inRange(m, r, c)) return m;
+    return undefined;
+  }
+
   colWidth(c: number): number { return this.colW.get(c) ?? DEFAULT_COL_W; }
   rowHeight(r: number): number { return this.hidden.has(r) ? 0 : this.rowH.get(r) ?? DEFAULT_ROW_H; }
 
@@ -118,6 +135,9 @@ export class Sheet {
     if (this.freezeRows) out.freezeRows = this.freezeRows;
     if (this.freezeCols) out.freezeCols = this.freezeCols;
     if (this.filter) out.filter = JSON.parse(JSON.stringify(this.filter));
+    if (this.merges.length) out.merges = this.merges.map((m) => rangeRef(m));
+    if (this.cf.length) out.cf = JSON.parse(JSON.stringify(this.cf));
+    if (this.charts.length) out.charts = JSON.parse(JSON.stringify(this.charts));
     return out;
   }
 
@@ -149,6 +169,17 @@ export class Sheet {
         s.filter = { row: f.row, r1, c0: f.c0, c1: f.c1, hide };
       }
     }
+    // merged cells, conditional formats and charts: each one checked, none may overlap or point outside the sheet
+    for (const ref of Array.isArray(d.merges) ? d.merges.slice(0, MAX_MERGES) : []) {
+      const m = typeof ref === 'string' ? parseRangeRef(ref) : null;
+      if (m && m.r1 < s.rows && m.c1 < s.cols && (m.r0 !== m.r1 || m.c0 !== m.c1) && !s.merges.some((x) => overlaps(x, m))) s.merges.push(m);
+    }
+    for (const r of Array.isArray(d.cf) ? d.cf.slice(0, MAX_RULES) : []) { const rule = cleanRule(r, s.rows, s.cols); if (rule) s.cf.push(rule); }
+    const ids = new Set<string>();
+    for (const ch of Array.isArray(d.charts) ? d.charts.slice(0, MAX_CHARTS) : []) {
+      const c = cleanChartDef(ch, s.rows, s.cols);
+      if (c) { if (ids.has(c.id)) c.id = newChartId(); ids.add(c.id); s.charts.push(c); }
+    }
     return s;
   }
 }
@@ -177,7 +208,7 @@ export function cleanCell(c: CellData): CellData | undefined {
   return out.v === undefined && !out.s ? undefined : out;
 }
 
-interface Meta { name: string; rows: number; cols: number; colW: [number, number][]; rowH: [number, number][]; hidden: number[]; freezeRows: number; freezeCols: number; filter: FilterSpec | null }
+interface Meta { name: string; rows: number; cols: number; colW: [number, number][]; rowH: [number, number][]; hidden: number[]; freezeRows: number; freezeCols: number; filter: FilterSpec | null; merges: Range[]; cf: CondRule[]; charts: ChartDef[] }
 type Change =
   | { k: 'cell'; sheet: Sheet; key: string; before: CellData | undefined; after: CellData | undefined }
   | { k: 'cells'; sheet: Sheet; before: Map<string, CellData>; after: Map<string, CellData>; metaBefore: Meta; metaAfter: Meta }
@@ -185,12 +216,13 @@ type Change =
   | { k: 'sheets'; before: Sheet[]; after: Sheet[]; activeBefore: number; activeAfter: number };
 interface Step { label: string; changes: Change[] }
 
-const metaOf = (s: Sheet): Meta => ({ name: s.name, rows: s.rows, cols: s.cols, colW: [...s.colW], rowH: [...s.rowH], hidden: [...s.hidden], freezeRows: s.freezeRows, freezeCols: s.freezeCols, filter: s.filter ? JSON.parse(JSON.stringify(s.filter)) : null });
+const metaOf = (s: Sheet): Meta => ({ name: s.name, rows: s.rows, cols: s.cols, colW: [...s.colW], rowH: [...s.rowH], hidden: [...s.hidden], freezeRows: s.freezeRows, freezeCols: s.freezeCols, filter: s.filter ? JSON.parse(JSON.stringify(s.filter)) : null, merges: s.merges.map((m) => ({ ...m })), cf: JSON.parse(JSON.stringify(s.cf)), charts: JSON.parse(JSON.stringify(s.charts)) });
 const applyMeta = (s: Sheet, m: Meta) => {
   s.name = m.name; s.rows = m.rows; s.cols = m.cols;
   s.colW = new Map(m.colW); s.rowH = new Map(m.rowH); s.hidden = new Set(m.hidden);
   s.freezeRows = m.freezeRows; s.freezeCols = m.freezeCols;
   s.filter = m.filter ? JSON.parse(JSON.stringify(m.filter)) : null;
+  s.merges = m.merges.map((x) => ({ ...x })); s.cf = JSON.parse(JSON.stringify(m.cf)); s.charts = JSON.parse(JSON.stringify(m.charts));
 };
 
 export interface ChangeEvent {
@@ -246,7 +278,7 @@ export class Workbook {
     this.sheets = list.length ? list.map((d) => Sheet.fromJSON(d)) : [new Sheet('Sheet1')];
     this.active = Math.max(0, Math.min(this.sheets.length - 1, Math.floor(Number(data?.active)) || 0));
     if (typeof data?.currency === 'string' && /^[A-Za-z]{3}$/.test(data.currency)) this.currency = data.currency.toUpperCase();
-    this.undoStack = []; this.redoStack = []; this.open = null; this.depth = 0; this.evals.clear(); this.evalScope.clear();
+    this.undoStack = []; this.redoStack = []; this.open = null; this.depth = 0; this.evals.clear(); this.evalScope.clear(); this.conds.clear();
     this.emit({ label: 'load', sheet: null });
   }
 
@@ -255,7 +287,7 @@ export class Workbook {
   get sheet(): Sheet { return this.sheets[this.active]; }
 
   on(fn: (e: ChangeEvent) => void): () => void { this.listeners.add(fn); return () => this.listeners.delete(fn); }
-  private emit(e: ChangeEvent) { this.evals.clear(); this.evalScope.clear(); for (const fn of [...this.listeners]) { try { fn(e); } catch (err) { console.error('Spreadsheet listener failed', err); } } }
+  private emit(e: ChangeEvent) { this.evals.clear(); this.evalScope.clear(); this.conds.clear(); for (const fn of [...this.listeners]) { try { fn(e); } catch (err) { console.error('Spreadsheet listener failed', err); } } }
 
   // ---- history
 
@@ -597,6 +629,7 @@ export class Workbook {
       s.hidden = new Set([...s.hidden].map(mv));
       if (s.freezeRows > at) s.freezeRows += n;
       if (s.filter) { if (s.filter.row >= at) s.filter.row += n; if (s.filter.r1 >= at) s.filter.r1 += n; }
+      this.followRanges(s, 'row', 'insert', at, n);
     });
   }
 
@@ -625,6 +658,7 @@ export class Workbook {
           f.r1 = Math.max(f.row, f.r1 - deleted);
         }
       }
+      this.followRanges(s, 'row', 'delete', at, n);
     });
   }
 
@@ -636,6 +670,7 @@ export class Workbook {
     this.rebuild(sheet, 'insert columns', (put) => { for (const [k, d] of sheet.cells) { const [r, c] = unkey(k); put(r, mv(c), this.moveFormulas(d, ref, range)); } }, { cols: sheet.cols + n }, (s) => {
       s.colW = new Map([...s.colW].map(([c, w]) => [mv(c), w]));
       if (s.freezeCols > at) s.freezeCols += n;
+      this.followRanges(s, 'col', 'insert', at, n);
       if (s.filter) { if (s.filter.c0 >= at) s.filter.c0 += n; if (s.filter.c1 >= at) s.filter.c1 += n; s.filter.hide = Object.fromEntries(Object.entries(s.filter.hide).map(([c, v]) => [mv(Number(c)), v])); }
     });
   }
@@ -656,7 +691,128 @@ export class Workbook {
       s.colW = new Map([...s.colW].filter(([c]) => c < at || c > end).map(([c, w]) => [mv(c), w]));
       s.freezeCols = Math.min(s.freezeCols, s.cols - 1);
       if (s.filter) s.filter = null;
+      this.followRanges(s, 'col', 'delete', at, n);
     });
+  }
+
+  // ---- merged cells, conditional formats, charts
+
+  /** Merges, rules and charts follow the cells when rows or columns are inserted or deleted. */
+  private followRanges(s: Sheet, axis: 'row' | 'col', kind: 'insert' | 'delete', at: number, n: number) {
+    const adj = (r: Range) => adjustRange(r, axis, kind, at, n);
+    s.merges = s.merges.map(adj).filter((m): m is Range => !!m && (m.r0 !== m.r1 || m.c0 !== m.c1));
+    s.cf = s.cf.map((rule) => { const r = adj(rule.range); return r ? { ...rule, range: r } : null; }).filter((x): x is CondRule => !!x);
+    s.charts = s.charts.map((ch) => { const r = adj(ch.range); return r ? { ...ch, range: r } : null; }).filter((x): x is ChartDef => !!x);
+  }
+
+  /** The area a selection has to cover so no merged cell is cut in half. */
+  expandToMerges(sheet: Sheet, range: Range): Range {
+    let n = normRange(range);
+    for (let again = true, guard = 0; again && guard < 50; guard++) {
+      again = false;
+      for (const m of sheet.merges) {
+        if (!overlaps(m, n)) continue;
+        const e = { r0: Math.min(n.r0, m.r0), c0: Math.min(n.c0, m.c0), r1: Math.max(n.r1, m.r1), c1: Math.max(n.c1, m.c1) };
+        if (e.r0 !== n.r0 || e.c0 !== n.c0 || e.r1 !== n.r1 || e.c1 !== n.c1) { n = e; again = true; }
+      }
+    }
+    return n;
+  }
+
+  /** Merge the cells of a range into one that keeps the value and format of the top left cell (the others are emptied). */
+  mergeCells(sheet: Sheet, range: Range): boolean {
+    const n = this.expandToMerges(sheet, range);
+    if ((n.r0 === n.r1 && n.c0 === n.c1) || sheet.merges.length >= MAX_MERGES) return false;
+    this.transact('merge', () => {
+      const before = metaOf(sheet);
+      for (const k of [...sheet.cells.keys()]) {
+        const [r, c] = unkey(k);
+        if (inRange(n, r, c) && !(r === n.r0 && c === n.c0)) this.setCell(sheet, r, c, undefined);
+      }
+      sheet.merges = [...sheet.merges.filter((m) => !overlaps(m, n)), n];
+      this.record({ k: 'meta', sheet, before, after: metaOf(sheet) });
+    }, sheet);
+    return true;
+  }
+
+  /** Split every merged area that touches the range. */
+  unmergeCells(sheet: Sheet, range: Range): boolean {
+    const n = normRange(range);
+    if (!sheet.merges.some((m) => overlaps(m, n))) return false;
+    this.meta(sheet, 'unmerge', () => { sheet.merges = sheet.merges.filter((m) => !overlaps(m, n)); });
+    return true;
+  }
+
+  addRule(sheet: Sheet, rule: unknown): boolean {
+    const r = cleanRule(rule, sheet.rows, sheet.cols);
+    if (!r || sheet.cf.length >= MAX_RULES) return false;
+    this.meta(sheet, 'conditional format', () => { sheet.cf = [...sheet.cf, r]; });
+    return true;
+  }
+
+  removeRule(sheet: Sheet, index: number): void {
+    if (index < 0 || index >= sheet.cf.length) return;
+    this.meta(sheet, 'remove rule', () => { sheet.cf = sheet.cf.filter((_, i) => i !== index); });
+  }
+
+  /** Remove the rules that touch the range (or all of them without one). */
+  clearRules(sheet: Sheet, range?: Range): void {
+    const n = range ? normRange(range) : null;
+    if (!sheet.cf.some((r) => !n || overlaps(r.range, n))) return;
+    this.meta(sheet, 'clear rules', () => { sheet.cf = n ? sheet.cf.filter((r) => !overlaps(r.range, n)) : []; });
+  }
+
+  private conds = new Map<Sheet, CondEngine>();
+  /** The formatting conditional rules give a cell (colours, bold, a data bar), or null. */
+  condFor(sheet: Sheet, r: number, c: number): CondResult | null {
+    if (!sheet.cf.length) return null;
+    let e = this.conds.get(sheet);
+    if (!e) {
+      const host: CondHost = {
+        value: (rr, cc) => { const v = this.value(sheet, rr, cc); return v; },
+        text: (rr, cc) => this.display(sheet, rr, cc).text,
+        blank: (rr, cc) => this.raw(sheet, rr, cc) === '' && !this.evaluator(sheet).spilled(cc, rr),
+        error: (rr, cc) => this.display(sheet, rr, cc).error,
+        formula: (src, rr, cc) => this.evaluator(sheet).formula(src, cc, rr),
+        used: () => sheet.used(),
+      };
+      e = new CondEngine(host);
+      this.conds.set(sheet, e);
+    }
+    return e.compute(sheet.cf, r, c);
+  }
+
+  addChart(sheet: Sheet, def: { range: Range; type?: ChartType; title?: string; x: number; y: number; w?: number; h?: number }): ChartDef | null {
+    if (sheet.charts.length >= MAX_CHARTS) return null;
+    const c = cleanChartDef({ ...def, id: newChartId() }, sheet.rows, sheet.cols);
+    if (!c) return null;
+    this.meta(sheet, 'chart', () => { sheet.charts = [...sheet.charts, c]; });
+    return c;
+  }
+
+  updateChart(sheet: Sheet, id: string, patch: Partial<Omit<ChartDef, 'id'>>, label = 'chart'): void {
+    const i = sheet.charts.findIndex((c) => c.id === id);
+    if (i < 0) return;
+    const next = cleanChartDef({ ...sheet.charts[i], ...patch, id }, sheet.rows, sheet.cols);
+    if (!next) return;
+    this.meta(sheet, label, () => { sheet.charts = sheet.charts.map((c) => (c.id === id ? next : c)); });
+  }
+
+  removeChart(sheet: Sheet, id: string): void {
+    if (!sheet.charts.some((c) => c.id === id)) return;
+    this.meta(sheet, 'delete chart', () => { sheet.charts = sheet.charts.filter((c) => c.id !== id); });
+  }
+
+  /** The data of a chart as the chart library takes it. */
+  chartSpec(sheet: Sheet, def: ChartDef): ChartSpec | null {
+    const n = def.range;
+    const grid: string[][] = [];
+    for (let r = n.r0; r <= Math.min(n.r1, n.r0 + 499); r++) {
+      const row: string[] = [];
+      for (let c = n.c0; c <= Math.min(n.c1, n.c0 + 49); c++) row.push(this.display(sheet, r, c).text);
+      grid.push(row);
+    }
+    return chartSpecFrom(grid, def.type, def.title);
   }
 
   // ---- sort, fill, filter

@@ -130,7 +130,7 @@ input.wy-oc-title:focus { outline: 2px solid var(--wy-accent); border-color: tra
 .wy-ss-c.is-wrap { white-space: normal; }
 .wy-ss-c.is-wrap .wy-ss-text { white-space: pre-wrap; overflow-wrap: anywhere; }
 .wy-ss-c.is-error { color: var(--wy-danger); }
-.wy-ss-c.is-frozen { z-index: 2; background: var(--wy-bg); }
+.wy-ss-c.is-frozen { z-index: 5; background: var(--wy-bg); }
 .wy-ss-c.freeze-b { border-bottom: 2px solid var(--wy-border-2); }
 .wy-ss-c.freeze-r { border-right: 2px solid var(--wy-border-2); }
 .wy-ss-fbtn { position: absolute; right: 2px; bottom: 2px; width: 16px; height: 16px; padding: 0; display: flex; align-items: center; justify-content: center; border: 1px solid var(--wy-border-2); border-radius: 3px; background: var(--wy-surface); color: var(--wy-muted); cursor: pointer; }
@@ -188,3 +188,28 @@ input.wy-oc-title:focus { outline: 2px solid var(--wy-accent); border-color: tra
 }
 @media (prefers-reduced-motion: reduce) { .wy-ss-clip { animation: none; } }
 @media print { .wy-oc, .wy-ss-fbar, .wy-ss-tabs, .wy-ss-status { display: none !important; } }
+
+/* ---- merged cells, conditional formats, charts, dialogs ---------------------------------------------------------------------- */
+.wy-ss-c.is-merged { z-index: 1; background-color: var(--wy-bg); }
+.wy-ss-bar { position: absolute; left: 1px; top: 3px; bottom: 3px; opacity: .45; pointer-events: none; border-radius: 2px; }
+.wy-ss-text { position: relative; }
+.wy-ss-charts { position: absolute; left: 0; top: 0; width: 0; height: 0; }
+.wy-ss-chart { position: absolute; box-sizing: border-box; background: var(--wy-bg); color: var(--wy-fg); border: 1px solid var(--wy-border-2); border-radius: 6px; box-shadow: 0 2px 8px rgba(15, 23, 42, .12); z-index: 4; cursor: move; touch-action: none; user-select: none; -webkit-user-select: none; overflow: hidden; }
+.wy-ss-chart svg { width: 100%; height: 100%; display: block; pointer-events: none; }
+.wy-ss-chart.is-sel { outline: 2px solid var(--wy-accent); outline-offset: 0; }
+.wy-ss-chart-none { display: flex; align-items: center; justify-content: center; height: 100%; padding: 12px; text-align: center; color: var(--wy-muted); font-size: 13px; }
+.wy-ss-chart-grip { position: absolute; right: 0; bottom: 0; width: 14px; height: 14px; cursor: nwse-resize; display: none; background: linear-gradient(135deg, transparent 50%, var(--wy-accent) 50%); }
+.wy-ss-chart.is-sel .wy-ss-chart-grip { display: block; }
+.wy-ss-modal { position: fixed; inset: 0; z-index: 1100; display: flex; align-items: center; justify-content: center; background: rgba(15, 23, 42, .35); }
+.wy-ss-dialog { width: min(420px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow: auto; padding: 18px 20px; background: var(--wy-bg); color: var(--wy-fg); border: 1px solid var(--wy-border-2); border-radius: 14px; box-shadow: var(--wy-pop-shadow); font: 13px/1.4 system-ui, sans-serif; }
+.wy-ss-dialog-title { margin: 0 0 12px; font-size: 16px; font-weight: 600; }
+.wy-ss-dialog-row { display: flex; flex-direction: column; gap: 4px; margin: 0 0 10px; }
+.wy-ss-dialog-row.is-check { flex-direction: row; align-items: center; gap: 8px; }
+.wy-ss-dialog-row input:not([type='checkbox']), .wy-ss-dialog-row select { height: 30px; padding: 0 8px; border: 1px solid var(--wy-border-2); border-radius: 6px; background: var(--wy-bg); color: var(--wy-fg); font: inherit; }
+.wy-ss-dialog-error { margin: 0 0 8px; color: #b42318; }
+.wy-ss-dialog .wy-ss-factions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+.wy-ss-rules { margin: 0 0 8px; padding: 0; list-style: none; max-height: 50vh; overflow: auto; }
+.wy-ss-rules li { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--wy-border); }
+.wy-ss-rules li > span:first-child { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.wy-ss-rule-swatch { flex: none; width: 22px; height: 16px; border: 1px solid var(--wy-border-2); border-radius: 3px; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; }
+.wy-ss-c.is-frozen.is-merged { z-index: 5; }

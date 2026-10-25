@@ -8,6 +8,9 @@ import './office.css';
 import { Chrome, popMenu, type ChromeSpec, type Control, type MenuEntry } from './office-chrome';
 import { cellRef, colName } from './grid-formulas';
 import { createFormulaBar, attachSuggest } from './formula-bar';
+import { chartSVG } from './chart';
+import { formDialog } from './spreadsheet-dialog';
+import { CHART_TYPES, type CondRule, type CondStyle } from './spreadsheet-features';
 import { observeSize } from './resize';
 import { GridView } from './spreadsheet-view';
 import {
@@ -84,6 +87,15 @@ export interface Spreadsheet {
   /** Type `text` into a cell, as a person would. */
   setValue(ref: string, text: string): void;
   select(ref: string): void;
+  /** Merge the cells of a range (`'A1:C1'`; default the selection). Returns false when there is nothing to merge. */
+  merge(range?: string): boolean;
+  unmerge(range?: string): boolean;
+  /** Add a conditional format. `range` is `'B2:B20'`; `rule` is one of `{ type: 'cell', op: '>', a: '100', style: { bg: '#fecaca' } }`, `{ type: 'text', op: 'contains', text }`, `{ type: 'duplicate' | 'unique' | 'blank' | 'error', style }`, `{ type: 'rank', n, bottom?, percent?, style }`, `{ type: 'average', above, style }`, `{ type: 'formula', formula: '=$B2>$C2', style }`, `{ type: 'scale', colors: ['#f87171', '#fde68a', '#4ade80'] }` or `{ type: 'bar', color }`. */
+  addConditionalFormat(range: string, rule: Record<string, unknown>): boolean;
+  clearConditionalFormats(range?: string): void;
+  /** Put a chart on the current sheet, reading `range` (first row: series names, first column: labels). Returns its id. */
+  addChart(options: { range: string; type?: 'bar' | 'line' | 'pie'; title?: string; x?: number; y?: number; width?: number; height?: number }): string | null;
+  removeChart(id: string): void;
   toCSV(range?: string): string;
   importCSV(text: string, name?: string): void;
   undo(): void;
@@ -177,6 +189,7 @@ export function createSpreadsheet(options: SpreadsheetOptions): Spreadsheet {
     onEdit: (text) => { fbarUi.setEditing(text !== null); if (text === null) syncBars(); else if (formulaInput.value !== text) formulaInput.value = text; refreshStatus(); },
     onContext: (x, y, zone) => openContext(x, y, zone),
     onFilter: (col, anchor) => openFilter(col, anchor),
+    onChart: (id, kind, x, y) => (kind === 'edit' ? editChart(id) : chartMenu(id, x, y)),
   });
   const sh = (): Sheet => wb.sheet;
   const rg = (): Range => normRange(view.range);
@@ -391,15 +404,20 @@ export function createSpreadsheet(options: SpreadsheetOptions): Spreadsheet {
       if (s.hidden.has(r)) continue;
       rows += '<tr>';
       for (let c = 0; c <= u.col; c++) {
+        const m = s.mergeAt(r, c);
+        if (m && (r !== m.r0 || c !== m.c0)) continue;     // covered by a merged cell
         const st = wb.style(s, r, c); const d = wb.display(s, r, c);
-        const css = [st.b && 'font-weight:bold', st.i && 'font-style:italic', st.u && 'text-decoration:underline', st.color && `color:${st.color}`, st.bg && `background:${st.bg}`, `text-align:${st.align ?? (d.number ? 'right' : 'left')}`].filter(Boolean).join(';');
-        rows += `<td style="${css}">${esc(d.text)}</td>`;
+        const cf = wb.condFor(s, r, c)?.style;
+        const color = cf?.color ?? st.color; const bg = cf?.bg ?? st.bg;
+        const css = [(st.b || cf?.b) && 'font-weight:bold', (st.i || cf?.i) && 'font-style:italic', st.u && 'text-decoration:underline', color && `color:${color}`, bg && `background:${bg}`, `text-align:${st.align ?? (d.number ? 'right' : 'left')}`].filter(Boolean).join(';');
+        const span = m ? ` colspan="${Math.min(m.c1, u.col) - m.c0 + 1}" rowspan="${m.r1 - m.r0 + 1}"` : '';
+        rows += `<td${span} style="${css}">${esc(d.text)}</td>`;
       }
       rows += '</tr>';
     }
     const doc = frame.contentDocument!;
     doc.open();
-    doc.write(`<!doctype html><title>${esc(s.name)}</title><style>body{font:12px system-ui,sans-serif}table{border-collapse:collapse}td{border:1px solid #bbb;padding:2px 6px;white-space:nowrap}</style><table>${rows}</table>`);
+    doc.write(`<!doctype html><title>${esc(s.name)}</title><style>body{font:12px system-ui,sans-serif}table{border-collapse:collapse}td{border:1px solid #bbb;padding:2px 6px;white-space:nowrap}</style><table>${rows}</table>${s.charts.map((ch) => { const spec = wb.chartSpec(s, ch); return spec ? `<div style="margin-top:16px;break-inside:avoid">${chartSVG(spec, ch.w, ch.h)}</div>` : ''; }).join('')}`);
     doc.close();
     frame.contentWindow!.focus();
     frame.contentWindow!.print();
@@ -511,12 +529,188 @@ export function createSpreadsheet(options: SpreadsheetOptions): Spreadsheet {
     if (zone !== 'col') entries.push({ label: nRows > 1 ? `Insert ${nRows} rows above` : 'Insert row above', icon: 'rowAbove', disabled: readOnly, onClick: () => insertRows(false) }, { label: nRows > 1 ? `Insert ${nRows} rows below` : 'Insert row below', icon: 'rowBelow', disabled: readOnly, onClick: () => insertRows(true) });
     if (zone !== 'row') entries.push({ label: nCols > 1 ? `Insert ${nCols} columns left` : 'Insert column left', icon: 'colLeft', disabled: readOnly, onClick: () => insertCols(false) }, { label: nCols > 1 ? `Insert ${nCols} columns right` : 'Insert column right', icon: 'colRight', disabled: readOnly, onClick: () => insertCols(true) });
     entries.push('-');
+    if (zone === 'cell' && (nRows > 1 || nCols > 1 || sh().merges.some((m) => m.r0 <= r.r1 && r.r0 <= m.r1 && m.c0 <= r.c1 && r.c0 <= m.c1))) entries.push(...mergeEntries().filter((x) => x !== '-' && !('heading' in x) && x.label !== 'Merge across'), '-');
     if (zone !== 'col') entries.push({ label: nRows > 1 ? `Delete ${nRows} rows` : 'Delete row', icon: 'delRow', disabled: readOnly || nRows >= sh().rows, onClick: deleteRows });
     if (zone !== 'row') entries.push({ label: nCols > 1 ? `Delete ${nCols} columns` : 'Delete column', icon: 'delCol', disabled: readOnly || nCols >= sh().cols, onClick: deleteCols });
-    entries.push({ label: 'Clear contents', icon: 'clear', shortcut: 'Del', disabled: readOnly, onClick: () => wb.clear(sh(), r, 'values') }, '-',
+    entries.push({ label: 'Clear contents', icon: 'clear', shortcut: 'Del', disabled: readOnly, onClick: () => wb.clear(sh(), r, 'values') }, { label: 'Conditional formatting', items: cfEntries() }, { label: 'Insert chart…', icon: 'chart', disabled: readOnly, onClick: () => void insertChart() }, '-',
       { label: 'Sort A → Z', icon: 'sortAsc', disabled: readOnly, onClick: () => sortBy(true) }, { label: 'Sort Z → A', icon: 'sortDesc', disabled: readOnly, onClick: () => sortBy(false) });
     if (zone === 'row') entries.push('-', { label: 'Hide rows', onClick: () => wb.hideRows(sh(), r.r0, r.r1, true), disabled: readOnly }, { label: 'Unhide rows', onClick: () => wb.hideRows(sh(), Math.max(0, r.r0 - 1), r.r1 + 1, false), disabled: readOnly });
     popMenu(root, { x, y }, entries, { label: 'Cell menu', onRun: () => view.focus() });
+  };
+
+  // ---- merged cells, conditional formats, charts
+  const mergeSelection = () => { if (!readOnly) wb.mergeCells(sh(), rg()); };
+  const unmergeSelection = () => { if (!readOnly) wb.unmergeCells(sh(), rg()); };
+  const mergeEntries = (): MenuEntry[] => {
+    const r = rg(); const multi = r.r0 !== r.r1 || r.c0 !== r.c1;
+    const touches = sh().merges.some((m) => m.r0 <= r.r1 && r.r0 <= m.r1 && m.c0 <= r.c1 && r.c0 <= m.c1);
+    return [
+      { label: 'Merge cells', icon: 'merge', disabled: readOnly || !multi, onClick: mergeSelection },
+      { label: 'Merge across', disabled: readOnly || r.c0 === r.c1, onClick: () => wb.transact('merge', () => { for (let row = r.r0; row <= r.r1; row++) wb.mergeCells(sh(), { r0: row, r1: row, c0: r.c0, c1: r.c1 }); }) },
+      { label: 'Unmerge cells', disabled: readOnly || !touches, onClick: unmergeSelection },
+    ];
+  };
+
+  const LOOKS: { label: string; style: CondStyle }[] = [
+    { label: 'Light red fill with dark red text', style: { bg: '#fecaca', color: '#991b1b' } },
+    { label: 'Yellow fill with dark yellow text', style: { bg: '#fef08a', color: '#854d0e' } },
+    { label: 'Green fill with dark green text', style: { bg: '#bbf7d0', color: '#166534' } },
+    { label: 'Light blue fill with dark blue text', style: { bg: '#bfdbfe', color: '#1e3a8a' } },
+    { label: 'Red text', style: { color: '#b91c1c' } },
+    { label: 'Green text', style: { color: '#15803d' } },
+    { label: 'Bold', style: { b: 1 } },
+    { label: 'Strikethrough', style: { s: 1, color: '#6b7280' } },
+  ];
+  const lookField = { id: 'look', label: 'Format with', type: 'select' as const, options: LOOKS.map((l, i) => ({ label: l.label, value: String(i) })), value: '0' };
+  const lookOf = (v: Record<string, string | boolean>): CondStyle => LOOKS[Number(v.look)]?.style ?? LOOKS[0].style;
+  const addRule = (rule: Record<string, unknown>) => { if (!readOnly) wb.addRule(sh(), { ...rule, range: rg() }); };
+  const cellRuleDialog = async (op: string, title: string, two = false) => {
+    const v = await formDialog(root, { title, submit: 'Apply', fields: [
+      { id: 'a', label: two ? 'From' : 'Value', type: 'text', placeholder: 'A number or text' },
+      ...(two ? [{ id: 'b', label: 'To', type: 'text' as const }] : []),
+      lookField,
+    ], validate: (x) => (String(x.a).trim() === '' || (two && String(x.b).trim() === '') ? 'Fill in the value' : undefined) });
+    if (v) addRule({ type: 'cell', op, a: String(v.a).trim(), ...(two ? { b: String(v.b).trim() } : {}), style: lookOf(v) });
+    view.focus();
+  };
+  const textRuleDialog = async () => {
+    const v = await formDialog(root, { title: 'Text that contains', submit: 'Apply', fields: [
+      { id: 'op', label: 'Cells', type: 'select', value: 'contains', options: [{ label: 'contain', value: 'contains' }, { label: 'do not contain', value: 'notContains' }, { label: 'begin with', value: 'begins' }, { label: 'end with', value: 'ends' }] },
+      { id: 'text', label: 'Text', type: 'text' }, lookField,
+    ], validate: (x) => (String(x.text) === '' ? 'Fill in the text' : undefined) });
+    if (v) addRule({ type: 'text', op: String(v.op), text: String(v.text), style: lookOf(v) });
+    view.focus();
+  };
+  const rankDialog = async (bottom: boolean, percent: boolean) => {
+    const v = await formDialog(root, { title: `${bottom ? 'Bottom' : 'Top'} ${percent ? 'percent' : 'items'}`, submit: 'Apply', fields: [{ id: 'n', label: percent ? 'Percent' : 'Number of items', type: 'number', value: '10', min: 1, max: percent ? 100 : 1000 }, lookField] });
+    if (v) addRule({ type: 'rank', n: Number(v.n) || 10, ...(bottom ? { bottom: 1 } : {}), ...(percent ? { percent: 1 } : {}), style: lookOf(v) });
+    view.focus();
+  };
+  const formulaRuleDialog = async () => {
+    const r = rg();
+    const v = await formDialog(root, { title: 'Format cells where a formula is true', submit: 'Apply', fields: [
+      { id: 'f', label: `Formula, written for ${cellRef(r.c0, r.r0)} (the top left cell)`, type: 'text', placeholder: `=$${colName(r.c0)}${r.r0 + 1}>100` }, lookField,
+    ], validate: (x) => (String(x.f).trim().length < 2 ? 'Write a formula' : undefined) });
+    if (v) addRule({ type: 'formula', formula: String(v.f), style: lookOf(v) });
+    view.focus();
+  };
+  const SCALES: [string, string[]][] = [['Green - Yellow - Red', ['#63be7b', '#ffeb84', '#f8696b']], ['Red - Yellow - Green', ['#f8696b', '#ffeb84', '#63be7b']], ['White - Green', ['#ffffff', '#63be7b']], ['White - Red', ['#ffffff', '#f8696b']], ['Blue - White - Red', ['#5a8ac6', '#fcfcff', '#f8696b']], ['Yellow - Blue', ['#ffeb84', '#5a8ac6']]];
+  const BARS: [string, string][] = [['Blue', '#638ec6'], ['Green', '#63be7b'], ['Orange', '#ffb628'], ['Red', '#ff555a']];
+  const ruleText = (rule: CondRule): string => {
+    const where = `${rangeRef(rule.range)}: `;
+    switch (rule.type) {
+      case 'cell': return `${where}value ${rule.op === 'between' ? `between ${rule.a} and ${rule.b}` : rule.op === 'notBetween' ? `not between ${rule.a} and ${rule.b}` : `${rule.op} ${rule.a}`}`;
+      case 'text': return `${where}text ${rule.op === 'contains' ? 'contains' : rule.op === 'notContains' ? 'does not contain' : rule.op === 'begins' ? 'begins with' : 'ends with'} "${rule.text}"`;
+      case 'rank': return `${where}${rule.bottom ? 'bottom' : 'top'} ${rule.n}${rule.percent ? '%' : ''}`;
+      case 'average': return `${where}${rule.above ? 'above' : 'below'} average`;
+      case 'formula': return `${where}formula ${rule.formula}`;
+      case 'scale': return `${where}colour scale`;
+      case 'bar': return `${where}data bars`;
+      case 'duplicate': return `${where}duplicate values`;
+      case 'unique': return `${where}unique values`;
+      case 'blank': return `${where}blank cells`;
+      case 'notBlank': return `${where}cells with a value`;
+      default: return `${where}errors`;
+    }
+  };
+  const manageRules = () => {
+    const back = el('div', 'wy-ss-modal');
+    const box = el('div', 'wy-ss-dialog'); box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true'); box.setAttribute('aria-label', 'Conditional formatting rules');
+    const draw = () => {
+      box.replaceChildren(el('h2', 'wy-ss-dialog-title', 'Conditional formatting rules'));
+      const list = el('ul', 'wy-ss-rules');
+      if (!sh().cf.length) list.append(el('li', '', 'There are no rules on this sheet.'));
+      sh().cf.forEach((rule, i) => {
+        const li = el('li');
+        const sw = el('span', 'wy-ss-rule-swatch', 'A');
+        const st = 'style' in rule ? rule.style : rule.type === 'bar' ? { bg: rule.color } : { bg: rule.colors[rule.colors.length - 1] };
+        if (st.bg) sw.style.background = st.bg; if (st.color) sw.style.color = st.color; if (st.b) sw.style.fontWeight = '700';
+        const del = el('button', 'wy-ss-fbtn2', 'Delete'); del.type = 'button'; del.disabled = readOnly;
+        del.addEventListener('click', () => { wb.removeRule(sh(), i); draw(); });
+        li.append(sw, el('span', '', ruleText(rule)), del);
+        list.append(li);
+      });
+      const close = el('button', 'wy-ss-fbtn2 is-primary', 'Close'); close.type = 'button';
+      const actions = el('div', 'wy-ss-factions'); actions.append(close);
+      close.addEventListener('click', done);
+      box.append(list, actions);
+      close.focus();
+    };
+    const key = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); done(); } };
+    const done = () => { document.removeEventListener('keydown', key, true); back.remove(); view.focus(); };
+    document.addEventListener('keydown', key, true);
+    back.addEventListener('mousedown', (e) => { if (e.target === back) done(); });
+    back.append(box); root.append(back); draw();
+  };
+  const cfEntries = (): MenuEntry[] => {
+    const off = readOnly;
+    return [
+      { label: 'Highlight cells', items: [
+        { label: 'Greater than…', disabled: off, onClick: () => void cellRuleDialog('>', 'Greater than') },
+        { label: 'Less than…', disabled: off, onClick: () => void cellRuleDialog('<', 'Less than') },
+        { label: 'Between…', disabled: off, onClick: () => void cellRuleDialog('between', 'Between', true) },
+        { label: 'Equal to…', disabled: off, onClick: () => void cellRuleDialog('=', 'Equal to') },
+        { label: 'Text that contains…', disabled: off, onClick: () => void textRuleDialog() },
+        '-',
+        { label: 'Duplicate values', disabled: off, onClick: () => addRule({ type: 'duplicate', style: LOOKS[0].style }) },
+        { label: 'Unique values', disabled: off, onClick: () => addRule({ type: 'unique', style: LOOKS[2].style }) },
+        { label: 'Blank cells', disabled: off, onClick: () => addRule({ type: 'blank', style: LOOKS[1].style }) },
+        { label: 'Errors', disabled: off, onClick: () => addRule({ type: 'error', style: LOOKS[0].style }) },
+      ] },
+      { label: 'Top and bottom', items: [
+        { label: 'Top 10 items…', disabled: off, onClick: () => void rankDialog(false, false) },
+        { label: 'Top 10 percent…', disabled: off, onClick: () => void rankDialog(false, true) },
+        { label: 'Bottom 10 items…', disabled: off, onClick: () => void rankDialog(true, false) },
+        { label: 'Bottom 10 percent…', disabled: off, onClick: () => void rankDialog(true, true) },
+        '-',
+        { label: 'Above average', disabled: off, onClick: () => addRule({ type: 'average', above: 1, style: LOOKS[2].style }) },
+        { label: 'Below average', disabled: off, onClick: () => addRule({ type: 'average', above: 0, style: LOOKS[0].style }) },
+      ] },
+      { label: 'Data bars', items: BARS.map(([label, color]) => ({ label, disabled: off, onClick: () => addRule({ type: 'bar', color }) })) },
+      { label: 'Color scales', items: SCALES.map(([label, colors]) => ({ label, disabled: off, onClick: () => addRule({ type: 'scale', colors }) })) },
+      { label: 'Formula…', disabled: off, onClick: () => void formulaRuleDialog() },
+      '-',
+      { label: 'Clear rules from the selection', disabled: off || !sh().cf.length, onClick: () => wb.clearRules(sh(), rg()) },
+      { label: 'Clear rules from the sheet', disabled: off || !sh().cf.length, onClick: () => wb.clearRules(sh()) },
+      { label: 'Manage rules…', onClick: manageRules },
+    ];
+  };
+
+  const chartRange = (): Range => {
+    const r = rg();
+    if (r.r0 === r.r1 && r.c0 === r.c1) { const u = sh().used(); return u.row >= 0 ? { r0: 0, c0: 0, r1: u.row, c1: u.col } : r; }   // one cell: the whole data of the sheet
+    return r;
+  };
+  const insertChart = async () => {
+    if (readOnly) return;
+    const range = chartRange();
+    const v = await formDialog(root, { title: 'Insert chart', submit: 'Insert', fields: [
+      { id: 'type', label: 'Type', type: 'select', value: 'bar', options: CHART_TYPES.map((t) => ({ label: t.label, value: t.id })) },
+      { id: 'title', label: 'Title', type: 'text' },
+      { id: 'range', label: 'Data (first row: names, first column: labels)', type: 'text', value: rangeRef(range) },
+    ], validate: (x) => (parseRangeRef(String(x.range)) ? undefined : 'Write the data as a range such as A1:D13') });
+    if (!v) { view.focus(); return; }
+    const z = view.zoom;
+    const c = wb.addChart(sh(), { range: parseRangeRef(String(v.range))!, type: v.type as 'bar' | 'line' | 'pie', title: String(v.title), x: Math.round(view.el.scrollLeft / z) + 40, y: Math.round(view.el.scrollTop / z) + 40 });
+    if (c) view.selectChart(c.id);
+    view.focus();
+  };
+  const editChart = async (id: string) => {
+    const c = sh().charts.find((x) => x.id === id);
+    if (!c || readOnly) return;
+    const v = await formDialog(root, { title: 'Edit chart', submit: 'Save', fields: [
+      { id: 'type', label: 'Type', type: 'select', value: c.type, options: CHART_TYPES.map((t) => ({ label: t.label, value: t.id })) },
+      { id: 'title', label: 'Title', type: 'text', value: c.title },
+      { id: 'range', label: 'Data', type: 'text', value: rangeRef(c.range) },
+    ], validate: (x) => (parseRangeRef(String(x.range)) ? undefined : 'Write the data as a range such as A1:D13') });
+    if (v) wb.updateChart(sh(), id, { type: v.type as 'bar' | 'line' | 'pie', title: String(v.title), range: parseRangeRef(String(v.range))! }, 'edit chart');
+    view.focus();
+  };
+  const chartMenu = (id: string, x: number, y: number) => {
+    popMenu(root, { x, y }, [
+      { label: 'Edit chart…', disabled: readOnly, onClick: () => void editChart(id) },
+      { label: 'Delete chart', icon: 'trash', shortcut: 'Del', disabled: readOnly, onClick: () => wb.removeChart(sh(), id) },
+    ], { label: 'Chart menu', onRun: () => view.focus() });
   };
 
   // ---- the menus
@@ -609,13 +803,16 @@ export function createSpreadsheet(options: SpreadsheetOptions): Spreadsheet {
           btn('al-mid', undefined, 'alignMiddle', () => patch({ valign: style().valign === 'middle' ? undefined : 'middle' }), { title: 'Align middle', active: () => style().valign === 'middle' }),
           btn('al-bot', undefined, 'alignBottom', () => patch({ valign: style().valign === 'bottom' ? undefined : 'bottom' }), { title: 'Align bottom', active: () => style().valign === 'bottom' }),
           sep, btn('wrap', undefined, 'wrap', () => toggle('wrap'), { title: 'Wrap text', active: () => !!style().wrap }),
+          menu('merge', undefined, 'merge', mergeEntries, 'small', 'Merge cells'),
         ] },
+        { label: 'Styles', controls: [menu('cf', 'Conditional Formatting', 'cf', cfEntries, 'large')] },
         { label: 'Number', controls: [fmtSel(), sep, btn('currency', undefined, 'currency', () => patch({ fmt: 'currency', dec: undefined }), { title: 'Currency' }), btn('percent', undefined, 'percent', () => patch({ fmt: 'percent', dec: undefined }), { title: 'Percent (Ctrl+Shift+5)' }), btn('comma', ',', '', () => patch({ fmt: 'number', dec: undefined }), { title: 'Number with separators' }), btn('dec-more', undefined, 'decimalMore', () => patch({ dec: Math.min(10, decimalsOf() + 1) }), { title: 'More decimals' }), btn('dec-less', undefined, 'decimalLess', () => patch({ dec: Math.max(0, decimalsOf() - 1) }), { title: 'Fewer decimals' })] },
         { label: 'Cells', controls: [menu('insert-cells', 'Insert', 'sheetAdd', insertEntries, 'large'), menu('delete-cells', 'Delete', 'delRow', deleteEntries, 'large')] },
         { label: 'Editing', controls: [menu('autosum', 'AutoSum', 'sum', sumEntries, 'large'), menu('fill', 'Fill', 'rowBelow', fillEntries, 'small'), menu('clear', 'Clear', 'clear', clearEntries, 'small'), menu('sort', 'Sort & Filter', 'filter', sortEntries, 'large'), btn('find', 'Find', 'find', openFind, { size: 'large', edit: false })] },
       ] },
       { id: 'insert', label: 'Insert', groups: [
         { label: 'Rows and columns', controls: [btn('i-row-a', 'Row above', 'rowAbove', () => insertRows(false), { size: 'large' }), btn('i-row-b', 'Row below', 'rowBelow', () => insertRows(true), { size: 'large' }), btn('i-col-l', 'Column left', 'colLeft', () => insertCols(false), { size: 'large' }), btn('i-col-r', 'Column right', 'colRight', () => insertCols(true), { size: 'large' })] },
+        { label: 'Charts', controls: [btn('i-chart', 'Chart', 'chart', () => void insertChart(), { size: 'large' })] },
         { label: 'Sheets', controls: [btn('i-sheet', 'New sheet', 'sheetAdd', () => { wb.addSheet(); view.select({ r0: 0, c0: 0, r1: 0, c1: 0 }); }, { size: 'large' })] },
         { label: 'Functions', controls: [menu('i-fn', 'Function', 'function', functionEntries, 'large')] },
       ] },
@@ -655,11 +852,12 @@ export function createSpreadsheet(options: SpreadsheetOptions): Spreadsheet {
         { label: 'Show formulas', checked: view.showFormulas, onClick: () => view.setOptions({ showFormulas: !view.showFormulas }) }, '-',
         { label: 'Zoom', items: zoomOptions.map((z) => ({ label: z.label, checked: Number(z.value) === Math.round(view.zoom * 100), onClick: () => setZoom(Number(z.value)) })) },
       ] },
-      { label: 'Insert', entries: () => [...insertEntries(), '-', { label: 'Function', items: functionEntries() }] },
+      { label: 'Insert', entries: () => [...insertEntries(), '-', { label: 'Chart…', icon: 'chart', disabled: readOnly, onClick: () => void insertChart() }, { label: 'Function', items: functionEntries() }] },
       { label: 'Format', entries: () => [
         toggleItem('Bold', 'b', 'Ctrl+B'), toggleItem('Italic', 'i', 'Ctrl+I'), toggleItem('Underline', 'u', 'Ctrl+U'), toggleItem('Strikethrough', 's'), '-',
         { label: 'Number', items: numFmtEntries() }, { label: 'Align', items: alignEntries() }, { label: 'Borders', items: borderEntries() },
-        { label: 'Wrap text', checked: !!style().wrap, disabled: readOnly, onClick: () => toggle('wrap') }, '-',
+        { label: 'Wrap text', checked: !!style().wrap, disabled: readOnly, onClick: () => toggle('wrap') },
+        { label: 'Merge cells', items: mergeEntries() }, { label: 'Conditional formatting', items: cfEntries() }, '-',
         { label: 'Clear formatting', disabled: readOnly, onClick: () => wb.clear(sh(), rg(), 'formats') },
       ] },
       { label: 'Data', entries: () => [...sortEntries(), '-', { label: 'Hide rows', disabled: readOnly, onClick: () => wb.hideRows(sh(), rg().r0, rg().r1, true) }, { label: 'Show all rows', disabled: readOnly, onClick: () => wb.hideRows(sh(), 0, sh().rows - 1, false) }] },
@@ -674,6 +872,7 @@ export function createSpreadsheet(options: SpreadsheetOptions): Spreadsheet {
       B('bold', 'Bold', 'bold', 'b', 'Ctrl+B'), B('italic', 'Italic', 'italic', 'i', 'Ctrl+I'), B('underline', 'Underline', 'underline', 'u', 'Ctrl+U'), B('strike', 'Strikethrough', 'strike', 's', ''), sep,
       fontColor(), fillColor(), menu('borders', undefined, 'borders', borderEntries, 'small', 'Borders'), sep,
       menu('align', undefined, 'alignLeft', alignEntries, 'small', 'Alignment'), btn('wrap', undefined, 'wrap', () => toggle('wrap'), { title: 'Wrap text', active: () => !!style().wrap }), sep,
+      menu('merge', undefined, 'merge', mergeEntries, 'small', 'Merge cells'), menu('cf', undefined, 'cf', cfEntries, 'small', 'Conditional formatting'), btn('chart', undefined, 'chart', () => void insertChart(), { title: 'Insert chart' }),
       btn('filter', undefined, 'filter', toggleFilter, { title: 'Filter', active: () => !!sh().filter }), menu('autosum', undefined, 'sum', sumEntries, 'small', 'Functions'),
     ],
   });
@@ -763,6 +962,12 @@ export function createSpreadsheet(options: SpreadsheetOptions): Spreadsheet {
     getValue(ref) { const p = refOf(ref); return wb.error(sh(), p.r0, p.c0) ?? wb.value(sh(), p.r0, p.c0); },
     setValue(ref, text) { const p = refOf(ref); wb.input(sh(), p.r0, p.c0, text); },
     select(ref) { const p = refOf(ref); view.select(p, { r: p.r0, c: p.c0 }); },
+    merge(range) { const r = range ? refOf(range) : rg(); return !readOnly && wb.mergeCells(sh(), r); },
+    unmerge(range) { const r = range ? refOf(range) : rg(); return !readOnly && wb.unmergeCells(sh(), r); },
+    addConditionalFormat(range, rule) { return !readOnly && wb.addRule(sh(), { ...rule, range: refOf(range) }); },
+    clearConditionalFormats(range) { if (!readOnly) wb.clearRules(sh(), range ? refOf(range) : undefined); },
+    addChart(o2) { if (readOnly) return null; const c = wb.addChart(sh(), { range: refOf(o2.range), type: o2.type, title: o2.title, x: o2.x ?? 40, y: o2.y ?? 40, w: o2.width, h: o2.height }); return c?.id ?? null; },
+    removeChart(id) { if (!readOnly) wb.removeChart(sh(), id); },
     toCSV(range) { return wb.toCSV(sh(), range ? refOf(range) : undefined); },
     importCSV(text, name) { wb.importCSV(text, name); view.select({ r0: 0, c0: 0, r1: 0, c1: 0 }); },
     undo: () => { wb.undo(); }, redo: () => { wb.redo(); },
