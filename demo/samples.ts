@@ -1,5 +1,6 @@
 /** Shared sample content and helpers for the demo pages. */
 import type { Editor } from '../src';
+import { exampleForPage, pageFiles } from './full-code';
 
 export const LOREM = 'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.';
 
@@ -148,5 +149,36 @@ export class Kernel {
 export function codePanel(code: string, title = 'Show the code'): HTMLElement {
   const pre = el('pre', { class: 'out' });
   pre.textContent = code.trim();
-  return el('details', { class: 'panel code-panel', style: 'margin-top:16px' }, el('summary', { style: 'cursor:pointer;font-weight:600' }, title), pre);
+  const snippet = el('details', { class: 'panel code-panel', style: 'margin-top:16px' }, el('summary', { style: 'cursor:pointer;font-weight:600' }, title), pre);
+  const ex = exampleForPage();
+  return ex ? el('div', {}, snippet, codeTabs(pageFiles(ex), 'Show the full code')) : snippet;
+}
+
+/** Several complete examples in tabs ("npm / Vite", "CDN"): each tab is a titled list of files, ready to copy. */
+export function codeTabs(tabs: { name: string; files: { file: string; code: string }[] }[], title = 'Show the full code'): HTMLElement {
+  const body = el('div', { style: 'margin-top:10px' });
+  const bar = el('div', { style: 'display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px' });
+  const panes = tabs.map((t) => {
+    const pane = el('div', {});
+    for (const f of t.files) {
+      const pre = el('pre', { class: 'out', style: 'max-height:none' });
+      pre.textContent = f.code.trim();
+      const copy = el('button', { type: 'button', style: 'margin-left:8px;font-size:12px;cursor:pointer' }, 'Copy');
+      copy.onclick = () => navigator.clipboard?.writeText(f.code.trim()).then(() => { copy.textContent = 'Copied'; setTimeout(() => (copy.textContent = 'Copy'), 1500); });
+      pane.append(el('div', { style: 'margin:12px 0 4px;font:600 13px ui-monospace,Menlo,monospace' }, f.file, copy), pre);
+    }
+    return pane;
+  });
+  const buttons = tabs.map((t, i) => {
+    const b = el('button', { type: 'button', style: 'padding:6px 12px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:inherit;cursor:pointer' }, t.name);
+    b.onclick = () => show(i);
+    return b;
+  });
+  const show = (n: number) => {
+    panes.forEach((p, i) => ((p.hidden = i !== n), (buttons[i].style.fontWeight = i === n ? '700' : '400')));
+  };
+  bar.append(...buttons);
+  body.append(bar, ...panes);
+  show(0);
+  return el('details', { class: 'panel code-panel', style: 'margin-top:16px', open: true }, el('summary', { style: 'cursor:pointer;font-weight:600' }, title), body);
 }

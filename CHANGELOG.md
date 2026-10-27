@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/). Before 1.0.0 minor versions could contain breaking changes. From 1.0.0 on, only a major version may break the public API (see "Stability and versioning" in the README); changes are listed under "Changed" or "Removed".
 
+## 1.4.1 - 2026-10-27
+
+- **Fix: dialogs opened outside an editor were transparent.** The colour variables lived on the editor, so `askDialog`, the file manager and the image editor opened on `document.body` had no background. A dialog on a root outside any editor now carries its own variables, following the nearest `data-theme` or the system light/dark setting. Inside an editor nothing changes.
+- **Demos: "Show the full code".** Every demo page now has complete, copy-ready examples next to the short snippet: the files for npm and Vite (`index.html`, `src/main.js`, the install command) and a single HTML file that loads wysiwygido from a CDN with the version pinned. Each example is checked by a test (valid JavaScript, only names the package exports) and by `scripts/run-full-examples.mjs`, which runs them in a browser.
+
 ## 1.4.0 - 2026-10-25
 
 - **Presentation: PowerPoint (.pptx) import and export.** File menu entries "Open .pptx…" and "Download as PowerPoint (.pptx)"; `toPptx()` and `loadPptx(file)`; an `import` event (`{ slides, skipped }`). Strict zip and XML reader (size, entry count and compression limits, no DOCTYPE or entities, path checks); everything read goes through `cleanDeck`.

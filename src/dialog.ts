@@ -1,3 +1,15 @@
+/**
+ * The colour variables live on the editor, so a dialog opened on a root outside any editor (the page body) would have none and
+ * come out transparent. Give such a backdrop its own copy: the theme of the nearest `data-theme`, else the system setting.
+ */
+export function scopeTheme(root: HTMLElement, backdrop: HTMLElement): void {
+  if (root.closest('.wy-editor, .wy-dt-root, .wy-app, .wy-modal-scope')) return;
+  backdrop.classList.add('wy-modal-scope');
+  const set = root.closest('[data-theme]')?.getAttribute('data-theme');
+  const dark = set ? set === 'dark' : typeof matchMedia === 'function' && matchMedia('(prefers-color-scheme: dark)').matches;
+  backdrop.setAttribute('data-theme', dark ? 'dark' : 'light');
+}
+
 export interface DialogAction { label: string; primary?: boolean; /** Return `false` to keep the dialog open (a value that was refused). */ onClick?: () => unknown }
 
 /**
@@ -53,6 +65,7 @@ export function openDialog(root: HTMLElement, options: { title: string; body: st
       else if (!e.shiftKey && document.activeElement === last) (e.preventDefault(), first.focus());
     }
   });
+  scopeTheme(root, backdrop);
   root.append(backdrop);
   (bar.querySelector<HTMLElement>('button.wy-btn') ?? dlg).focus();
   return close;
@@ -273,6 +286,7 @@ export function askDialog(root: HTMLElement, o: AskOptions): Promise<string | nu
     });
     // keys typed in the dialog must not reach the editor underneath
     for (const t of ['keypress', 'keyup', 'beforeinput', 'paste', 'cut', 'copy']) backdrop.addEventListener(t, (e) => e.stopPropagation());
+    scopeTheme(root, backdrop);
     root.append(backdrop);
     refresh();
     showPreview();

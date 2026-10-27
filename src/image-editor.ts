@@ -1,4 +1,4 @@
-import { openDialog } from './dialog';
+import { openDialog, scopeTheme } from './dialog';
 import { FILTER_PRESETS, NEUTRAL, applyAdjustments, boxBlur, clampRect, formatBytes, isNeutral, limit, parseAspect, resizeLocked, rotatedBounds, type Adjustments, type Rect } from './image-ops';
 
 export interface ImageEditorOptions {
@@ -620,6 +620,7 @@ export async function openImageEditor(root: HTMLElement, options: ImageEditorOpt
     backdrop.addEventListener('keyup', (e) => { if (e.key === ' ') { spaceDown = false; stage.classList.remove('can-pan'); } });
     for (const t of ['keypress', 'keyup', 'beforeinput', 'paste', 'cut', 'copy']) backdrop.addEventListener(t, (e) => e.stopPropagation());
     window.addEventListener('resize', positionCrop);
+    scopeTheme(root, backdrop);
     root.append(backdrop);
     showWork();
     select('crop');

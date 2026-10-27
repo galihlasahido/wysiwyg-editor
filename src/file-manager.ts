@@ -1,4 +1,4 @@
-import { openDialog } from './dialog';
+import { openDialog, scopeTheme } from './dialog';
 import { cleanFileName, fileKind, isRasterImage, uniqueName, type FileKind, type FileStore, type StoredFile } from './files';
 import { formatBytes } from './image-ops';
 import { openImageEditor } from './image-editor';
@@ -403,6 +403,7 @@ export function openFileManager(root: HTMLElement, options: FileManagerOptions):
     }
   });
   for (const t of ['keypress', 'keyup', 'beforeinput', 'paste', 'cut', 'copy']) backdrop.addEventListener(t, (e) => e.stopPropagation());
+  scopeTheme(root, backdrop);
   root.append(backdrop);
   uploadBtn.focus();
   void refresh();
